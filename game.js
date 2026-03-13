@@ -1,7 +1,9 @@
 // 道具配置
 const items = {
     '蛋包饭': { id: 1, name: '蛋包饭', action: 3, favor: 0, description: '恢复3行动点' },
-    '咖啡': { id: 2, name: '咖啡', action: 2, favor: 0, description: '恢复2行动点' }
+    '咖啡': { id: 2, name: '咖啡', action: 2, favor: 0, description: '恢复2行动点' },
+    '洗浴券': { id: 4, name: '洗浴券', action: 0, favor: 10, description: '将棋子移动至机械汤并增加10点好感', targetGrid: 5 }, // 机械汤是第6个格子，索引为5
+    '电影票': { id: 5, name: '电影票', action: 0, favor: 10, description: '将棋子移动至电影院并增加10点好感', targetGrid: 24 } // 电影院是第25个格子，索引为24
 };
 
 // 角色属性配置
@@ -24,7 +26,7 @@ let gameState = {
     tokenPosition: 0,
     round: 1,
     gameStarted: false,
-    itemPool: ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡'] // 蛋包饭2个，咖啡3个
+    itemPool: ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡', '洗浴券', '洗浴券', '电影票', '电影票'] // 蛋包饭2个，咖啡3个，洗浴券2个，电影票2个
 };
 
 // 地图格子配置
@@ -689,13 +691,37 @@ function useItem(playerIndex, itemIndex) {
             player.favor += item.favor;
         }
         
+        // 处理移动功能
+        if (item.targetGrid !== undefined) {
+            const oldPosition = gameState.tokenPosition;
+            const oldGrid = gridConfig[oldPosition];
+            gameState.tokenPosition = item.targetGrid;
+            const newGrid = gridConfig[item.targetGrid];
+            updateTokenPosition();
+            
+            // 记录移动日志
+            logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
+        }
+        
         // 从道具列表中移除
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
         
         // 显示消息
-        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，恢复了${item.action}点行动点！`;
-        logEvent(`玩家${playerIndex + 1}使用了${item.name}，恢复了${item.action}点行动点`);
+        let message = `玩家${playerIndex + 1}使用了${item.name}`;
+        if (item.action > 0) {
+            message += `，恢复了${item.action}点行动点`;
+        }
+        if (item.favor > 0) {
+            message += `，增加了${item.favor}点好感度`;
+        }
+        if (item.targetGrid !== undefined) {
+            const targetGrid = gridConfig[item.targetGrid];
+            message += `，移动到${targetGrid.id}.${targetGrid.name}`;
+        }
+        message += '！';
+        elements.gameMessage.textContent = message;
+        logEvent(message);
         
         // 更新UI
         updateUI();
@@ -1022,7 +1048,7 @@ function resetGame() {
     gameState.currentPlayer = 0;
     
     // 重置道具池
-    gameState.itemPool = ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡'];
+    gameState.itemPool = ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡', '洗浴券', '洗浴券', '电影票', '电影票'];
     
     // 重置玩家道具
     for (let i = 0; i < 3; i++) {
