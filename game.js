@@ -1,0 +1,454 @@
+// 角色属性配置
+const characterAttributes = {
+    '水上': { type: 'A', action: 3, maxCards: 4, initialFavor: 50 },
+    '川濑': { type: 'A', action: 3, maxCards: 4, initialFavor: 50 },
+    '花泽': { type: 'A', action: 4, maxCards: 4, initialFavor: 50 },
+    '博士': { type: 'A', action: 3, maxCards: 5, initialFavor: 30 },
+    '薰': { type: 'B', action: 5, maxCards: 2, initialFavor: 0 }
+};
+
+// 游戏状态
+let gameState = {
+    players: [
+        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, favor: 50, status: 'alive' },
+        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, favor: 50, status: 'alive' },
+        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, favor: 50, status: 'alive' }
+    ],
+    currentPlayer: 0,
+    tokenPosition: 0,
+    round: 1,
+    gameStarted: false
+};
+
+// 地图格子配置
+const gridConfig = [
+    {
+        name: '起点',
+        id: 1,
+        isSpecial: true,
+        types: ['start'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    {
+        name: '幸运广场',
+        id: 2,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'player', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    {
+        name: '道具商店',
+        id: 3,
+        isSpecial: false,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    {
+        name: '水上的祝福',
+        id: 4,
+        isSpecial: true,
+        types: ['favor', 'stagnant'],
+        favorEffect: { type: 'role', role: '水上', value: 10 },
+        isStagnant: true,
+        道具Effect: null
+    },
+    {
+        name: '神秘宝箱',
+        id: 5,
+        isSpecial: false,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    {
+        name: '川濑的祝福',
+        id: 6,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '川濑', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    {
+        name: '陷阱',
+        id: 7,
+        isSpecial: false,
+        types: ['cards', 'stagnant'],
+        favorEffect: null,
+        isStagnant: true,
+        道具Effect: { type: 'remove', value: 1 }
+    },
+    {
+        name: '花泽的祝福',
+        id: 8,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '花泽', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    {
+        name: '道具库',
+        id: 9,
+        isSpecial: false,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    {
+        name: '博士的祝福',
+        id: 10,
+        isSpecial: true,
+        types: ['favor', 'stagnant'],
+        favorEffect: { type: 'role', role: '博士', value: 10 },
+        isStagnant: true,
+        道具Effect: null
+    }
+];
+
+// DOM元素
+const elements = {
+    startGame: document.getElementById('start-game'),
+    gameSetup: document.querySelector('.game-setup'),
+    gameBoard: document.querySelector('.game-board'),
+    rollDice: document.getElementById('roll-dice'),
+    resetGame: document.getElementById('reset-game'),
+    diceResult: document.getElementById('dice-result'),
+    currentPlayerDisplay: document.getElementById('current-player'),
+    roundCount: document.getElementById('round-count'),
+    gameMessage: document.getElementById('game-message'),
+    token: document.getElementById('token'),
+    player1Type: document.getElementById('player1-type'),
+    player2Type: document.getElementById('player2-type'),
+    player3Type: document.getElementById('player3-type'),
+    player1Role: document.getElementById('player1-role'),
+    player2Role: document.getElementById('player2-role'),
+    player3Role: document.getElementById('player3-role'),
+    player1TypeDisplay: document.getElementById('player1-type-display'),
+    player2TypeDisplay: document.getElementById('player2-type-display'),
+    player3TypeDisplay: document.getElementById('player3-type-display'),
+    player1RoleDisplay: document.getElementById('player1-role-display'),
+    player2RoleDisplay: document.getElementById('player2-role-display'),
+    player3RoleDisplay: document.getElementById('player3-role-display'),
+    player1Action: document.getElementById('player1-action'),
+    player2Action: document.getElementById('player2-action'),
+    player3Action: document.getElementById('player3-action'),
+    player1Cards: document.getElementById('player1-cards'),
+    player2Cards: document.getElementById('player2-cards'),
+    player3Cards: document.getElementById('player3-cards'),
+    player1Favor: document.getElementById('player1-favor'),
+    player2Favor: document.getElementById('player2-favor'),
+    player3Favor: document.getElementById('player3-favor'),
+    player1Status: document.getElementById('player1-status'),
+    player2Status: document.getElementById('player2-status'),
+    player3Status: document.getElementById('player3-status')
+};
+
+// 初始化游戏
+function initGame() {
+    // 获取玩家角色设置
+    const player1Role = elements.player1Role.value;
+    const player2Role = elements.player2Role.value;
+    const player3Role = elements.player3Role.value;
+    
+    // 设置玩家属性
+    gameState.players[0] = {
+        type: characterAttributes[player1Role].type,
+        role: player1Role,
+        action: characterAttributes[player1Role].action,
+        maxCards: characterAttributes[player1Role].maxCards,
+        cards: 0,
+        favor: characterAttributes[player1Role].initialFavor,
+        status: 'alive'
+    };
+    
+    gameState.players[1] = {
+        type: characterAttributes[player2Role].type,
+        role: player2Role,
+        action: characterAttributes[player2Role].action,
+        maxCards: characterAttributes[player2Role].maxCards,
+        cards: 0,
+        favor: characterAttributes[player2Role].initialFavor,
+        status: 'alive'
+    };
+    
+    gameState.players[2] = {
+        type: characterAttributes[player3Role].type,
+        role: player3Role,
+        action: characterAttributes[player3Role].action,
+        maxCards: characterAttributes[player3Role].maxCards,
+        cards: 0,
+        favor: characterAttributes[player3Role].initialFavor,
+        status: 'alive'
+    };
+    
+    // 重置游戏状态
+    gameState.currentPlayer = 0;
+    gameState.tokenPosition = 0;
+    gameState.lastTokenPosition = -1;
+    gameState.gameStarted = true;
+    
+    // 更新UI
+    updateUI();
+    
+    // 显示游戏界面，隐藏设置界面
+    elements.gameSetup.style.display = 'none';
+    elements.gameBoard.style.display = 'block';
+    
+    // 显示游戏开始消息
+    elements.gameMessage.textContent = '游戏开始！玩家1先开始掷骰子。';
+}
+
+// 更新UI
+function updateUI() {
+    // 更新当前玩家显示
+    elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
+    
+    // 更新回合数显示
+    elements.roundCount.textContent = gameState.round;
+    
+    // 更新玩家信息
+    for (let i = 0; i < 3; i++) {
+        const player = gameState.players[i];
+        elements[`player${i+1}TypeDisplay`].textContent = player.type;
+        elements[`player${i+1}RoleDisplay`].textContent = player.role;
+        elements[`player${i+1}Action`].textContent = player.action;
+        elements[`player${i+1}Cards`].textContent = player.cards;
+        elements[`player${i+1}Favor`].textContent = player.favor;
+        elements[`player${i+1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
+    }
+    
+    // 更新棋子位置
+    updateTokenPosition();
+}
+
+// 更新棋子位置
+function updateTokenPosition() {
+    const grid = document.querySelector(`.grid-${gameState.tokenPosition}`);
+    if (grid) {
+        const rect = grid.getBoundingClientRect();
+        const mapRect = document.querySelector('.map').getBoundingClientRect();
+        
+        elements.token.style.top = `${rect.top - mapRect.top + 15}px`;
+        elements.token.style.left = `${rect.left - mapRect.left + 15}px`;
+    }
+}
+
+// 掷骰子
+function rollDice() {
+    if (!gameState.gameStarted) return;
+    
+    // 禁用掷骰子按钮
+    elements.rollDice.disabled = true;
+    
+    // 生成随机骰子结果（1-6）
+    const diceValue = Math.floor(Math.random() * 6) + 1;
+    elements.diceResult.textContent = `骰子结果: ${diceValue}`;
+    
+    // 移动棋子
+    setTimeout(() => {
+        moveToken(diceValue);
+    }, 500);
+}
+
+// 移动棋子
+function moveToken(steps) {
+    // 检查是否触发停滞效果
+    let canMove = true;
+    let isStagnant = false;
+    if (gameState.lastTokenPosition !== -1) {
+        const lastGrid = gridConfig[gameState.lastTokenPosition];
+        if (lastGrid.isStagnant) {
+            elements.gameMessage.textContent = `棋子停留在停滞格子上，无法移动！`;
+            canMove = false;
+            isStagnant = true;
+        }
+    }
+    
+    // 计算新位置
+    if (canMove) {
+        gameState.tokenPosition = (gameState.tokenPosition + steps) % 10;
+        // 更新棋子位置
+        updateTokenPosition();
+    }
+    
+    // 处理格子功能
+    setTimeout(() => {
+        handleGridFunction(isStagnant);
+    }, 500);
+}
+
+// 处理格子功能
+function handleGridFunction(isStagnant) {
+    const currentGrid = gridConfig[gameState.tokenPosition];
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    
+    // 处理好感度效果
+    if (currentGrid.favorEffect) {
+        const favorEffect = currentGrid.favorEffect;
+        if (favorEffect.type === 'player') {
+            // 掷出此骰子的玩家好感度+10
+            if (currentPlayer.type === 'A') {
+                currentPlayer.favor += favorEffect.value;
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度！`;
+            } else {
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度！`;
+            }
+        } else if (favorEffect.type === 'role') {
+            // A类某种角色的所有玩家好感度+10
+            let affectedPlayers = 0;
+            gameState.players.forEach((player, index) => {
+                if (player.type === 'A' && player.role === favorEffect.role && player.status === 'alive') {
+                    player.favor += favorEffect.value;
+                    affectedPlayers++;
+                }
+            });
+            if (affectedPlayers > 0) {
+                elements.gameMessage.textContent = `所有${favorEffect.role}角色获得了${favorEffect.value}点好感度！`;
+            } else {
+                elements.gameMessage.textContent = `没有${favorEffect.role}角色在场！`;
+            }
+        }
+    } 
+    
+    // 处理道具效果
+    if (currentGrid.道具Effect) {
+        const 道具Effect = currentGrid.道具Effect;
+        if (道具Effect.type === 'add') {
+            // 如果手牌数量没有达到上限，增加一张手牌
+            if (currentPlayer.cards < currentPlayer.maxCards) {
+                currentPlayer.cards += 道具Effect.value;
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌！`;
+            } else {
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}的手牌已达到上限！`;
+            }
+        } else if (道具Effect.type === 'remove') {
+            // 如果手牌数量没有达到下限，减少一张手牌
+            if (currentPlayer.cards > 0) {
+                currentPlayer.cards -= 道具Effect.value;
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌！`;
+            } else {
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}没有手牌可以失去！`;
+            }
+        }
+    } 
+    
+    // 处理起点
+    if (currentGrid.types.includes('start')) {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}回到了起点！`;
+    }
+    
+    // 更新lastTokenPosition
+    // 如果是停滞状态，不更新lastTokenPosition，这样下一个玩家就可以正常移动
+    if (!isStagnant) {
+        gameState.lastTokenPosition = gameState.tokenPosition;
+    } else {
+        // 结束停滞状态，将lastTokenPosition设置为-1
+        gameState.lastTokenPosition = -1;
+    }
+    
+    // 更新UI
+    updateUI();
+    
+    // 检查胜利条件
+    if (checkWinCondition()) {
+        elements.rollDice.disabled = true;
+        return;
+    }
+    
+    // 切换到下一个玩家
+    setTimeout(() => {
+        nextPlayer();
+    }, 1000);
+}
+
+// 检查胜利条件
+function checkWinCondition() {
+    // 检查A玩家是否好感度达到100
+    for (let i = 0; i < 3; i++) {
+        const player = gameState.players[i];
+        if (player.type === 'A' && player.favor >= 100) {
+            elements.gameMessage.textContent = `玩家${i + 1}（A类型）好感度达到100，游戏胜利！`;
+            return true;
+        }
+    }
+    
+    // 检查B玩家是否杀死所有A玩家
+    let aliveAPlayers = 0;
+    for (let i = 0; i < 3; i++) {
+        const player = gameState.players[i];
+        if (player.type === 'A' && player.status === 'alive') {
+            aliveAPlayers++;
+        }
+    }
+    
+    if (aliveAPlayers === 0) {
+        elements.gameMessage.textContent = '所有A玩家已被杀死，B玩家胜利！';
+        return true;
+    }
+    
+    return false;
+}
+
+// 切换到下一个玩家
+function nextPlayer() {
+    // 找到下一个存活的玩家
+    let nextPlayerIndex = (gameState.currentPlayer + 1) % 3;
+    while (gameState.players[nextPlayerIndex].status !== 'alive') {
+        nextPlayerIndex = (nextPlayerIndex + 1) % 3;
+    }
+    
+    // 检查是否进入新回合
+    if (nextPlayerIndex === 0) {
+        gameState.round++;
+    }
+    
+    gameState.currentPlayer = nextPlayerIndex;
+    elements.gameMessage.textContent = `轮到玩家${gameState.currentPlayer + 1}掷骰子。`;
+    
+    // 更新UI，使当前玩家的窗口显示为淡蓝色
+    updateUI();
+    
+    // 启用掷骰子按钮
+    elements.rollDice.disabled = false;
+}
+
+// 重置游戏
+function resetGame() {
+    // 重置回合数
+    gameState.round = 1;
+    
+    // 重置棋子位置
+    gameState.tokenPosition = 0;
+    
+    // 重置当前玩家
+    gameState.currentPlayer = 0;
+    
+    // 更新UI
+    updateUI();
+    
+    // 显示重置消息
+    elements.gameMessage.textContent = '游戏已重置！玩家1开始新的回合。';
+    
+    // 启用掷骰子按钮
+    elements.rollDice.disabled = false;
+}
+
+// 事件监听器
+elements.startGame.addEventListener('click', initGame);
+elements.rollDice.addEventListener('click', rollDice);
+elements.resetGame.addEventListener('click', resetGame);
+
+// 初始化页面
+window.onload = function() {
+    // 初始化UI
+    updateUI();
+};

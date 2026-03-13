@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多人大富翁游戏</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>多人大富翁游戏</h1>
+        
+        <!-- 游戏设置 -->
+        <div class="game-setup">
+            <h2>游戏设置</h2>
+            <div class="player-setup">
+                <div class="player-input">
+                    <label>玩家1类型:</label>
+                    <select id="player1-type">
+                        <option value="A">A玩家</option>
+                        <option value="B">B玩家</option>
+                    </select>
+                    <label>角色:</label>
+                    <select id="player1-role">
+                        <option value="水上">水上</option>
+                        <option value="川濑">川濑</option>
+                        <option value="花泽">花泽</option>
+                        <option value="博士">博士</option>
+                        <option value="薰">薰</option>
+                    </select>
+                </div>
+                <div class="player-input">
+                    <label>玩家2类型:</label>
+                    <select id="player2-type">
+                        <option value="A">A玩家</option>
+                        <option value="B">B玩家</option>
+                    </select>
+                    <label>角色:</label>
+                    <select id="player2-role">
+                        <option value="水上">水上</option>
+                        <option value="川濑">川濑</option>
+                        <option value="花泽">花泽</option>
+                        <option value="博士">博士</option>
+                        <option value="薰">薰</option>
+                    </select>
+                </div>
+                <div class="player-input">
+                    <label>玩家3类型:</label>
+                    <select id="player3-type">
+                        <option value="A">A玩家</option>
+                        <option value="B">B玩家</option>
+                    </select>
+                    <label>角色:</label>
+                    <select id="player3-role">
+                        <option value="水上">水上</option>
+                        <option value="川濑">川濑</option>
+                        <option value="花泽">花泽</option>
+                        <option value="博士">博士</option>
+                        <option value="薰">薰</option>
+                    </select>
+                </div>
+            </div>
+            <button id="start-game">开始游戏</button>
+        </div>
+        
+        <!-- 游戏界面 -->
+        <div class="game-board" style="display: none;">
+            <!-- 玩家信息 -->
+            <div class="player-info">
+                <div class="player player1">
+                    <h3>玩家1</h3>
+                    <p>类型: <span id="player1-type-display">A</span></p>
+                    <p>角色: <span id="player1-role-display">水上</span></p>
+                    <p>行动点: <span id="player1-action">3</span></p>
+                    <p>手牌: <span id="player1-cards">0</span></p>
+                    <p>好感度: <span id="player1-favor">0</span></p>
+                    <p>状态: <span id="player1-status">存活</span></p>
+                </div>
+                <div class="player player2">
+                    <h3>玩家2</h3>
+                    <p>类型: <span id="player2-type-display">A</span></p>
+                    <p>角色: <span id="player2-role-display">水上</span></p>
+                    <p>行动点: <span id="player2-action">3</span></p>
+                    <p>手牌: <span id="player2-cards">0</span></p>
+                    <p>好感度: <span id="player2-favor">0</span></p>
+                    <p>状态: <span id="player2-status">存活</span></p>
+                </div>
+                <div class="player player3">
+                    <h3>玩家3</h3>
+                    <p>类型: <span id="player3-type-display">A</span></p>
+                    <p>角色: <span id="player3-role-display">水上</span></p>
+                    <p>行动点: <span id="player3-action">3</span></p>
+                    <p>手牌: <span id="player3-cards">0</span></p>
+                    <p>好感度: <span id="player3-favor">0</span></p>
+                    <p>状态: <span id="player3-status">存活</span></p>
+                </div>
+            </div>
+            
+            <!-- 地图 -->
+            <div class="map">
+                <div class="grid grid-0">1. 起点</div>
+                <div class="grid grid-1">2. 幸运广场</div>
+                <div class="grid grid-2">3. 道具商店</div>
+                <div class="grid grid-3">4. 水上的祝福</div>
+                <div class="grid grid-4">5. 神秘宝箱</div>
+                <div class="grid grid-5">6. 川濑的祝福</div>
+                <div class="grid grid-6">7. 陷阱</div>
+                <div class="grid grid-7">8. 花泽的祝福</div>
+                <div class="grid grid-8">9. 道具库</div>
+                <div class="grid grid-9">10. 博士的祝福</div>
+                <div class="token" id="token"></div>
+            </div>
+            
+            <!-- 游戏控制 -->
+            <div class="game-control">
+                <div class="current-player">当前玩家: <span id="current-player">1</span></div>
+                <div class="round-count">回合数: <span id="round-count">1</span></div>
+                <button id="roll-dice">掷骰子</button>
+                <button id="reset-game">重置</button>
+                <div class="dice-result" id="dice-result">骰子结果: -</div>
+                <div class="game-message" id="game-message"></div>
+            </div>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
