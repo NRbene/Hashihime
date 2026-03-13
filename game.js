@@ -897,8 +897,11 @@ function handleGridFunction(isStagnant) {
             // 计算添加后的手牌数量
             const newCardsCount = currentPlayer.cards + 道具Effect.value;
             
+            // 获取角色的手牌上限
+            const maxCards = characterAttributes[currentPlayer.role].maxCards;
+            
             // 如果手牌数量没有达到上限，增加手牌
-            if (newCardsCount <= currentPlayer.maxCards) {
+            if (newCardsCount <= maxCards) {
                 // 从道具池中随机获取一个道具
                 if (gameState.itemPool.length > 0) {
                     const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
