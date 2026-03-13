@@ -3,7 +3,8 @@ const items = {
     '蛋包饭': { id: 1, name: '蛋包饭', action: 3, favor: 0, description: '恢复3行动点' },
     '咖啡': { id: 2, name: '咖啡', action: 2, favor: 0, description: '恢复2行动点' },
     '洗浴券': { id: 4, name: '洗浴券', action: 0, favor: 10, description: '将棋子移动至机械汤并增加10点好感', targetGrid: 5 }, // 机械汤是第6个格子，索引为5
-    '电影票': { id: 5, name: '电影票', action: 0, favor: 10, description: '将棋子移动至电影院并增加10点好感', targetGrid: 24 } // 电影院是第25个格子，索引为24
+    '电影票': { id: 5, name: '电影票', action: 0, favor: 10, description: '将棋子移动至电影院并增加10点好感', targetGrid: 24 }, // 电影院是第25个格子，索引为24
+    '提灯': { id: 8, name: '提灯', action: 0, favor: 0, description: '可指定本回合内你希望棋子移动的步数', type: 'custom_move' } // 自定义移动步数
 };
 
 // 角色属性配置
@@ -26,7 +27,7 @@ let gameState = {
     tokenPosition: 0,
     round: 1,
     gameStarted: false,
-    itemPool: ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡', '洗浴券', '洗浴券', '电影票', '电影票'] // 蛋包饭2个，咖啡3个，洗浴券2个，电影票2个
+    itemPool: ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡', '洗浴券', '洗浴券', '电影票', '电影票' '提灯', '提灯'] // 蛋包饭2个，咖啡3个，洗浴券2个，电影票2个，提灯2个
 };
 
 // 地图格子配置
@@ -706,6 +707,26 @@ function useItem(playerIndex, itemIndex) {
             
             // 记录移动日志
             logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
+        } else if (item.type === 'custom_move') {
+            // 处理提灯道具，自定义移动步数
+            let steps = prompt('请输入希望移动的步数（1-6）:', '');
+            
+            // 验证输入
+            steps = parseInt(steps);
+            if (isNaN(steps) || steps < 1 || steps > 6) {
+                alert('输入无效，请输入1-6之间的数字！');
+                return;
+            }
+            
+            // 移动棋子
+            const oldPosition = gameState.tokenPosition;
+            const oldGrid = gridConfig[oldPosition];
+            gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
+            const newGrid = gridConfig[gameState.tokenPosition];
+            updateTokenPosition();
+            
+            // 记录移动日志
+            logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动了${steps}步到${newGrid.id}.${newGrid.name}`);
         }
         
         // 从道具列表中移除
@@ -1068,7 +1089,7 @@ function resetGame() {
     gameState.currentPlayer = 0;
     
     // 重置道具池
-    gameState.itemPool = ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡', '洗浴券', '洗浴券', '电影票', '电影票'];
+    gameState.itemPool = ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡', '洗浴券', '洗浴券', '电影票', '电影票', '提灯', '提灯'];
     
     // 重置玩家道具
     for (let i = 0; i < 3; i++) {
