@@ -22,95 +22,525 @@ let gameState = {
 
 // 地图格子配置
 const gridConfig = [
+    // 1. 梅钵堂
     {
-        name: '起点',
+        name: '梅钵堂',
         id: 1,
         isSpecial: true,
-        types: ['start'],
+        types: ['start', 'favor'],
+        favorEffect: { type: 'all', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 2. 普通格子
+    {
+        name: '普通格子',
+        id: 2,
+        isSpecial: false,
+        types: [],
         favorEffect: null,
         isStagnant: false,
         道具Effect: null
     },
+    // 3. 普通格子
     {
-        name: '幸运广场',
-        id: 2,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'player', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    {
-        name: '道具商店',
+        name: '普通格子',
         id: 3,
         isSpecial: false,
-        types: ['cards'],
+        types: [],
         favorEffect: null,
         isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    {
-        name: '水上的祝福',
-        id: 4,
-        isSpecial: true,
-        types: ['favor', 'stagnant'],
-        favorEffect: { type: 'role', role: '水上', value: 10 },
-        isStagnant: true,
         道具Effect: null
     },
+    // 4. 市营电车站
     {
-        name: '神秘宝箱',
-        id: 5,
-        isSpecial: false,
+        name: '市营电车站',
+        id: 4,
+        isSpecial: true,
         types: ['cards'],
         favorEffect: null,
         isStagnant: false,
         道具Effect: { type: 'add', value: 1 }
     },
+    // 5. 普通格子
     {
-        name: '川濑的祝福',
+        name: '普通格子',
+        id: 5,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 6. 机械汤
+    {
+        name: '机械汤',
         id: 6,
+        isSpecial: true,
+        types: ['cards', 'stagnant'],
+        favorEffect: null,
+        isStagnant: true,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 7. 普通格子
+    {
+        name: '普通格子',
+        id: 7,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 8. 大泉家
+    {
+        name: '大泉家',
+        id: 8,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '水上', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 9. 大泉家
+    {
+        name: '大泉家',
+        id: 9,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '水上', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 10. 普通格子
+    {
+        name: '普通格子',
+        id: 10,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 11. 水道桥
+    {
+        name: '水道桥',
+        id: 11,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'remove', value: 1 }
+    },
+    // 12. 市营电车站
+    {
+        name: '市营电车站',
+        id: 12,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 13. 普通格子
+    {
+        name: '普通格子',
+        id: 13,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 14. 普通格子
+    {
+        name: '普通格子',
+        id: 14,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 15. 咖啡厅
+    {
+        name: '咖啡厅',
+        id: 15,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 16. 普通格子
+    {
+        name: '普通格子',
+        id: 16,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 17. 普通格子
+    {
+        name: '普通格子',
+        id: 17,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 18. 池田宅
+    {
+        name: '池田宅',
+        id: 18,
         isSpecial: true,
         types: ['favor'],
         favorEffect: { type: 'role', role: '川濑', value: 10 },
         isStagnant: false,
         道具Effect: null
     },
+    // 19. 池田宅
     {
-        name: '陷阱',
-        id: 7,
-        isSpecial: false,
-        types: ['cards', 'stagnant'],
-        favorEffect: null,
-        isStagnant: true,
-        道具Effect: { type: 'remove', value: 1 }
+        name: '池田宅',
+        id: 19,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '川濑', value: 10 },
+        isStagnant: false,
+        道具Effect: null
     },
+    // 20. 池田宅
     {
-        name: '花泽的祝福',
-        id: 8,
+        name: '池田宅',
+        id: 20,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '川濑', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 21. 水洼
+    {
+        name: '水洼',
+        id: 21,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 22. 普通格子
+    {
+        name: '普通格子',
+        id: 22,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 23. 普通格子
+    {
+        name: '普通格子',
+        id: 23,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 24. 普通格子
+    {
+        name: '普通格子',
+        id: 24,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 25. 电影院
+    {
+        name: '电影院',
+        id: 25,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 26. 普通格子
+    {
+        name: '普通格子',
+        id: 26,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 27. 十二阶
+    {
+        name: '十二阶',
+        id: 27,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'player', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 28. 普通格子
+    {
+        name: '普通格子',
+        id: 28,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 29. 水洼
+    {
+        name: '水洼',
+        id: 29,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 30. 市营电车站
+    {
+        name: '市营电车站',
+        id: 30,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 31. 帝国大学
+    {
+        name: '帝国大学',
+        id: 31,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'player', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 32. 帝国大学
+    {
+        name: '帝国大学',
+        id: 32,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'player', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 33. 帝国大学
+    {
+        name: '帝国大学',
+        id: 33,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'player', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 34. 帝国大学
+    {
+        name: '帝国大学',
+        id: 34,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'player', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 35. 帝国大学
+    {
+        name: '帝国大学',
+        id: 35,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'player', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 36. 帝国大学
+    {
+        name: '帝国大学',
+        id: 36,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'player', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 37. 普通格子
+    {
+        name: '普通格子',
+        id: 37,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 38. 市营电车站
+    {
+        name: '市营电车站',
+        id: 38,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 39. 花泽家
+    {
+        name: '花泽家',
+        id: 39,
         isSpecial: true,
         types: ['favor'],
         favorEffect: { type: 'role', role: '花泽', value: 10 },
         isStagnant: false,
         道具Effect: null
     },
+    // 40. 普通格子
     {
-        name: '道具库',
-        id: 9,
+        name: '普通格子',
+        id: 40,
         isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 41. 冰川宅
+    {
+        name: '冰川宅',
+        id: 41,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '博士', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 42. 冰川宅
+    {
+        name: '冰川宅',
+        id: 42,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '博士', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 43. 冰川宅
+    {
+        name: '冰川宅',
+        id: 43,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '博士', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 44. 冰川宅
+    {
+        name: '冰川宅',
+        id: 44,
+        isSpecial: true,
+        types: ['favor'],
+        favorEffect: { type: 'role', role: '博士', value: 10 },
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 45. 水洼
+    {
+        name: '水洼',
+        id: 45,
+        isSpecial: true,
         types: ['cards'],
         favorEffect: null,
         isStagnant: false,
         道具Effect: { type: 'add', value: 1 }
     },
+    // 46. 吾妻桥
     {
-        name: '博士的祝福',
-        id: 10,
+        name: '吾妻桥',
+        id: 46,
         isSpecial: true,
-        types: ['favor', 'stagnant'],
-        favorEffect: { type: 'role', role: '博士', value: 10 },
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
+    },
+    // 47. 普通格子
+    {
+        name: '普通格子',
+        id: 47,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 48. 普通格子
+    {
+        name: '普通格子',
+        id: 48,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 49. 普通格子
+    {
+        name: '普通格子',
+        id: 49,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 50. 普通格子
+    {
+        name: '普通格子',
+        id: 50,
+        isSpecial: false,
+        types: [],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: null
+    },
+    // 51. 三千堂
+    {
+        name: '三千堂',
+        id: 51,
+        isSpecial: true,
+        types: ['stagnant'],
+        favorEffect: null,
         isStagnant: true,
         道具Effect: null
+    },
+    // 52. 水洼
+    {
+        name: '水洼',
+        id: 52,
+        isSpecial: true,
+        types: ['cards'],
+        favorEffect: null,
+        isStagnant: false,
+        道具Effect: { type: 'add', value: 1 }
     }
 ];
 
@@ -215,7 +645,7 @@ function updateUI() {
     // 更新回合数显示
     elements.roundCount.textContent = gameState.round;
     
-    // 更新玩家信息
+    // 更新玩家信息和当前玩家样式
     for (let i = 0; i < 3; i++) {
         const player = gameState.players[i];
         elements[`player${i+1}TypeDisplay`].textContent = player.type;
@@ -224,6 +654,14 @@ function updateUI() {
         elements[`player${i+1}Cards`].textContent = player.cards;
         elements[`player${i+1}Favor`].textContent = player.favor;
         elements[`player${i+1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
+        
+        // 更新当前玩家样式
+        const playerElement = document.querySelector(`.player.player${i+1}`);
+        if (i === gameState.currentPlayer) {
+            playerElement.classList.add('current-player');
+        } else {
+            playerElement.classList.remove('current-player');
+        }
     }
     
     // 更新棋子位置
@@ -275,7 +713,7 @@ function moveToken(steps) {
     
     // 计算新位置
     if (canMove) {
-        gameState.tokenPosition = (gameState.tokenPosition + steps) % 10;
+        gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
         // 更新棋子位置
         updateTokenPosition();
     }
@@ -315,6 +753,20 @@ function handleGridFunction(isStagnant) {
                 elements.gameMessage.textContent = `所有${favorEffect.role}角色获得了${favorEffect.value}点好感度！`;
             } else {
                 elements.gameMessage.textContent = `没有${favorEffect.role}角色在场！`;
+            }
+        } else if (favorEffect.type === 'all') {
+            // 全员好感度+10
+            let affectedPlayers = 0;
+            gameState.players.forEach((player, index) => {
+                if (player.type === 'A' && player.status === 'alive') {
+                    player.favor += favorEffect.value;
+                    affectedPlayers++;
+                }
+            });
+            if (affectedPlayers > 0) {
+                elements.gameMessage.textContent = `所有A类型角色获得了${favorEffect.value}点好感度！`;
+            } else {
+                elements.gameMessage.textContent = `没有A类型角色在场！`;
             }
         }
     } 
@@ -412,10 +864,9 @@ function nextPlayer() {
     }
     
     gameState.currentPlayer = nextPlayerIndex;
+    elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
+    elements.roundCount.textContent = gameState.round;
     elements.gameMessage.textContent = `轮到玩家${gameState.currentPlayer + 1}掷骰子。`;
-    
-    // 更新UI，使当前玩家的窗口显示为淡蓝色
-    updateUI();
     
     // 启用掷骰子按钮
     elements.rollDice.disabled = false;
