@@ -1106,10 +1106,35 @@ function initDraggableLog() {
     });
 }
 
+// 随机分配角色
+function randomRoles() {
+    const roles = ['水上', '川濑', '花泽', '博士', '薰'];
+    
+    // 打乱角色顺序
+    for (let i = roles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [roles[i], roles[j]] = [roles[j], roles[i]];
+    }
+    
+    // 分配角色给玩家
+    for (let i = 1; i <= 3; i++) {
+        const role = roles[(i - 1) % roles.length];
+        const playerRoleSelect = document.getElementById(`player${i}-role`);
+        const playerTypeSelect = document.getElementById(`player${i}-type`);
+        
+        if (playerRoleSelect && playerTypeSelect) {
+            playerRoleSelect.value = role;
+            // 根据角色类型自动设置玩家类型
+            playerTypeSelect.value = characterAttributes[role].type;
+        }
+    }
+}
+
 // 事件监听器
 elements.startGame.addEventListener('click', initGame);
 elements.rollDice.addEventListener('click', rollDice);
 elements.resetGame.addEventListener('click', resetGame);
+document.getElementById('random-roles').addEventListener('click', randomRoles);
 
 // 初始化页面
 window.onload = function() {
