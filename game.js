@@ -954,10 +954,9 @@ function handleGridFunction(isStagnant) {
                     elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${item.name}！${item.description}`;
                     logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${item.name}（${item.description}）`);
                 } else {
-                    // 道具池为空，只增加手牌数量
-                    currentPlayer.cards = newCardsCount;
-                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌！`;
-                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌`);
+                    // 道具池为空，不增加手牌数量
+                    elements.gameMessage.textContent = `道具池已空，无法获得道具！`;
+                    logEvent(`触发效果：道具池已空，无法获得道具`);
                 }
             } else {
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}的手牌已达到上限！`;
