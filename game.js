@@ -616,6 +616,7 @@ function initGame() {
         items: [],
         favor: characterAttributes[player2Role].initialFavor,
         status: 'alive'
+        
     };
     
     gameState.players[2] = {
@@ -624,7 +625,7 @@ function initGame() {
         cards: 0,
         items: [],
         favor: characterAttributes[player3Role].initialFavor,
-        status: 'alive'
+        status: 'die'
     };
     
     // 重置游戏状态
@@ -659,7 +660,7 @@ function updateItemsDisplay() {
             itemElement.dataset.playerIndex = i;
             itemElement.dataset.itemIndex = index;
             
-            // 只有当前玩家可以使用道具
+            // 只有当前玩家且存活时可以使用道具
             if (i === gameState.currentPlayer && player.status === 'alive') {
                 itemElement.addEventListener('click', () => useItem(i, index));
             } else {
@@ -675,6 +676,12 @@ function updateItemsDisplay() {
 function useItem(playerIndex, itemIndex) {
     const player = gameState.players[playerIndex];
     const item = player.items[itemIndex];
+    
+    if (player.status !== 'alive') {
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}已死亡，无法使用道具！`;
+        logEvent(`玩家${playerIndex + 1}已死亡，无法使用道具`);
+        return;
+    }
     
     if (item && player.cards > 0) {
         // 恢复行动点
@@ -775,6 +782,14 @@ function updateTokenPosition() {
 // 掷骰子
 function rollDice() {
     if (!gameState.gameStarted) return;
+    
+    // 检查当前玩家是否存活
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    if (currentPlayer.status !== 'alive') {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}已死亡，无法掷骰子！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}已死亡，无法掷骰子`);
+        return;
+    }
     
     // 禁用掷骰子按钮
     elements.rollDice.disabled = true;
@@ -1017,10 +1032,14 @@ function checkWinCondition() {
 
 // 切换到下一个玩家
 function nextPlayer() {
+    const playerCount = gameState.players.length;
+    
     // 找到下一个存活的玩家
-    let nextPlayerIndex = (gameState.currentPlayer + 1) % 3;
+    let nextPlayerIndex = (gameState.currentPlayer + 1) % playerCount;
     while (gameState.players[nextPlayerIndex].status !== 'alive') {
-        nextPlayerIndex = (nextPlayerIndex + 1) % 3;
+        elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
+        logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
+        nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
     }
     
     // 检查是否进入新回合
