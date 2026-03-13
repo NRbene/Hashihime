@@ -5,36 +5,29 @@ let itemPool = [];
 // 解析CSV数据
 function parseCSV(csvText) {
     const lines = csvText.trim().split('\n');
-    const headers = lines[0].split(',');
     const parsedItems = {};
     const newItemPool = [];
     
     for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',');
+        const values = lines[i].split('\t');
         const item = {
             id: parseInt(values[0]),
             name: values[1],
-            favor: values[2] === '是' ? 10 : 0,
-            action: values[3] === '是' ? 0 : 0, // 默认值，后面根据描述设置
-            description: values[6],
-            quantity: parseInt(values[5])
+            favor: parseInt(values[3]),
+            action: parseInt(values[5]),
+            description: values[10],
+            quantity: parseInt(values[9])
         };
         
-        // 根据描述设置具体属性
-        if (item.description.includes('恢复3行动点')) {
-            item.action = 3;
-            item.favor = 0;
-        } else if (item.description.includes('恢复2行动点')) {
-            item.action = 2;
-            item.favor = 0;
-        } else if (item.description.includes('机械汤')) {
-            item.targetGrid = 5; // 机械汤是第6个格子，索引为5
-            item.favor = 10;
-        } else if (item.description.includes('电影院')) {
-            item.targetGrid = 24; // 电影院是第25个格子，索引为24
-            item.favor = 10;
-        } else if (item.description.includes('指定')) {
-            item.type = 'custom_move';
+        // 处理移动功能
+        if (values[6] === '是') {
+            if (values[7] === '机械汤') {
+                item.targetGrid = 5; // 机械汤是第6个格子，索引为5
+            } else if (values[7] === '电影院') {
+                item.targetGrid = 24; // 电影院是第25个格子，索引为24
+            } else if (values[7] === '可指定本回合内你希望棋子移动的步数') {
+                item.type = 'custom_move';
+            }
         }
         
         parsedItems[item.name] = item;
@@ -49,12 +42,12 @@ function parseCSV(csvText) {
 }
 
 // 道具CSV数据（直接嵌入）
-const itemCSVData = `id,道具名,涉及好感度,涉及行动点,其他功能,数量,道具描述
-1,蛋包饭,否,是,无,2,恢复3行动点
-2,咖啡,否,是,无,3,恢复2行动点
-4,洗浴券,是,否,移动,2,将棋子移动至机械汤并增加使用该道具的用户10点好感
-5,电影票,是,否,移动,2,将棋子移动至电影院并增加使用该道具的用户10点好感
-8,提灯,否,否,移动,2,可指定本回合内你希望棋子移动的步数`;
+const itemCSVData = `id	道具名	涉及好感度	影响的好感度	涉及行动点	影响的行动点	是否涉及移动	移动的终点	其他功能	数量	道具描述
+1	蛋包饭	否	0	是	3	否	无	无	2	恢复3行动点
+2	咖啡	否	0	是	2	否	无	无	3	恢复2行动点
+4	洗浴券	是	10	否	0	是	机械汤	无	2	将棋子移动至机械汤并增加使用该道具的用户10点好感
+5	电影票	是	10	否	0	是	电影院	无	2	将棋子移动至电影院并增加使用该道具的用户10点好感
+8	提灯	否	0	否	0	是	可指定本回合内你希望棋子移动的步数	无	2	可指定本回合内你希望棋子移动的步数`;
 
 // 加载道具CSV数据
 function loadItemsFromCSV() {
