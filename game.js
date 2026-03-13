@@ -1,3 +1,9 @@
+// 道具配置
+const items = {
+    '蛋包饭': { id: 1, name: '蛋包饭', action: 3, favor: 0, description: '恢复3行动点' },
+    '咖啡': { id: 2, name: '咖啡', action: 2, favor: 0, description: '恢复2行动点' }
+};
+
 // 角色属性配置
 const characterAttributes = {
     '水上': { type: 'A', action: 3, maxCards: 4, initialFavor: 50 },
@@ -10,14 +16,15 @@ const characterAttributes = {
 // 游戏状态
 let gameState = {
     players: [
-        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, favor: 50, status: 'alive' },
-        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, favor: 50, status: 'alive' },
-        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, favor: 50, status: 'alive' }
+        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, items: [], favor: 50, status: 'alive' },
+        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, items: [], favor: 50, status: 'alive' },
+        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, items: [], favor: 50, status: 'alive' }
     ],
     currentPlayer: 0,
     tokenPosition: 0,
     round: 1,
-    gameStarted: false
+    gameStarted: false,
+    itemPool: ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡'] // 蛋包饭2个，咖啡3个
 };
 
 // 地图格子配置
@@ -597,6 +604,7 @@ function initGame() {
         action: characterAttributes[player1Role].action,
         maxCards: characterAttributes[player1Role].maxCards,
         cards: 0,
+        items: [],
         favor: characterAttributes[player1Role].initialFavor,
         status: 'alive'
     };
@@ -607,6 +615,7 @@ function initGame() {
         action: characterAttributes[player2Role].action,
         maxCards: characterAttributes[player2Role].maxCards,
         cards: 0,
+        items: [],
         favor: characterAttributes[player2Role].initialFavor,
         status: 'alive'
     };
@@ -617,6 +626,7 @@ function initGame() {
         action: characterAttributes[player3Role].action,
         maxCards: characterAttributes[player3Role].maxCards,
         cards: 0,
+        items: [],
         favor: characterAttributes[player3Role].initialFavor,
         status: 'alive'
     };
@@ -636,6 +646,60 @@ function initGame() {
     
     // 显示游戏开始消息
     elements.gameMessage.textContent = '游戏开始！玩家1先开始掷骰子。';
+}
+
+// 更新道具显示
+function updateItemsDisplay() {
+    for (let i = 0; i < 3; i++) {
+        const player = gameState.players[i];
+        const itemsContainer = document.getElementById(`player${i+1}-items`);
+        itemsContainer.innerHTML = '';
+        
+        player.items.forEach((item, index) => {
+            const itemElement = document.createElement('div');
+            itemElement.className = 'item';
+            itemElement.textContent = item.name;
+            itemElement.title = item.description;
+            itemElement.dataset.playerIndex = i;
+            itemElement.dataset.itemIndex = index;
+            
+            // 只有当前玩家可以使用道具
+            if (i === gameState.currentPlayer && player.status === 'alive') {
+                itemElement.addEventListener('click', () => useItem(i, index));
+            } else {
+                itemElement.classList.add('used');
+            }
+            
+            itemsContainer.appendChild(itemElement);
+        });
+    }
+}
+
+// 使用道具
+function useItem(playerIndex, itemIndex) {
+    const player = gameState.players[playerIndex];
+    const item = player.items[itemIndex];
+    
+    if (item && player.cards > 0) {
+        // 恢复行动点
+        player.action += item.action;
+        
+        // 增加好感度（如果有）
+        if (item.favor > 0) {
+            player.favor += item.favor;
+        }
+        
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+        
+        // 显示消息
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，恢复了${item.action}点行动点！`;
+        logEvent(`玩家${playerIndex + 1}使用了${item.name}，恢复了${item.action}点行动点`);
+        
+        // 更新UI
+        updateUI();
+    }
 }
 
 // 更新UI
@@ -664,6 +728,9 @@ function updateUI() {
             playerElement.classList.remove('current-player');
         }
     }
+    
+    // 更新道具显示
+    updateItemsDisplay();
     
     // 更新棋子位置
     updateTokenPosition();
@@ -803,21 +870,57 @@ function handleGridFunction(isStagnant) {
     if (currentGrid.道具Effect) {
         const 道具Effect = currentGrid.道具Effect;
         if (道具Effect.type === 'add') {
-            // 如果手牌数量没有达到上限，增加一张手牌
-            if (currentPlayer.cards < currentPlayer.maxCards) {
-                currentPlayer.cards += 道具Effect.value;
-                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌！`;
-                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌`);
+            // 计算添加后的手牌数量
+            const newCardsCount = currentPlayer.cards + 道具Effect.value;
+            
+            // 如果手牌数量没有达到上限，增加手牌
+            if (newCardsCount <= currentPlayer.maxCards) {
+                // 从道具池中随机获取一个道具
+                if (gameState.itemPool.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+                    const itemName = gameState.itemPool[randomIndex];
+                    const item = items[itemName];
+                    
+                    // 从道具池中移除该道具
+                    gameState.itemPool.splice(randomIndex, 1);
+                    
+                    // 添加道具到玩家的道具数组
+                    currentPlayer.items.push(item);
+                    currentPlayer.cards = newCardsCount;
+                    
+                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${item.name}！${item.description}`;
+                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${item.name}（${item.description}）`);
+                } else {
+                    // 道具池为空，只增加手牌数量
+                    currentPlayer.cards = newCardsCount;
+                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌！`;
+                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌`);
+                }
             } else {
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}的手牌已达到上限！`;
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}的手牌已达到上限`);
             }
         } else if (道具Effect.type === 'remove') {
-            // 如果手牌数量没有达到下限，减少一张手牌
-            if (currentPlayer.cards > 0) {
-                currentPlayer.cards -= 道具Effect.value;
-                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌！`;
-                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌`);
+            // 计算减少后的手牌数量
+            const newCardsCount = currentPlayer.cards - 道具Effect.value;
+            
+            // 如果手牌数量没有达到下限，减少手牌
+            if (newCardsCount >= 0) {
+                // 随机移除一个道具
+                if (currentPlayer.items.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * currentPlayer.items.length);
+                    const removedItem = currentPlayer.items[randomIndex];
+                    currentPlayer.items.splice(randomIndex, 1);
+                    currentPlayer.cards = newCardsCount;
+                    
+                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}失去了${removedItem.name}！`;
+                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}失去了${removedItem.name}`);
+                } else {
+                    // 没有道具，只减少手牌数量
+                    currentPlayer.cards = newCardsCount;
+                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌！`;
+                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌`);
+                }
             } else {
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}没有手牌可以失去！`;
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}没有手牌可以失去`);
@@ -917,6 +1020,15 @@ function resetGame() {
     
     // 重置当前玩家
     gameState.currentPlayer = 0;
+    
+    // 重置道具池
+    gameState.itemPool = ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡'];
+    
+    // 重置玩家道具
+    for (let i = 0; i < 3; i++) {
+        gameState.players[i].items = [];
+        gameState.players[i].cards = 0;
+    }
     
     // 更新UI
     updateUI();
