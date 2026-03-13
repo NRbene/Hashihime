@@ -41,18 +41,10 @@ function parseCSV(csvText) {
     return { items: parsedItems, itemPool: newItemPool };
 }
 
-// 道具CSV数据（直接嵌入）
-const itemCSVData = `id	道具名	涉及好感度	影响的好感度	涉及行动点	影响的行动点	是否涉及移动	移动的终点	其他功能	数量	道具描述
-1	蛋包饭	否	0	是	3	否	无	无	2	恢复3行动点
-2	咖啡	否	0	是	2	否	无	无	3	恢复2行动点
-4	洗浴券	是	10	否	0	是	机械汤	无	2	将棋子移动至机械汤并增加使用该道具的用户10点好感
-5	电影票	是	10	否	0	是	电影院	无	2	将棋子移动至电影院并增加使用该道具的用户10点好感
-8	提灯	否	0	否	0	是	可指定本回合内你希望棋子移动的步数	无	2	可指定本回合内你希望棋子移动的步数`;
-
 // 加载道具CSV数据
-function loadItemsFromCSV() {
+function loadItemsFromCSV(csvText) {
     try {
-        const result = parseCSV(itemCSVData);
+        const result = parseCSV(csvText);
         items = result.items;
         itemPool = result.itemPool;
         
@@ -65,6 +57,32 @@ function loadItemsFromCSV() {
         console.error('加载道具失败:', error);
         return false;
     }
+}
+
+// 从文件读取CSV数据
+function loadItemsFromFile() {
+    const fileInput = document.getElementById('item-csv');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('请先选择道具CSV文件！');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const csvText = e.target.result;
+        const success = loadItemsFromCSV(csvText);
+        if (success) {
+            alert('道具加载成功！');
+        } else {
+            alert('道具加载失败，请检查CSV文件格式！');
+        }
+    };
+    reader.onerror = function() {
+        alert('读取文件失败！');
+    };
+    reader.readAsText(file, 'UTF-8');
 }
 
 // 角色属性配置
@@ -1141,9 +1159,6 @@ function nextPlayer() {
 
 // 重置游戏
 function resetGame() {
-    // 重新加载道具
-    loadItemsFromCSV();
-    
     // 重置回合数
     gameState.round = 1;
     
@@ -1163,10 +1178,11 @@ function resetGame() {
     updateUI();
     
     // 显示重置消息
-    elements.gameMessage.textContent = '游戏已重置！玩家1开始新的回合。';
+    elements.gameMessage.textContent = '游戏已重置！玩家1开始新的回合。如果需要重新加载道具，请使用"加载道具"按钮。';
     
     // 记录重置日志
     logEvent('游戏已重置，开始新的游戏');
+    logEvent('如果需要重新加载道具，请使用"加载道具"按钮');
     
     // 启用掷骰子按钮
     elements.rollDice.disabled = false;
@@ -1243,10 +1259,11 @@ document.getElementById('random-roles').addEventListener('click', randomRoles);
 
 // 初始化页面
 window.onload = function() {
-    // 加载道具
-    loadItemsFromCSV();
     // 初始化UI
     updateUI();
     // 初始化拖动功能
     initDraggableLog();
+    
+    // 添加加载道具按钮的事件监听器
+    document.getElementById('load-items').addEventListener('click', loadItemsFromFile);
 };
