@@ -556,6 +556,7 @@ const elements = {
     roundCount: document.getElementById('round-count'),
     gameMessage: document.getElementById('game-message'),
     token: document.getElementById('token'),
+    logContent: document.getElementById('log-content'),
     player1Type: document.getElementById('player1-type'),
     player2Type: document.getElementById('player2-type'),
     player3Type: document.getElementById('player3-type'),
@@ -697,8 +698,20 @@ function rollDice() {
     }, 500);
 }
 
+// 记录日志
+function logEvent(message) {
+    const logEntry = document.createElement('p');
+    logEntry.textContent = message;
+    elements.logContent.appendChild(logEntry);
+    elements.logContent.scrollTop = elements.logContent.scrollHeight;
+}
+
 // 移动棋子
 function moveToken(steps) {
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    const startPosition = gameState.tokenPosition;
+    const startGrid = gridConfig[startPosition];
+    
     // 检查是否触发停滞效果
     let canMove = true;
     let isStagnant = false;
@@ -716,6 +729,15 @@ function moveToken(steps) {
         gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
         // 更新棋子位置
         updateTokenPosition();
+        
+        const endPosition = gameState.tokenPosition;
+        const endGrid = gridConfig[endPosition];
+        
+        // 记录移动日志
+        logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，从${startGrid.id}.${startGrid.name}移动到${endGrid.id}.${endGrid.name}`);
+    } else {
+        // 记录停滞日志
+        logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，但因停滞效果无法移动`);
     }
     
     // 处理格子功能
@@ -737,8 +759,10 @@ function handleGridFunction(isStagnant) {
             if (currentPlayer.type === 'A') {
                 currentPlayer.favor += favorEffect.value;
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度`);
             } else {
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度`);
             }
         } else if (favorEffect.type === 'role') {
             // A类某种角色的所有玩家好感度+10
@@ -751,8 +775,10 @@ function handleGridFunction(isStagnant) {
             });
             if (affectedPlayers > 0) {
                 elements.gameMessage.textContent = `所有${favorEffect.role}角色获得了${favorEffect.value}点好感度！`;
+                logEvent(`触发效果：所有${favorEffect.role}角色获得了${favorEffect.value}点好感度`);
             } else {
                 elements.gameMessage.textContent = `没有${favorEffect.role}角色在场！`;
+                logEvent(`触发效果：没有${favorEffect.role}角色在场`);
             }
         } else if (favorEffect.type === 'all') {
             // 全员好感度+10
@@ -765,8 +791,10 @@ function handleGridFunction(isStagnant) {
             });
             if (affectedPlayers > 0) {
                 elements.gameMessage.textContent = `所有A类型角色获得了${favorEffect.value}点好感度！`;
+                logEvent(`触发效果：所有A类型角色获得了${favorEffect.value}点好感度`);
             } else {
                 elements.gameMessage.textContent = `没有A类型角色在场！`;
+                logEvent(`触发效果：没有A类型角色在场`);
             }
         }
     } 
@@ -779,16 +807,20 @@ function handleGridFunction(isStagnant) {
             if (currentPlayer.cards < currentPlayer.maxCards) {
                 currentPlayer.cards += 道具Effect.value;
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${道具Effect.value}张手牌`);
             } else {
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}的手牌已达到上限！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}的手牌已达到上限`);
             }
         } else if (道具Effect.type === 'remove') {
             // 如果手牌数量没有达到下限，减少一张手牌
             if (currentPlayer.cards > 0) {
                 currentPlayer.cards -= 道具Effect.value;
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌`);
             } else {
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}没有手牌可以失去！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}没有手牌可以失去`);
             }
         }
     } 
@@ -796,6 +828,7 @@ function handleGridFunction(isStagnant) {
     // 处理起点
     if (currentGrid.types.includes('start')) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}回到了起点！`;
+        logEvent(`触发效果：玩家${gameState.currentPlayer + 1}回到了起点`);
     }
     
     // 更新lastTokenPosition
@@ -829,6 +862,7 @@ function checkWinCondition() {
         const player = gameState.players[i];
         if (player.type === 'A' && player.favor >= 100) {
             elements.gameMessage.textContent = `玩家${i + 1}（A类型）好感度达到100，游戏胜利！`;
+            logEvent(`游戏胜利：玩家${i + 1}（A类型）好感度达到100`);
             return true;
         }
     }
@@ -844,6 +878,7 @@ function checkWinCondition() {
     
     if (aliveAPlayers === 0) {
         elements.gameMessage.textContent = '所有A玩家已被杀死，B玩家胜利！';
+        logEvent(`游戏胜利：所有A玩家已被杀死，B玩家胜利`);
         return true;
     }
     
@@ -889,8 +924,50 @@ function resetGame() {
     // 显示重置消息
     elements.gameMessage.textContent = '游戏已重置！玩家1开始新的回合。';
     
+    // 记录重置日志
+    logEvent('游戏已重置，开始新的游戏');
+    
     // 启用掷骰子按钮
     elements.rollDice.disabled = false;
+}
+
+// 实现日志栏拖动功能
+function initDraggableLog() {
+    const logElement = document.querySelector('.game-log');
+    const logHeader = document.querySelector('.game-log-header');
+    
+    let isDragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
+    
+    logHeader.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        offsetX = e.clientX - logElement.getBoundingClientRect().left;
+        offsetY = e.clientY - logElement.getBoundingClientRect().top;
+        logElement.style.zIndex = '1000';
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (isDragging) {
+            const gameContainer = document.querySelector('.game-container');
+            const containerRect = gameContainer.getBoundingClientRect();
+            
+            let newX = e.clientX - containerRect.left - offsetX;
+            let newY = e.clientY - containerRect.top - offsetY;
+            
+            // 限制在容器内
+            newX = Math.max(0, Math.min(newX, containerRect.width - logElement.offsetWidth));
+            newY = Math.max(0, Math.min(newY, containerRect.height - logElement.offsetHeight));
+            
+            logElement.style.left = newX + 'px';
+            logElement.style.top = newY + 'px';
+        }
+    });
+    
+    document.addEventListener('mouseup', function() {
+        isDragging = false;
+        logElement.style.zIndex = '100';
+    });
 }
 
 // 事件监听器
@@ -902,4 +979,6 @@ elements.resetGame.addEventListener('click', resetGame);
 window.onload = function() {
     // 初始化UI
     updateUI();
+    // 初始化拖动功能
+    initDraggableLog();
 };
