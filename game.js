@@ -18,9 +18,9 @@ const characterAttributes = {
 // 游戏状态
 let gameState = {
     players: [
-        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, items: [], favor: 50, status: 'alive' },
-        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, items: [], favor: 50, status: 'alive' },
-        { type: 'A', role: '水上', action: 3, maxCards: 4, cards: 0, items: [], favor: 50, status: 'alive' }
+        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive' },
+        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive' },
+        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive' }
     ],
     currentPlayer: 0,
     tokenPosition: 0,
@@ -603,8 +603,6 @@ function initGame() {
     gameState.players[0] = {
         type: characterAttributes[player1Role].type,
         role: player1Role,
-        action: characterAttributes[player1Role].action,
-        maxCards: characterAttributes[player1Role].maxCards,
         cards: 0,
         items: [],
         favor: characterAttributes[player1Role].initialFavor,
@@ -614,8 +612,6 @@ function initGame() {
     gameState.players[1] = {
         type: characterAttributes[player2Role].type,
         role: player2Role,
-        action: characterAttributes[player2Role].action,
-        maxCards: characterAttributes[player2Role].maxCards,
         cards: 0,
         items: [],
         favor: characterAttributes[player2Role].initialFavor,
@@ -625,8 +621,6 @@ function initGame() {
     gameState.players[2] = {
         type: characterAttributes[player3Role].type,
         role: player3Role,
-        action: characterAttributes[player3Role].action,
-        maxCards: characterAttributes[player3Role].maxCards,
         cards: 0,
         items: [],
         favor: characterAttributes[player3Role].initialFavor,
@@ -684,6 +678,10 @@ function useItem(playerIndex, itemIndex) {
     
     if (item && player.cards > 0) {
         // 恢复行动点
+        // 注意：这里我们直接修改player.action，因为这是临时的行动点变化
+        if (!player.action) {
+            player.action = characterAttributes[player.role].action;
+        }
         player.action += item.action;
         
         // 增加好感度（如果有）
@@ -741,7 +739,7 @@ function updateUI() {
         const player = gameState.players[i];
         elements[`player${i+1}TypeDisplay`].textContent = player.type;
         elements[`player${i+1}RoleDisplay`].textContent = player.role;
-        elements[`player${i+1}Action`].textContent = player.action;
+        elements[`player${i+1}Action`].textContent = player.action || characterAttributes[player.role].action;
         elements[`player${i+1}Cards`].textContent = player.cards;
         elements[`player${i+1}Favor`].textContent = player.favor;
         elements[`player${i+1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
