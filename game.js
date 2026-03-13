@@ -685,7 +685,7 @@ function useItem(playerIndex, itemIndex) {
         player.action += item.action;
         
         // 增加好感度（如果有）
-        if (item.favor > 0) {
+        if (item.favor > 0 && player.role !== '薰') {
             player.favor += item.favor;
         }
         
@@ -710,7 +710,7 @@ function useItem(playerIndex, itemIndex) {
         if (item.action > 0) {
             message += `，恢复了${item.action}点行动点`;
         }
-        if (item.favor > 0) {
+        if (item.favor > 0 && player.role !== '薰') {
             message += `，增加了${item.favor}点好感度`;
         }
         if (item.targetGrid !== undefined) {
