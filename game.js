@@ -1,11 +1,78 @@
-// 道具配置
-const items = {
-    '蛋包饭': { id: 1, name: '蛋包饭', action: 3, favor: 0, description: '恢复3行动点' },
-    '咖啡': { id: 2, name: '咖啡', action: 2, favor: 0, description: '恢复2行动点' },
-    '洗浴券': { id: 4, name: '洗浴券', action: 0, favor: 10, description: '将棋子移动至机械汤并增加10点好感', targetGrid: 5 }, // 机械汤是第6个格子，索引为5
-    '电影票': { id: 5, name: '电影票', action: 0, favor: 10, description: '将棋子移动至电影院并增加10点好感', targetGrid: 24 }, // 电影院是第25个格子，索引为24
-    '提灯': { id: 8, name: '提灯', action: 0, favor: 0, description: '可指定本回合内你希望棋子移动的步数', type: 'custom_move' } // 自定义移动步数
-};
+// 道具配置（从CSV文件中加载）
+let items = {};
+let itemPool = [];
+
+// 解析CSV数据
+function parseCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    const headers = lines[0].split(',');
+    const parsedItems = {};
+    const newItemPool = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        const item = {
+            id: parseInt(values[0]),
+            name: values[1],
+            favor: values[2] === '是' ? 10 : 0,
+            action: values[3] === '是' ? 0 : 0, // 默认值，后面根据描述设置
+            description: values[6],
+            quantity: parseInt(values[5])
+        };
+        
+        // 根据描述设置具体属性
+        if (item.description.includes('恢复3行动点')) {
+            item.action = 3;
+            item.favor = 0;
+        } else if (item.description.includes('恢复2行动点')) {
+            item.action = 2;
+            item.favor = 0;
+        } else if (item.description.includes('机械汤')) {
+            item.targetGrid = 5; // 机械汤是第6个格子，索引为5
+            item.favor = 10;
+        } else if (item.description.includes('电影院')) {
+            item.targetGrid = 24; // 电影院是第25个格子，索引为24
+            item.favor = 10;
+        } else if (item.description.includes('指定')) {
+            item.type = 'custom_move';
+        }
+        
+        parsedItems[item.name] = item;
+        
+        // 填充道具池
+        for (let j = 0; j < item.quantity; j++) {
+            newItemPool.push(item.name);
+        }
+    }
+    
+    return { items: parsedItems, itemPool: newItemPool };
+}
+
+// 道具CSV数据（直接嵌入）
+const itemCSVData = `id,道具名,涉及好感度,涉及行动点,其他功能,数量,道具描述
+1,蛋包饭,否,是,无,2,恢复3行动点
+2,咖啡,否,是,无,3,恢复2行动点
+4,洗浴券,是,否,移动,2,将棋子移动至机械汤并增加使用该道具的用户10点好感
+5,电影票,是,否,移动,2,将棋子移动至电影院并增加使用该道具的用户10点好感
+8,提灯,否,否,移动,2,可指定本回合内你希望棋子移动的步数`;
+
+// 加载道具CSV数据
+function loadItemsFromCSV() {
+    try {
+        const result = parseCSV(itemCSVData);
+        items = result.items;
+        itemPool = result.itemPool;
+        
+        // 更新游戏状态中的道具池
+        gameState.itemPool = [...itemPool];
+        
+        console.log('道具加载成功:', items);
+        return true;
+    } catch (error) {
+        console.error('加载道具失败:', error);
+        return false;
+    }
+}
 
 // 角色属性配置
 const characterAttributes = {
@@ -27,7 +94,7 @@ let gameState = {
     tokenPosition: 0,
     round: 1,
     gameStarted: false,
-    itemPool: ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡', '洗浴券', '洗浴券', '电影票', '电影票' '提灯', '提灯'] // 蛋包饭2个，咖啡3个，洗浴券2个，电影票2个，提灯2个
+    itemPool: []
 };
 
 // 地图格子配置
@@ -635,6 +702,9 @@ function initGame() {
     gameState.lastTokenPosition = -1;
     gameState.gameStarted = true;
     
+    // 重新初始化道具池
+    gameState.itemPool = [...itemPool];
+    
     // 更新UI
     updateUI();
     
@@ -1078,6 +1148,9 @@ function nextPlayer() {
 
 // 重置游戏
 function resetGame() {
+    // 重新加载道具
+    loadItemsFromCSV();
+    
     // 重置回合数
     gameState.round = 1;
     
@@ -1086,9 +1159,6 @@ function resetGame() {
     
     // 重置当前玩家
     gameState.currentPlayer = 0;
-    
-    // 重置道具池
-    gameState.itemPool = ['蛋包饭', '蛋包饭', '咖啡', '咖啡', '咖啡', '洗浴券', '洗浴券', '电影票', '电影票', '提灯', '提灯'];
     
     // 重置玩家道具
     for (let i = 0; i < 3; i++) {
@@ -1180,6 +1250,8 @@ document.getElementById('random-roles').addEventListener('click', randomRoles);
 
 // 初始化页面
 window.onload = function() {
+    // 加载道具
+    loadItemsFromCSV();
     // 初始化UI
     updateUI();
     // 初始化拖动功能
