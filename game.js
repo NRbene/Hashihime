@@ -669,8 +669,15 @@ function useItem(playerIndex, itemIndex) {
         player.action += item.action;
 
         // 增加好感度（如果有，大瓶可尔思必在特殊处理中单独处理）
-        if (item.favor > 0 && player.role !== '薰' && item.name !== '大瓶可尔思必') {
-            player.favor += item.favor;
+        if (item.favor > 0 && item.name !== '大瓶可尔思必') {
+            if (player.role !== '薰') {
+                player.favor += item.favor;
+            } else {
+                // 薰无法获得好感度，而是恢复行动点
+                const actionPoints = Math.floor(item.favor / 10);
+                player.action += actionPoints;
+                logEvent(`玩家${playerIndex + 1}（薰）获得了${actionPoints}点行动点`);
+            }
         }
 
         // 处理移动功能
@@ -866,16 +873,22 @@ function useItem(playerIndex, itemIndex) {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
-            // 增加好感度
+            // 增加好感度或恢复行动点
             if (player.role !== '薰') {
                 player.favor += 20;
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用大瓶可尔思必，增加了20点好感度`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了大瓶可尔思必，增加了20点好感度！`;
+            } else {
+                // 薰无法获得好感度，而是恢复行动点
+                const actionPoints = Math.floor(20 / 10);
+                player.action += actionPoints;
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（薰）使用大瓶可尔思必，获得了${actionPoints}点行动点`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了大瓶可尔思必，获得了${actionPoints}点行动点！`;
             }
-
-            // 记录日志
-            logEvent(`玩家${playerIndex + 1}（${player.role}）使用大瓶可尔思必，增加了20点好感度`);
-
-            // 显示消息
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了大瓶可尔思必，增加了20点好感度！`;
 
             // 更新UI
             updateUI();
@@ -1782,6 +1795,12 @@ function handleGridFunction() {
                 currentPlayer.favor += favorEffect.value;
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度`);
+            } else if (currentPlayer.role === '薰') {
+                // 薰无法获得好感度，而是恢复行动点
+                const actionPoints = Math.floor(favorEffect.value / 10);
+                currentPlayer.action += actionPoints;
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点`);
             } else {
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度！`;
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度`);
@@ -1789,8 +1808,14 @@ function handleGridFunction() {
         } else if (favorEffect.type === 'role') {
             // A类某种角色的所有玩家好感度+10
             let affectedPlayers = 0;
+            let kaoruAffected = false;
             gameState.players.forEach((player, index) => {
-                if (player.type === 'A' && player.role === favorEffect.role && player.status === 'alive') {
+                if (player.role === '薰' && player.status === 'alive') {
+                    // 薰无法获得好感度，而是恢复行动点
+                    const actionPoints = Math.floor(favorEffect.value / 10);
+                    player.action += actionPoints;
+                    kaoruAffected = true;
+                } else if (player.type === 'A' && player.role === favorEffect.role && player.status === 'alive') {
                     player.favor += favorEffect.value;
                     affectedPlayers++;
                 }
@@ -1798,6 +1823,9 @@ function handleGridFunction() {
             if (affectedPlayers > 0) {
                 elements.gameMessage.textContent = `所有${favorEffect.role}角色获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：所有${favorEffect.role}角色获得了${favorEffect.value}点好感度`);
+            } else if (kaoruAffected) {
+                elements.gameMessage.textContent = `薰获得了${Math.floor(favorEffect.value / 10)}点行动点！`;
+                logEvent(`触发效果：薰获得了${Math.floor(favorEffect.value / 10)}点行动点`);
             } else {
                 elements.gameMessage.textContent = `没有${favorEffect.role}角色在场！`;
                 logEvent(`触发效果：没有${favorEffect.role}角色在场`);
@@ -1805,8 +1833,14 @@ function handleGridFunction() {
         } else if (favorEffect.type === 'all') {
             // 全员好感度+10
             let affectedPlayers = 0;
+            let kaoruAffected = false;
             gameState.players.forEach((player, index) => {
-                if (player.type === 'A' && player.status === 'alive') {
+                if (player.role === '薰' && player.status === 'alive') {
+                    // 薰无法获得好感度，而是恢复行动点
+                    const actionPoints = Math.floor(favorEffect.value / 10);
+                    player.action += actionPoints;
+                    kaoruAffected = true;
+                } else if (player.type === 'A' && player.status === 'alive') {
                     player.favor += favorEffect.value;
                     affectedPlayers++;
                 }
@@ -1814,6 +1848,9 @@ function handleGridFunction() {
             if (affectedPlayers > 0) {
                 elements.gameMessage.textContent = `所有A类型角色获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：所有A类型角色获得了${favorEffect.value}点好感度`);
+            } else if (kaoruAffected) {
+                elements.gameMessage.textContent = `薰获得了${Math.floor(favorEffect.value / 10)}点行动点！`;
+                logEvent(`触发效果：薰获得了${Math.floor(favorEffect.value / 10)}点行动点`);
             } else {
                 elements.gameMessage.textContent = `没有A类型角色在场！`;
                 logEvent(`触发效果：没有A类型角色在场`);
