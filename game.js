@@ -647,14 +647,53 @@ function updateUI() {
 
 // 更新棋子位置
 function updateTokenPosition() {
-    const grid = document.querySelector(`.grid-${gameState.tokenPosition}`);
-    if (grid) {
-        const rect = grid.getBoundingClientRect();
-        const mapRect = document.querySelector('.map').getBoundingClientRect();
-
-        elements.token.style.top = `${rect.top - mapRect.top + 15}px`;
-        elements.token.style.left = `${rect.left - mapRect.left + 15}px`;
+    const posIndex = gameState.tokenPosition;
+    
+    // 安全校验
+    if (posIndex < 0 || posIndex >= gridConfig.length) {
+        console.error(`棋子位置索引 ${posIndex} 越界`);
+        return;
     }
+
+    const currentGridData = gridConfig[posIndex];
+    
+    // 策略：优先尝试匹配索引类名 (.grid-0)，如果失败，尝试匹配 ID 类名 (.grid-1)
+    // 这样可以兼容两种 HTML 生成方式
+    let grid = document.querySelector(`.grid-${posIndex}`);
+    
+    if (!grid && currentGridData.id !== undefined) {
+        // 如果索引类名没找到，尝试用 CSV 中的 ID 查找
+        grid = document.querySelector(`.grid-${currentGridData.id}`);
+        if (grid) {
+            console.warn(`警告：使用了 ID 类名 (.grid-${currentGridData.id}) 而非索引类名。建议统一 HTML 生成逻辑使用索引。`);
+        }
+    }
+
+    if (!grid) {
+        console.error(`严重错误：无法在 DOM 中找到位置索引 ${posIndex} (格子: ${currentGridData.name}) 对应的元素。`);
+        console.log(`请检查 HTML 中是否有 class="grid-${posIndex}" 或 class="grid-${currentGridData.id}" 的元素。`);
+        elements.gameMessage.textContent = `地图错误：找不到格子 "${currentGridData.name}"`;
+        return;
+    }
+
+    const mapContainer = document.querySelector('.map');
+    if (!mapContainer) {
+        console.error('未找到 .map 容器');
+        return;
+    }
+
+    const mapRect = mapContainer.getBoundingClientRect();
+    const rect = grid.getBoundingClientRect();
+
+    // 计算相对位置
+    const top = rect.top - mapRect.top + (rect.height / 2) - (elements.token.offsetHeight / 2);
+    const left = rect.left - mapRect.left + (rect.width / 2) - (elements.token.offsetWidth / 2);
+
+    elements.token.style.top = `${top}px`;
+    elements.token.style.left = `${left}px`;
+    elements.token.style.display = 'block';
+    
+    console.log(`棋子已移动到: ${currentGridData.name} (索引:${posIndex})`);
 }
 
 // 掷骰子
