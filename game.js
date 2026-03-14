@@ -351,6 +351,7 @@ const elements = {
     diceResult: document.getElementById('dice-result'),
     currentPlayerDisplay: document.getElementById('current-player'),
     roundCount: document.getElementById('round-count'),
+    weekCount: document.getElementById('week-count'),
     gameMessage: document.getElementById('game-message'),
     token: document.getElementById('token'),
     logContent: document.getElementById('log-content'),
@@ -458,7 +459,6 @@ function initGame() {
     // 重置游戏状态
     gameState.currentPlayer = 0;
     gameState.tokenPosition = 0;
-    gameState.lastTokenPosition = -1;
     gameState.gameStarted = true;
     gameState.gameWon = false;
     gameState.week = 1;
@@ -665,6 +665,9 @@ function updateUI() {
 
     // 更新回合数显示
     elements.roundCount.textContent = gameState.round;
+    
+    // 更新周目数显示
+    elements.weekCount.textContent = gameState.week;
 
     // 更新玩家信息和当前玩家样式
     for (let i = 0; i < 3; i++) {
@@ -806,13 +809,10 @@ function moveToken(steps) {
     // 检查是否触发停滞效果
     let canMove = true;
     let isStagnant = false;
-    if (gameState.lastTokenPosition !== -1) {
-        const lastGrid = gridConfig[gameState.lastTokenPosition];
-        if (lastGrid.isStagnant) {
-            elements.gameMessage.textContent = `棋子停留在停滞格子上，无法移动！`;
-            canMove = false;
-            isStagnant = true;
-        }
+    if (startGrid.isStagnant) {
+        elements.gameMessage.textContent = `棋子停留在停滞格子上，无法移动！`;
+        canMove = false;
+        isStagnant = true;
     }
 
     // 计算新位置
@@ -839,12 +839,12 @@ function moveToken(steps) {
 
     // 处理格子功能
     setTimeout(() => {
-        handleGridFunction(isStagnant);
+        handleGridFunction();
     }, 500);
 }
 
 // 处理格子功能
-function handleGridFunction(isStagnant) {
+function handleGridFunction() {
     const currentGrid = gridConfig[gameState.tokenPosition];
     const currentPlayer = gameState.players[gameState.currentPlayer];
 
@@ -969,6 +969,14 @@ function handleGridFunction(isStagnant) {
         logEvent(`触发效果：玩家${gameState.currentPlayer + 1}回到了起点`);
     }
     
+    // 处理停滞格子
+    if (currentGrid.isStagnant) {
+        elements.gameMessage.textContent = `棋子停留在停滞格子上，无法移动！`;
+        logEvent(`触发效果：棋子停留在停滞格子上，无法移动`);
+        // 禁用掷骰子按钮
+        elements.rollDice.disabled = true;
+    }
+    
     // 处理水坑
     if (currentGrid.types.includes('水坑')) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}进入了水坑！行动结束，周目+1！`;
@@ -985,15 +993,6 @@ function handleGridFunction(isStagnant) {
             endTurn();
         }, 1000);
         return;
-    }
-
-    // 更新lastTokenPosition
-    // 如果是停滞状态，不更新lastTokenPosition，这样下一个玩家就可以正常移动
-    if (!isStagnant) {
-        gameState.lastTokenPosition = gameState.tokenPosition;
-    } else {
-        // 结束停滞状态，将lastTokenPosition设置为-1
-        gameState.lastTokenPosition = -1;
     }
 
     // 更新UI
@@ -1014,9 +1013,15 @@ function handleGridFunction(isStagnant) {
             endTurn();
         }, 1000);
     } else {
-        // 还有行动点，重新启用掷骰子按钮
-        elements.rollDice.disabled = false;
-        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}还有${currentPlayer.action}点行动点，可以继续操作。`;
+        // 检查是否在停滞格子上
+        if (!currentGrid.isStagnant) {
+            // 不在停滞格子上，重新启用掷骰子按钮
+            elements.rollDice.disabled = false;
+            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}还有${currentPlayer.action}点行动点，可以继续操作。`;
+        } else {
+            // 在停滞格子上，保持掷骰子按钮禁用
+            elements.rollDice.disabled = true;
+        }
     }
 }
 
