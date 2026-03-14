@@ -2,7 +2,10 @@
 let items = {};
 let itemPool = [];
 
-// 解析CSV数据
+// 地图格子配置（从CSV文件中加载）
+let gridConfig = [];
+
+// 解析道具CSV数据
 function parseCSV(csvText) {
     const lines = csvText.trim().split('\n');
     const parsedItems = {};
@@ -39,6 +42,49 @@ function parseCSV(csvText) {
     }
 
     return { items: parsedItems, itemPool: newItemPool };
+}
+
+// 解析地图CSV数据
+function parseMapCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    const newGridConfig = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split('\t');
+        const grid = {
+            name: values[1],
+            id: parseInt(values[0]),
+            isSpecial: values[2] === 'true',
+            types: values[3] ? values[3].split(',') : [],
+            isStagnant: values[7] === 'true',
+            道具Effect: null
+        };
+
+        // 处理好感度效果
+        if (values[4]) {
+            grid.favorEffect = {
+                type: values[4],
+                value: parseInt(values[6])
+            };
+            if (values[5]) {
+                grid.favorEffect.role = values[5];
+            }
+        } else {
+            grid.favorEffect = null;
+        }
+
+        // 处理道具效果
+        if (values[8]) {
+            grid.道具Effect = {
+                type: values[8],
+                value: parseInt(values[9])
+            };
+        }
+
+        newGridConfig.push(grid);
+    }
+
+    return newGridConfig;
 }
 
 // 加载道具CSV数据
@@ -88,7 +134,7 @@ function loadItemsFromFile() {
     reader.readAsText(file, 'UTF-8');
 }
 
-// 尝试自动读取CSV文件
+// 尝试自动读取道具CSV文件
 async function autoLoadItemsFromCSV() {
     try {
         const response = await fetch('item.csv');
@@ -106,6 +152,74 @@ async function autoLoadItemsFromCSV() {
     } catch (error) {
         console.log('自动加载道具失败，需要手动选择:', error);
         return false;
+    }
+}
+
+// 加载地图CSV数据
+function loadMapFromCSV(csvText) {
+    try {
+        const newGridConfig = parseMapCSV(csvText);
+        gridConfig = newGridConfig;
+        console.log('地图加载成功:', gridConfig);
+        return true;
+    } catch (error) {
+        console.error('加载地图失败:', error);
+        return false;
+    }
+}
+
+// 从文件读取地图CSV数据
+function loadMapFromFile() {
+    const fileInput = document.getElementById('map-csv');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert('请先选择地图CSV文件！');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const csvText = e.target.result;
+        const success = loadMapFromCSV(csvText);
+        if (success) {
+            updateMapLoadStatus('已加载');
+        } else {
+            alert('地图加载失败，请检查CSV文件格式！');
+        }
+    };
+    reader.onerror = function () {
+        alert('读取文件失败！');
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
+// 尝试自动读取地图CSV文件
+async function autoLoadMapFromCSV() {
+    try {
+        const response = await fetch('map.csv');
+        if (!response.ok) {
+            return false;
+        }
+        const csvText = await response.text();
+        const success = loadMapFromCSV(csvText);
+        if (success) {
+            updateMapLoadStatus('已加载');
+            console.log('自动加载地图成功');
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.log('自动加载地图失败，需要手动选择:', error);
+        return false;
+    }
+}
+
+// 更新地图加载状态显示
+function updateMapLoadStatus(status) {
+    const statusElement = document.getElementById('map-load-status');
+    if (statusElement) {
+        statusElement.textContent = status;
     }
 }
 
@@ -183,529 +297,7 @@ let gameState = {
     gameWon: false
 };
 
-// 地图格子配置
-const gridConfig = [
-    // 1. 梅钵堂
-    {
-        name: '梅钵堂',
-        id: 1,
-        isSpecial: true,
-        types: ['start', 'favor'],
-        favorEffect: { type: 'all', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 2. 普通格子
-    {
-        name: '普通格子',
-        id: 2,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 3. 普通格子
-    {
-        name: '普通格子',
-        id: 3,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 4. 市营电车站
-    {
-        name: '市营电车站',
-        id: 4,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 5. 普通格子
-    {
-        name: '普通格子',
-        id: 5,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 6. 机械汤
-    {
-        name: '机械汤',
-        id: 6,
-        isSpecial: true,
-        types: ['cards', 'stagnant'],
-        favorEffect: null,
-        isStagnant: true,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 7. 普通格子
-    {
-        name: '普通格子',
-        id: 7,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 8. 大泉家
-    {
-        name: '大泉家',
-        id: 8,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '水上', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 9. 大泉家
-    {
-        name: '大泉家',
-        id: 9,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '水上', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 10. 普通格子
-    {
-        name: '普通格子',
-        id: 10,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 11. 水道桥
-    {
-        name: '水道桥',
-        id: 11,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'remove', value: 1 }
-    },
-    // 12. 市营电车站
-    {
-        name: '市营电车站',
-        id: 12,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 13. 普通格子
-    {
-        name: '普通格子',
-        id: 13,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 14. 普通格子
-    {
-        name: '普通格子',
-        id: 14,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 15. 咖啡厅
-    {
-        name: '咖啡厅',
-        id: 15,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 16. 普通格子
-    {
-        name: '普通格子',
-        id: 16,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 17. 普通格子
-    {
-        name: '普通格子',
-        id: 17,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 18. 池田宅
-    {
-        name: '池田宅',
-        id: 18,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '川濑', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 19. 池田宅
-    {
-        name: '池田宅',
-        id: 19,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '川濑', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 20. 池田宅
-    {
-        name: '池田宅',
-        id: 20,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '川濑', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 21. 水洼
-    {
-        name: '水洼',
-        id: 21,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 22. 普通格子
-    {
-        name: '普通格子',
-        id: 22,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 23. 普通格子
-    {
-        name: '普通格子',
-        id: 23,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 24. 普通格子
-    {
-        name: '普通格子',
-        id: 24,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 25. 电影院
-    {
-        name: '电影院',
-        id: 25,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 26. 普通格子
-    {
-        name: '普通格子',
-        id: 26,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 27. 十二阶
-    {
-        name: '十二阶',
-        id: 27,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'player', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 28. 普通格子
-    {
-        name: '普通格子',
-        id: 28,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 29. 水洼
-    {
-        name: '水洼',
-        id: 29,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 30. 市营电车站
-    {
-        name: '市营电车站',
-        id: 30,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 31. 帝国大学
-    {
-        name: '帝国大学',
-        id: 31,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'player', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 32. 帝国大学
-    {
-        name: '帝国大学',
-        id: 32,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'player', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 33. 帝国大学
-    {
-        name: '帝国大学',
-        id: 33,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'player', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 34. 帝国大学
-    {
-        name: '帝国大学',
-        id: 34,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'player', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 35. 帝国大学
-    {
-        name: '帝国大学',
-        id: 35,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'player', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 36. 帝国大学
-    {
-        name: '帝国大学',
-        id: 36,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'player', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 37. 普通格子
-    {
-        name: '普通格子',
-        id: 37,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 38. 市营电车站
-    {
-        name: '市营电车站',
-        id: 38,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 39. 花泽家
-    {
-        name: '花泽家',
-        id: 39,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '花泽', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 40. 普通格子
-    {
-        name: '普通格子',
-        id: 40,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 41. 冰川宅
-    {
-        name: '冰川宅',
-        id: 41,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '博士', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 42. 冰川宅
-    {
-        name: '冰川宅',
-        id: 42,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '博士', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 43. 冰川宅
-    {
-        name: '冰川宅',
-        id: 43,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '博士', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 44. 冰川宅
-    {
-        name: '冰川宅',
-        id: 44,
-        isSpecial: true,
-        types: ['favor'],
-        favorEffect: { type: 'role', role: '博士', value: 10 },
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 45. 水洼
-    {
-        name: '水洼',
-        id: 45,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 46. 吾妻桥
-    {
-        name: '吾妻桥',
-        id: 46,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    },
-    // 47. 普通格子
-    {
-        name: '普通格子',
-        id: 47,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 48. 普通格子
-    {
-        name: '普通格子',
-        id: 48,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 49. 普通格子
-    {
-        name: '普通格子',
-        id: 49,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 50. 普通格子
-    {
-        name: '普通格子',
-        id: 50,
-        isSpecial: false,
-        types: [],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: null
-    },
-    // 51. 三千堂
-    {
-        name: '三千堂',
-        id: 51,
-        isSpecial: true,
-        types: ['stagnant'],
-        favorEffect: null,
-        isStagnant: true,
-        道具Effect: null
-    },
-    // 52. 水洼
-    {
-        name: '水洼',
-        id: 52,
-        isSpecial: true,
-        types: ['cards'],
-        favorEffect: null,
-        isStagnant: false,
-        道具Effect: { type: 'add', value: 1 }
-    }
-];
+
 
 // DOM元素
 const elements = {
@@ -753,6 +345,12 @@ function initGame() {
         alert('请先加载道具CSV文件！');
         return;
     }
+    
+    // 检查地图是否已加载
+    if (gridConfig.length === 0) {
+        alert('请先加载地图CSV文件！');
+        return;
+    }
 
     // 获取玩家角色设置
     const player1Role = elements.player1Role.value;
@@ -769,7 +367,7 @@ function initGame() {
         status: 'alive',
         action: characterAttributes[player1Role].action
     };
-    
+
     gameState.players[1] = {
         type: characterAttributes[player2Role].type,
         role: player2Role,
@@ -778,9 +376,9 @@ function initGame() {
         favor: characterAttributes[player2Role].initialFavor,
         status: 'alive',
         action: characterAttributes[player2Role].action
-        
+
     };
-    
+
     gameState.players[2] = {
         type: characterAttributes[player3Role].type,
         role: player3Role,
@@ -992,11 +590,11 @@ function updateUI() {
         elements[`player${i + 1}RoleDisplay`].textContent = player.role;
         // elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
         // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
-const currentAction = (player.action !== undefined && player.action !== null) 
-    ? player.action 
-    : characterAttributes[player.role].action;
+        const currentAction = (player.action !== undefined && player.action !== null)
+            ? player.action
+            : characterAttributes[player.role].action;
 
-elements[`player${i + 1}Action`].textContent = currentAction;
+        elements[`player${i + 1}Action`].textContent = currentAction;
 
         elements[`player${i + 1}Cards`].textContent = player.cards;
         elements[`player${i + 1}Favor`].textContent = player.favor;
@@ -1525,12 +1123,25 @@ window.onload = async function () {
 
     // 添加加载道具按钮的事件监听器
     document.getElementById('load-items').addEventListener('click', loadItemsFromFile);
+    
+    // 添加加载地图按钮的事件监听器
+    const mapLoadButton = document.getElementById('load-map');
+    if (mapLoadButton) {
+        mapLoadButton.addEventListener('click', loadMapFromFile);
+    }
 
     // 尝试自动加载道具
     updateItemLoadStatus('加载中...');
-    const loaded = await autoLoadItemsFromCSV();
-    if (!loaded) {
+    const loadedItems = await autoLoadItemsFromCSV();
+    if (!loadedItems) {
         updateItemLoadStatus('未加载，请选择文件');
+    }
+    
+    // 尝试自动加载地图
+    updateMapLoadStatus('加载中...');
+    const loadedMap = await autoLoadMapFromCSV();
+    if (!loadedMap) {
+        updateMapLoadStatus('未加载，请选择文件');
     }
 };
 

@@ -1,0 +1,53 @@
+id	name	isSpecial	types	favorEffectType	favorEffectRole	favorEffectValue	isStagnant	道具EffectType	道具EffectValue
+1	梅钵堂	true	start,favor	all		10	false		
+2	普通格子	false					false		
+3	普通格子	false					false		
+4	市营电车站	true	cards				false	add	1
+5	普通格子	false					false		
+6	机械汤	true	cards,stagnant				true	add	1
+7	普通格子	false					false		
+8	大泉家	true	favor	role	水上	10	false		
+9	大泉家	true	favor	role	水上	10	false		
+10	普通格子	false					false		
+11	水道桥	true	cards				false	remove	1
+12	市营电车站	true	cards				false	add	1
+13	普通格子	false					false		
+14	普通格子	false					false		
+15	咖啡厅	true	cards				false	add	1
+16	普通格子	false					false		
+17	普通格子	false					false		
+18	池田宅	true	favor	role	川濑	10	false		
+19	池田宅	true	favor	role	川濑	10	false		
+20	池田宅	true	favor	role	川濑	10	false		
+21	水洼	true	cards				false	add	1
+22	普通格子	false					false		
+23	普通格子	false					false		
+24	普通格子	false					false		
+25	电影院	true	cards				false	add	1
+26	普通格子	false					false		
+27	十二阶	true	favor	player		10	false		
+28	普通格子	false					false		
+29	水洼	true	cards				false	add	1
+30	市营电车站	true	cards				false	add	1
+31	帝国大学	true	favor	player		10	false		
+32	帝国大学	true	favor	player		10	false		
+33	帝国大学	true	favor	player		10	false		
+34	帝国大学	true	favor	player		10	false		
+35	帝国大学	true	favor	player		10	false		
+36	帝国大学	true	favor	player		10	false		
+37	普通格子	false					false		
+38	市营电车站	true	cards				false	add	1
+39	花泽家	true	favor	role	花泽	10	false		
+40	普通格子	false					false		
+41	冰川宅	true	favor	role	博士	10	false		
+42	冰川宅	true	favor	role	博士	10	false		
+43	冰川宅	true	favor	role	博士	10	false		
+44	冰川宅	true	favor	role	博士	10	false		
+45	水洼	true	cards				false	add	1
+46	吾妻桥	true	cards				false	add	1
+47	普通格子	false					false		
+48	普通格子	false					false		
+49	普通格子	false					false		
+50	普通格子	false					false		
+51	三千堂	true	stagnant				true		
+52	水洼	true	cards				false	add	1
