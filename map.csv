@@ -47,7 +47,7 @@ id	name	isSpecial	types	favorEffectType	favorEffectRole	favorEffectValue	isStagn
 46	吾妻桥	true	cards				false	add	1
 47	普通格子	false					false		
 48	普通格子	false					false		
-49	普通格子	false					false		
-50	普通格子	false					false		
+49	三千堂	true	stagnant				true		
+50	三千堂	true	stagnant				true		
 51	三千堂	true	stagnant				true		
 52	水洼	true	水坑, cards				false	add	1
