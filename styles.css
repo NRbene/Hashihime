@@ -30,32 +30,57 @@ body {
     background-color: #f9f9f9;
     border: 1px solid #ddd;
     border-radius: 8px;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .game-log-header {
-    padding: 10px;
+    padding: 0;
     background-color: #e9e9e9;
     border-bottom: 1px solid #ddd;
     cursor: move;
     user-select: none;
 }
 
-.game-log-header h3 {
-    margin: 0;
-    color: #333;
+.log-tabs {
+    display: flex;
+}
+
+.log-tab {
+    flex: 1;
+    padding: 10px;
     text-align: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    border-right: 1px solid #ddd;
+}
+
+.log-tab:last-child {
+    border-right: none;
+}
+
+.log-tab:hover {
+    background-color: #d9d9d9;
+}
+
+.log-tab.active {
+    background-color: #2196F3;
+    color: white;
+}
+
+.log-content-container {
+    height: calc(100% - 40px);
+    overflow-y: auto;
 }
 
 .log-content {
     padding: 10px;
     font-size: 14px;
     line-height: 1.4;
+    display: none;
 }
 
-.log-content {
-    font-size: 14px;
-    line-height: 1.4;
+.log-content.active {
+    display: block;
 }
 
 .log-content p {
@@ -188,6 +213,27 @@ h2 {
     background-color: #e0e0e0;
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+/* 道具池样式 */
+.item-pool-item {
+    padding: 8px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.item-pool-item .item-name {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.item-pool-item .item-info {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
 }
 
 /* 地图 */

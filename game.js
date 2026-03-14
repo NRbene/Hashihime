@@ -51,6 +51,9 @@ function loadItemsFromCSV(csvText) {
         // 更新游戏状态中的道具池
         gameState.itemPool = [...itemPool];
         
+        // 更新道具池显示
+        updateItemPoolDisplay();
+        
         console.log('道具加载成功:', items);
         return true;
     } catch (error) {
@@ -75,6 +78,7 @@ function loadItemsFromFile() {
         const success = loadItemsFromCSV(csvText);
         if (success) {
             alert('道具加载成功！');
+            updateItemLoadStatus('已加载');
         } else {
             alert('道具加载失败，请检查CSV文件格式！');
         }
@@ -83,6 +87,77 @@ function loadItemsFromFile() {
         alert('读取文件失败！');
     };
     reader.readAsText(file, 'UTF-8');
+}
+
+// 尝试自动读取CSV文件
+async function autoLoadItemsFromCSV() {
+    try {
+        const response = await fetch('item.csv');
+        if (!response.ok) {
+            return false;
+        }
+        const csvText = await response.text();
+        const success = loadItemsFromCSV(csvText);
+        if (success) {
+            updateItemLoadStatus('已加载');
+            console.log('自动加载道具成功');
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.log('自动加载道具失败，需要手动选择:', error);
+        return false;
+    }
+}
+
+// 更新道具加载状态显示
+function updateItemLoadStatus(status) {
+    const statusElement = document.getElementById('item-load-status');
+    if (statusElement) {
+        statusElement.textContent = status;
+    }
+}
+
+// 更新道具池显示
+function updateItemPoolDisplay() {
+    const itemPoolContent = document.getElementById('item-pool-content');
+    if (!itemPoolContent) return;
+    
+    // 清空内容
+    itemPoolContent.innerHTML = '';
+    
+    // 统计道具数量
+    const itemCount = {};
+    gameState.itemPool.forEach(itemName => {
+        if (itemCount[itemName]) {
+            itemCount[itemName]++;
+        } else {
+            itemCount[itemName] = 1;
+        }
+    });
+    
+    // 显示道具池内容
+    if (Object.keys(itemCount).length === 0) {
+        itemPoolContent.innerHTML = '<p style="text-align: center; color: #666;">道具池已空</p>';
+        return;
+    }
+    
+    // 遍历道具并显示
+    Object.keys(itemCount).forEach(itemName => {
+        const item = items[itemName];
+        if (item) {
+            const itemElement = document.createElement('div');
+            itemElement.className = 'item-pool-item';
+            itemElement.innerHTML = `
+                <div class="item-name">${item.name}</div>
+                <div class="item-info">数量: ${itemCount[itemName]}</div>
+                <div class="item-info">描述: ${item.description}</div>
+                ${item.favor > 0 ? `<div class="item-info">好感度: +${item.favor}</div>` : ''}
+                ${item.action > 0 ? `<div class="item-info">行动点: +${item.action}</div>` : ''}
+            `;
+            itemPoolContent.appendChild(itemElement);
+        }
+    });
 }
 
 // 角色属性配置
@@ -673,6 +748,12 @@ const elements = {
 
 // 初始化游戏
 function initGame() {
+    // 检查道具是否已加载
+    if (Object.keys(items).length === 0) {
+        alert('请先加载道具CSV文件！');
+        return;
+    }
+    
     // 获取玩家角色设置
     const player1Role = elements.player1Role.value;
     const player2Role = elements.player2Role.value;
@@ -1032,6 +1113,9 @@ function handleGridFunction(isStagnant) {
                     currentPlayer.items.push(item);
                     currentPlayer.cards = newCardsCount;
                     
+                    // 更新道具池显示
+                    updateItemPoolDisplay();
+                    
                     elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${item.name}！${item.description}`;
                     logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${item.name}（${item.description}）`);
                 } else {
@@ -1158,7 +1242,14 @@ function nextPlayer() {
 }
 
 // 重置游戏
-function resetGame() {
+async function resetGame() {
+    // 尝试重新加载道具
+    updateItemLoadStatus('重新加载中...');
+    const loaded = await autoLoadItemsFromCSV();
+    if (!loaded) {
+        updateItemLoadStatus('未加载，请选择文件');
+    }
+    
     // 重置回合数
     gameState.round = 1;
     
@@ -1178,11 +1269,14 @@ function resetGame() {
     updateUI();
     
     // 显示重置消息
-    elements.gameMessage.textContent = '游戏已重置！玩家1开始新的回合。如果需要重新加载道具，请使用"加载道具"按钮。';
-    
-    // 记录重置日志
-    logEvent('游戏已重置，开始新的游戏');
-    logEvent('如果需要重新加载道具，请使用"加载道具"按钮');
+    if (Object.keys(items).length > 0) {
+        elements.gameMessage.textContent = '游戏已重置！玩家1开始新的回合。';
+        logEvent('游戏已重置，开始新的游戏');
+    } else {
+        elements.gameMessage.textContent = '游戏已重置！玩家1开始新的回合。如果需要重新加载道具，请使用"加载道具"按钮。';
+        logEvent('游戏已重置，开始新的游戏');
+        logEvent('如果需要重新加载道具，请使用"加载道具"按钮');
+    }
     
     // 启用掷骰子按钮
     elements.rollDice.disabled = false;
@@ -1254,11 +1348,13 @@ function randomRoles() {
 // 事件监听器
 elements.startGame.addEventListener('click', initGame);
 elements.rollDice.addEventListener('click', rollDice);
-elements.resetGame.addEventListener('click', resetGame);
+elements.resetGame.addEventListener('click', async () => {
+    await resetGame();
+});
 document.getElementById('random-roles').addEventListener('click', randomRoles);
 
 // 初始化页面
-window.onload = function() {
+window.onload = async function() {
     // 初始化UI
     updateUI();
     // 初始化拖动功能
@@ -1266,4 +1362,38 @@ window.onload = function() {
     
     // 添加加载道具按钮的事件监听器
     document.getElementById('load-items').addEventListener('click', loadItemsFromFile);
+    
+    // 尝试自动加载道具
+    updateItemLoadStatus('加载中...');
+    const loaded = await autoLoadItemsFromCSV();
+    if (!loaded) {
+        updateItemLoadStatus('未加载，请选择文件');
+    }
+    
+    // 添加tab切换逻辑
+    initLogTabs();
 };
+
+// 初始化日志栏tab切换
+function initLogTabs() {
+    const tabs = document.querySelectorAll('.log-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function(e) {
+            // 阻止事件冒泡，防止触发拖动
+            e.stopPropagation();
+            
+            // 移除所有tab的active类
+            tabs.forEach(t => t.classList.remove('active'));
+            // 添加当前tab的active类
+            this.classList.add('active');
+            
+            // 隐藏所有内容
+            const contents = document.querySelectorAll('.log-content');
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // 显示对应内容
+            const tabId = this.dataset.tab;
+            document.getElementById(tabId + '-content').classList.add('active');
+        });
+    });
+}
