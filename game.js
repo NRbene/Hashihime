@@ -990,7 +990,14 @@ function updateUI() {
         const player = gameState.players[i];
         elements[`player${i + 1}TypeDisplay`].textContent = player.type;
         elements[`player${i + 1}RoleDisplay`].textContent = player.role;
-        elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
+        // elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
+        // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
+const currentAction = (player.action !== undefined && player.action !== null) 
+    ? player.action 
+    : characterAttributes[player.role].action;
+
+elements[`player${i + 1}Action`].textContent = currentAction;
+
         elements[`player${i + 1}Cards`].textContent = player.cards;
         elements[`player${i + 1}Favor`].textContent = player.favor;
         elements[`player${i + 1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
