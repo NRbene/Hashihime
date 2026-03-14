@@ -33,6 +33,11 @@ function parseCSV(csvText) {
                 item.type = 'custom_move';
             }
         }
+        
+        // 处理玉森的原稿道具
+        if (values[8] === '可从除川濑外的其他角色手中强制夺走任意一张道具手牌') {
+            item.type = 'steal';
+        }
 
         parsedItems[item.name] = item;
 
@@ -486,28 +491,31 @@ function initGame() {
         player.action = characterAttributes[player.role].action;
     }
 
-    // 游戏开始时，为第一个玩家摸一张道具卡（如果手牌未达到上限）
-    const firstPlayer = gameState.players[0];
+    // 游戏开始时，为所有玩家依次随机抽取能够拥有的最大道具数量的道具
     let startMessage = '游戏开始！玩家1先开始掷骰子。';
-    const maxCards = characterAttributes[firstPlayer.role].maxCards;
-    if (firstPlayer.cards < maxCards && gameState.itemPool.length > 0) {
-        const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
-        const itemName = gameState.itemPool[randomIndex];
-        const item = items[itemName];
+    for (let i = 0; i < playerCount; i++) {
+        const player = gameState.players[i];
+        const maxCards = characterAttributes[player.role].maxCards;
+        
+        // 为玩家抽取最大数量的道具
+        while (player.cards < maxCards && gameState.itemPool.length > 0) {
+            const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+            const itemName = gameState.itemPool[randomIndex];
+            const item = items[itemName];
 
-        // 从道具池中移除该道具
-        gameState.itemPool.splice(randomIndex, 1);
+            // 从道具池中移除该道具
+            gameState.itemPool.splice(randomIndex, 1);
 
-        // 添加道具到玩家的道具数组
-        firstPlayer.items.push(item);
-        firstPlayer.cards++;
+            // 添加道具到玩家的道具数组
+            player.items.push(item);
+            player.cards++;
 
-        startMessage = `游戏开始！玩家1先开始掷骰子。获得道具${item.name}。`;
-        logEvent(`玩家1（${firstPlayer.role}）游戏开始，获得道具${item.name}`);
-
-        // 更新道具池显示
-        updateItemPoolDisplay();
+            logEvent(`玩家${i + 1}（${player.role}）游戏开始，获得道具${item.name}`);
+        }
     }
+
+    // 更新道具池显示
+    updateItemPoolDisplay();
 
     // 更新UI
     updateUI();
@@ -629,53 +637,204 @@ function useItem(playerIndex, itemIndex) {
 
             // 记录移动日志
             logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动了${steps}步到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
+        } else if (item.type === 'steal') {
+            // 处理玉森的原稿道具，从其他角色手中抢夺道具
+            // 过滤出除川濑外的其他存活玩家
+            const availablePlayers = [];
+            gameState.players.forEach((targetPlayer, targetIndex) => {
+                if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.role !== '川濑' && targetPlayer.items.length > 0) {
+                    availablePlayers.push(targetIndex);
+                }
+            });
+
+            if (availablePlayers.length === 0) {
+                elements.gameMessage.textContent = '没有可抢夺的目标！';
+                logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用${item.name}，但没有可抢夺的目标`);
+                // 恢复行动点
+                player.action++;
+                return;
+            }
+
+            // 构建选择界面
+            let stealOptions = '';
+            availablePlayers.forEach(targetIndex => {
+                const targetPlayer = gameState.players[targetIndex];
+                stealOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+                targetPlayer.items.forEach((targetItem, itemIndex) => {
+                    stealOptions += `<div class="steal-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
+                });
+            });
+
+            // 创建弹出框
+            const stealDialog = document.createElement('div');
+            stealDialog.className = 'steal-dialog';
+            stealDialog.innerHTML = `
+                <div class="steal-dialog-content">
+                    <h3>选择要抢夺的道具：</h3>
+                    <div class="steal-options">${stealOptions}</div>
+                    <button class="cancel-steal">取消</button>
+                </div>
+            `;
+            document.body.appendChild(stealDialog);
+
+            // 添加样式
+            const style = document.createElement('style');
+            style.textContent = `
+                .steal-dialog {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 10000;
+                }
+                .steal-dialog-content {
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 5px;
+                    width: 80%;
+                    max-width: 600px;
+                    max-height: 80%;
+                    overflow-y: auto;
+                }
+                .steal-item {
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    margin: 5px 0;
+                    cursor: pointer;
+                }
+                .steal-item:hover {
+                    background-color: #f0f0f0;
+                }
+                .cancel-steal {
+                    margin-top: 20px;
+                    padding: 10px;
+                    background-color: #ccc;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // 处理道具选择
+            const stealItems = stealDialog.querySelectorAll('.steal-item');
+            stealItems.forEach(itemElement => {
+                itemElement.addEventListener('click', () => {
+                    const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
+                    const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
+                    
+                    // 抢夺道具
+                    const targetPlayer = gameState.players[targetPlayerIndex];
+                    const stolenItem = targetPlayer.items[targetItemIndex];
+                    
+                    // 从目标玩家手中移除道具
+                    targetPlayer.items.splice(targetItemIndex, 1);
+                    targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                    
+                    // 添加到当前玩家手中
+                    player.items.push(stolenItem);
+                    player.cards++;
+                    
+                    // 从当前玩家的道具栏中移除玉森的原稿（一次性道具）
+                    player.items.splice(itemIndex, 1);
+                    player.cards = Math.max(0, player.cards - 1);
+                    
+                    // 记录日志
+                    logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}`);
+                    
+                    // 关闭对话框
+                    document.body.removeChild(stealDialog);
+                    document.head.removeChild(style);
+                    
+                    // 显示消息
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}！`;
+                    
+                    // 更新UI
+                    updateUI();
+                    
+                    // 检查行动点是否为0，如果是则自动结束行动
+                    if (player.action <= 0) {
+                        setTimeout(() => {
+                            elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                            logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                            endTurn();
+                        }, 1000);
+                    } else {
+                        // 检查是否在停滞格子上
+                        const currentGrid = gridConfig[gameState.tokenPosition];
+                        if (!currentGrid.isStagnant) {
+                            // 不在停滞格子上，重新启用掷骰子按钮
+                            elements.rollDice.disabled = false;
+                        } else {
+                            // 在停滞格子上，保持掷骰子按钮禁用
+                            elements.rollDice.disabled = true;
+                        }
+                    }
+                });
+            });
+
+            // 处理取消按钮
+            const cancelButton = stealDialog.querySelector('.cancel-steal');
+            cancelButton.addEventListener('click', () => {
+                document.body.removeChild(stealDialog);
+                document.head.removeChild(style);
+                // 恢复行动点
+                player.action++;
+            });
         }
 
-        // 从道具列表中移除
-        player.items.splice(itemIndex, 1);
-        player.cards = Math.max(0, player.cards - 1);
+        // 从道具列表中移除（玉森的原稿已在抢夺逻辑中处理）
+        if (item.type !== 'steal') {
+            player.items.splice(itemIndex, 1);
+            player.cards = Math.max(0, player.cards - 1);
 
-        // 显示消息
-        let message = `玩家${playerIndex + 1}使用了${item.name}`;
-        if (item.action > 0) {
-            message += `，恢复了${item.action}点行动点`;
-        }
-        if (item.favor > 0 && player.role !== '薰') {
-            message += `，增加了${item.favor}点好感度`;
-        }
-        if (item.targetGrid !== undefined) {
-            const targetGrid = gridConfig[item.targetGrid];
-            message += `，移动到${targetGrid.id}.${targetGrid.name}`;
-        }
-        message += '！';
-        elements.gameMessage.textContent = message;
-        logEvent(message);
+            // 显示消息
+            let message = `玩家${playerIndex + 1}使用了${item.name}`;
+            if (item.action > 0) {
+                message += `，恢复了${item.action}点行动点`;
+            }
+            if (item.favor > 0 && player.role !== '薰') {
+                message += `，增加了${item.favor}点好感度`;
+            }
+            if (item.targetGrid !== undefined) {
+                const targetGrid = gridConfig[item.targetGrid];
+                message += `，移动到${targetGrid.id}.${targetGrid.name}`;
+            }
+            message += '！';
+            elements.gameMessage.textContent = message;
+            logEvent(message);
 
-        // 处理新位置的格子功能
-        if (item.targetGrid !== undefined || item.type === 'custom_move') {
-            setTimeout(() => {
-                handleGridFunction();
-            }, 500);
-        } else {
-            // 更新UI
-            updateUI();
-
-            // 检查行动点是否为0，如果是则自动结束行动
-            if (player.action <= 0) {
+            // 处理新位置的格子功能
+            if (item.targetGrid !== undefined || item.type === 'custom_move') {
                 setTimeout(() => {
-                    elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                    logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                    endTurn();
-                }, 1000);
+                    handleGridFunction();
+                }, 500);
             } else {
-                // 检查是否在停滞格子上
-                const currentGrid = gridConfig[gameState.tokenPosition];
-                if (!currentGrid.isStagnant) {
-                    // 不在停滞格子上，重新启用掷骰子按钮
-                    elements.rollDice.disabled = false;
+                // 更新UI
+                updateUI();
+
+                // 检查行动点是否为0，如果是则自动结束行动
+                if (player.action <= 0) {
+                    setTimeout(() => {
+                        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                        logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                        endTurn();
+                    }, 1000);
                 } else {
-                    // 在停滞格子上，保持掷骰子按钮禁用
-                    elements.rollDice.disabled = true;
+                    // 检查是否在停滞格子上
+                    const currentGrid = gridConfig[gameState.tokenPosition];
+                    if (!currentGrid.isStagnant) {
+                        // 不在停滞格子上，重新启用掷骰子按钮
+                        elements.rollDice.disabled = false;
+                    } else {
+                        // 在停滞格子上，保持掷骰子按钮禁用
+                        elements.rollDice.disabled = true;
+                    }
                 }
             }
         }
