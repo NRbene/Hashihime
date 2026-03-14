@@ -155,12 +155,48 @@ async function autoLoadItemsFromCSV() {
     }
 }
 
+// 生成地图格子
+function generateMapGrid() {
+    const mapContainer = document.getElementById('game-map');
+    if (!mapContainer) return;
+    
+    // 清空现有格子
+    const existingGrids = mapContainer.querySelectorAll('.grid');
+    existingGrids.forEach(grid => grid.remove());
+    
+    // 遍历格子配置并生成格子
+    gridConfig.forEach((grid, index) => {
+        const gridElement = document.createElement('div');
+        gridElement.className = `grid grid-${index}`;
+        gridElement.textContent = `${grid.id}. ${grid.name}`;
+        
+        // 根据格子类型设置样式
+        if (grid.types.includes('start')) {
+            gridElement.classList.add('grid-start');
+        } else if (grid.types.includes('favor')) {
+            gridElement.classList.add('grid-favor');
+        } else if (grid.types.includes('cards')) {
+            gridElement.classList.add('grid-cards');
+        } else if (grid.types.includes('stagnant')) {
+            gridElement.classList.add('grid-stagnant');
+        } else if (grid.types.includes('水坑')) {
+            gridElement.classList.add('grid-water');
+        }
+        
+        mapContainer.appendChild(gridElement);
+    });
+}
+
 // 加载地图CSV数据
 function loadMapFromCSV(csvText) {
     try {
         const newGridConfig = parseMapCSV(csvText);
         gridConfig = newGridConfig;
         console.log('地图加载成功:', gridConfig);
+        
+        // 生成地图格子
+        generateMapGrid();
+        
         return true;
     } catch (error) {
         console.error('加载地图失败:', error);
@@ -295,7 +331,9 @@ let gameState = {
     gameStarted: false,
     itemPool: [],
     gameWon: false,
-    history: []
+    history: [],
+    week: 1,
+    reverseDirection: false
 };
 
 
@@ -352,7 +390,9 @@ function saveGameState() {
         round: gameState.round,
         gameStarted: gameState.gameStarted,
         itemPool: [...gameState.itemPool],
-        gameWon: gameState.gameWon
+        gameWon: gameState.gameWon,
+        week: gameState.week,
+        reverseDirection: gameState.reverseDirection
     };
     gameState.history.push(stateCopy);
     // 限制历史记录长度，只保留最近10个状态
@@ -421,6 +461,14 @@ function initGame() {
     gameState.lastTokenPosition = -1;
     gameState.gameStarted = true;
     gameState.gameWon = false;
+    gameState.week = 1;
+    gameState.reverseDirection = false;
+    
+    // 确保棋子位置正确更新
+    updateTokenPosition();
+    
+    // 生成地图格子
+    generateMapGrid();
 
     // 重新初始化道具池
     gameState.itemPool = [...itemPool];
@@ -559,12 +607,18 @@ function useItem(playerIndex, itemIndex) {
             // 移动棋子
             const oldPosition = gameState.tokenPosition;
             const oldGrid = gridConfig[oldPosition];
-            gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
+            if (gameState.reverseDirection) {
+                // 逆转方向移动
+                gameState.tokenPosition = (gameState.tokenPosition - steps + 52) % 52;
+            } else {
+                // 正常方向移动
+                gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
+            }
             const newGrid = gridConfig[gameState.tokenPosition];
             updateTokenPosition();
 
             // 记录移动日志
-            logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动了${steps}步到${newGrid.id}.${newGrid.name}`);
+            logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动了${steps}步到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
         }
 
         // 从道具列表中移除
@@ -763,7 +817,13 @@ function moveToken(steps) {
 
     // 计算新位置
     if (canMove) {
-        gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
+        if (gameState.reverseDirection) {
+            // 逆转方向移动
+            gameState.tokenPosition = (gameState.tokenPosition - steps + 52) % 52;
+        } else {
+            // 正常方向移动
+            gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
+        }
         // 更新棋子位置
         updateTokenPosition();
 
@@ -771,7 +831,7 @@ function moveToken(steps) {
         const endGrid = gridConfig[endPosition];
 
         // 记录移动日志
-        logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，从${startGrid.id}.${startGrid.name}移动到${endGrid.id}.${endGrid.name}`);
+        logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，从${startGrid.id}.${startGrid.name}移动到${endGrid.id}.${endGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
     } else {
         // 记录停滞日志
         logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，但因停滞效果无法移动`);
@@ -907,6 +967,24 @@ function handleGridFunction(isStagnant) {
     if (currentGrid.types.includes('start')) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}回到了起点！`;
         logEvent(`触发效果：玩家${gameState.currentPlayer + 1}回到了起点`);
+    }
+    
+    // 处理水坑
+    if (currentGrid.types.includes('水坑')) {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}进入了水坑！行动结束，周目+1！`;
+        logEvent(`触发效果：玩家${gameState.currentPlayer + 1}进入了水坑，行动结束`);
+        
+        // 增加周目
+        gameState.week++;
+        // 切换移动方向
+        gameState.reverseDirection = !gameState.reverseDirection;
+        logEvent(`周目更新：第${gameState.week}周目，移动方向${gameState.reverseDirection ? '逆转' : '正常'}`);
+        
+        // 结束行动
+        setTimeout(() => {
+            endTurn();
+        }, 1000);
+        return;
     }
 
     // 更新lastTokenPosition
@@ -1086,6 +1164,10 @@ async function resetGame() {
 
     // 重置当前玩家
     gameState.currentPlayer = 0;
+    
+    // 重置周目和移动方向
+    gameState.week = 1;
+    gameState.reverseDirection = false;
 
     // 重置玩家道具
     for (let i = 0; i < 3; i++) {
@@ -1191,6 +1273,8 @@ function undoAction() {
         gameState.gameStarted = previousState.gameStarted;
         gameState.itemPool = previousState.itemPool;
         gameState.gameWon = previousState.gameWon;
+        gameState.week = previousState.week;
+        gameState.reverseDirection = previousState.reverseDirection;
 
         // 更新UI
         updateUI();

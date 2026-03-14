@@ -321,27 +321,34 @@ h2 {
 }
 
 /* 起点格子 */
-.grid-0 {
+.grid-start {
     background-color: #4CAF50;
     color: white;
 }
 
 /* 好感格子 */
-.grid-7, .grid-8, .grid-17, .grid-18, .grid-19, .grid-26, .grid-30, .grid-31, .grid-32, .grid-33, .grid-34, .grid-35, .grid-38, .grid-40, .grid-41, .grid-42, .grid-43 {
+.grid-favor {
     background-color: #2196F3;
     color: white;
 }
 
 /* 道具格子 */
-.grid-3, .grid-10, .grid-11, .grid-14, .grid-20, .grid-24, .grid-28, .grid-29, .grid-37, .grid-44, .grid-45, .grid-51 {
+.grid-cards {
     background-color: #FF9800;
     color: white;
 }
 
 /* 停滞格子（优先级高于道具格子） */
-.grid-5, .grid-50 {
+.grid-stagnant {
     background-color: #f44336 !important;
     color: white !important;
+}
+
+/* 水坑格子 */
+.grid-water {
+    background-color: #2196F3;
+    color: white;
+    border: 2px solid #03a9f4;
 }
 
 .token {
