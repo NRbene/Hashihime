@@ -6,7 +6,7 @@ let itemPool = [];
 let gridConfig = [];
 
 // 解析道具CSV数据
-function parseCSV(csvText) {
+function parseItemCSV(csvText) {
     const lines = csvText.trim().split('\n');
     const parsedItems = {};
     const newItemPool = [];
@@ -108,7 +108,7 @@ function parseMapCSV(csvText) {
 // 加载道具CSV数据
 function loadItemsFromCSV(csvText) {
     try {
-        const result = parseCSV(csvText);
+        const result = parseItemCSV(csvText);
         items = result.items;
         itemPool = result.itemPool;
 
@@ -150,6 +150,61 @@ function loadItemsFromFile() {
         alert('读取文件失败！');
     };
     reader.readAsText(file, 'UTF-8');
+}
+
+// 解析角色CSV数据
+function parseRoleCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    const characterAttributesData = {};
+
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        const role = {
+            type: values[1],
+            action: parseInt(values[2]),
+            maxCards: parseInt(values[3]),
+            initialFavor: parseInt(values[4])
+        };
+
+        characterAttributesData[values[0]] = role;
+    }
+
+    return characterAttributesData;
+}
+
+// 加载角色CSV数据
+function loadRolesFromCSV(csvText) {
+    try {
+        const characterAttributesData = parseRoleCSV(csvText);
+        characterAttributes = characterAttributesData;
+        console.log('角色配置加载成功:', characterAttributes);
+        return true;
+    } catch (error) {
+        console.error('加载角色配置失败:', error);
+        return false;
+    }
+}
+
+// 尝试自动读取角色CSV文件
+async function autoLoadRolesFromCSV() {
+    try {
+        const response = await fetch('role.csv');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const csvText = await response.text();
+        const success = loadRolesFromCSV(csvText);
+        if (success) {
+            console.log('自动加载角色配置成功');
+            return true;
+        } else {
+            console.log('自动加载角色配置失败');
+            return false;
+        }
+    } catch (error) {
+        console.log('自动加载角色配置失败:', error);
+        return false;
+    }
 }
 
 // 尝试自动读取道具CSV文件
@@ -328,7 +383,7 @@ function updateItemPoolDisplay() {
 }
 
 // 角色属性配置
-const characterAttributes = {
+let characterAttributes = {
     '水上': { type: 'A', action: 3, maxCards: 4, initialFavor: 50 },
     '川濑': { type: 'A', action: 3, maxCards: 4, initialFavor: 50 },
     '花泽': { type: 'A', action: 4, maxCards: 4, initialFavor: 50 },
@@ -449,6 +504,12 @@ function initGame() {
     // 检查地图是否已加载
     if (gridConfig.length === 0) {
         alert('请先加载地图CSV文件！');
+        return;
+    }
+    
+    // 检查角色配置是否已加载
+    if (Object.keys(characterAttributes).length === 0) {
+        alert('请先加载角色配置CSV文件！');
         return;
     }
     
@@ -2041,6 +2102,9 @@ async function resetGame() {
     if (!loaded) {
         updateItemLoadStatus('未加载，请选择文件');
     }
+    
+    // 尝试重新加载角色配置
+    await autoLoadRolesFromCSV();
 
     // 重置游戏胜利状态
     gameState.gameWon = false;
@@ -2457,6 +2521,12 @@ window.onload = async function () {
     const loadedMap = await autoLoadMapFromCSV();
     if (!loadedMap) {
         updateMapLoadStatus('未加载，请选择文件');
+    }
+    
+    // 尝试自动加载角色配置
+    const loadedRoles = await autoLoadRolesFromCSV();
+    if (!loadedRoles) {
+        console.log('角色配置加载失败，使用默认配置');
     }
 };
 
