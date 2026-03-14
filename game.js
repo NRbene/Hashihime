@@ -469,6 +469,7 @@ function initGame() {
     gameState.gameWon = false;
     gameState.week = 1;
     gameState.reverseDirection = false;
+    gameState.stagnantTurn = -1;
     
     // 确保棋子位置正确更新
     updateTokenPosition();
@@ -833,7 +834,7 @@ function moveToken(steps) {
     // 检查是否触发停滞效果
     let canMove = true;
     let isStagnant = false;
-    if (startGrid.isStagnant) {
+    if (startGrid.isStagnant && gameState.stagnantTurn === gameState.currentPlayer) {
         elements.gameMessage.textContent = `棋子停留在停滞格子上，无法移动！`;
         canMove = false;
         isStagnant = true;
@@ -999,6 +1000,8 @@ function handleGridFunction() {
         logEvent(`触发效果：棋子停留在停滞格子上，无法移动`);
         // 禁用掷骰子按钮
         elements.rollDice.disabled = true;
+        // 记录当前玩家的回合为停滞回合
+        gameState.stagnantTurn = gameState.currentPlayer;
     }
     
     // 处理水坑
@@ -1011,6 +1014,20 @@ function handleGridFunction() {
         // 切换移动方向
         gameState.reverseDirection = !gameState.reverseDirection;
         logEvent(`周目更新：第${gameState.week}周目，移动方向${gameState.reverseDirection ? '逆转' : '正常'}`);
+        
+        // 重置所有人的行动点为初始行动点
+        // 死亡的玩家，状态改为alive，好感度重置为初始好感度
+        gameState.players.forEach((player, index) => {
+            // 重置行动点为初始值
+            player.action = characterAttributes[player.role].action;
+            
+            // 如果玩家死亡，复活并重置好感度
+            if (player.status !== 'alive') {
+                player.status = 'alive';
+                player.favor = characterAttributes[player.role].initialFavor;
+                logEvent(`玩家${index + 1}（${player.role}）被复活，好感度重置为初始值`);
+            }
+        });
         
         // 结束行动
         setTimeout(() => {
@@ -1159,6 +1176,9 @@ function nextPlayer() {
 
     elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
     elements.roundCount.textContent = gameState.round;
+
+    // 清除停滞状态
+    gameState.stagnantTurn = -1;
 
     // 组合消息
     let message = `轮到玩家${gameState.currentPlayer + 1}行动。`;
