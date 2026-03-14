@@ -308,6 +308,7 @@ const elements = {
     rollDice: document.getElementById('roll-dice'),
     resetGame: document.getElementById('reset-game'),
     undoAction: document.getElementById('undo-action'),
+    killPlayer: document.getElementById('kill-player'),
     diceResult: document.getElementById('dice-result'),
     currentPlayerDisplay: document.getElementById('current-player'),
     roundCount: document.getElementById('round-count'),
@@ -409,7 +410,7 @@ function initGame() {
         cards: 0,
         items: [],
         favor: characterAttributes[player3Role].initialFavor,
-        status: 'die',
+        status: 'alive',
         action: characterAttributes[player3Role].action
     };
 
@@ -1164,6 +1165,86 @@ function undoAction() {
     }
 }
 
+// 杀人操作
+function killPlayer() {
+    if (!gameState.gameStarted) return;
+
+    // 检查当前玩家是否存活
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    if (currentPlayer.status !== 'alive') {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}已死亡，无法执行杀人操作！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}已死亡，无法执行杀人操作`);
+        return;
+    }
+
+    // 检查行动点
+    if (!currentPlayer.action || currentPlayer.action < 4) {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点不足4点，无法执行杀人操作！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}行动点不足4点，无法执行杀人操作`);
+        return;
+    }
+
+    // 生成可选择的玩家列表
+    const availablePlayers = [];
+    for (let i = 0; i < gameState.players.length; i++) {
+        if (i !== gameState.currentPlayer && gameState.players[i].status === 'alive') {
+            availablePlayers.push(i);
+        }
+    }
+
+    if (availablePlayers.length === 0) {
+        elements.gameMessage.textContent = '没有可选择的目标！';
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）尝试杀人，但没有可选择的目标`);
+        return;
+    }
+
+    // 显示选择框
+    let options = '';
+    availablePlayers.forEach(index => {
+        const player = gameState.players[index];
+        options += `<option value="${index}">玩家${index + 1}（${player.role}）</option>`;
+    });
+
+    const selectHtml = `
+        <div style="padding: 10px;">
+            <p>选择要杀死的玩家：</p>
+            <select id="target-player">${options}</select>
+        </div>
+    `;
+
+    if (confirm(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）确定要消耗4点行动点执行杀人操作吗？`)) {
+        const targetIndex = parseInt(prompt(`请选择要杀死的玩家（输入编号）：\n${availablePlayers.map(index => `${index + 1}. 玩家${index + 1}（${gameState.players[index].role}）`).join('\n')}`));
+        
+        if (isNaN(targetIndex) || targetIndex < 1 || targetIndex > gameState.players.length || targetIndex - 1 === gameState.currentPlayer || gameState.players[targetIndex - 1].status !== 'alive') {
+            elements.gameMessage.textContent = '无效的选择！';
+            return;
+        }
+
+        const targetPlayerIndex = targetIndex - 1;
+        const targetPlayer = gameState.players[targetPlayerIndex];
+
+        // 保存游戏状态
+        saveGameState();
+
+        // 消耗行动点
+        currentPlayer.action -= 4;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗4点行动点执行杀人操作`);
+
+        // 设置目标玩家为死亡
+        targetPlayer.status = 'die';
+        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死`);
+
+        // 更新UI
+        updateUI();
+
+        // 显示消息
+        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被杀死！`;
+
+        // 检查胜利条件
+        checkWinCondition();
+    }
+}
+
 // 事件监听器
 elements.startGame.addEventListener('click', initGame);
 elements.rollDice.addEventListener('click', rollDice);
@@ -1171,6 +1252,7 @@ elements.resetGame.addEventListener('click', async () => {
     await resetGame();
 });
 elements.undoAction.addEventListener('click', undoAction);
+elements.killPlayer.addEventListener('click', killPlayer);
 document.getElementById('random-roles').addEventListener('click', randomRoles);
 document.getElementById('end-turn').addEventListener('click', endTurn);
 
