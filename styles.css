@@ -477,3 +477,47 @@ h2 {
         flex-direction: column;
     }
 }
+
+/* 杀人对话框样式 */
+.kill-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.kill-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+
+.kill-item {
+    padding: 10px;
+    border: 1px solid #ccc;
+    margin: 5px 0;
+    cursor: pointer;
+}
+
+.kill-item:hover {
+    background-color: #f0f0f0;
+}
+
+.cancel-kill {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #ccc;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
