@@ -179,7 +179,8 @@ let gameState = {
     tokenPosition: 0,
     round: 1,
     gameStarted: false,
-    itemPool: []
+    itemPool: [],
+    gameWon: false
 };
 
 // 地图格子配置
@@ -792,6 +793,7 @@ function initGame() {
     gameState.tokenPosition = 0;
     gameState.lastTokenPosition = -1;
     gameState.gameStarted = true;
+    gameState.gameWon = false;
     
     // 重新初始化道具池
     gameState.itemPool = [...itemPool];
@@ -822,8 +824,8 @@ function updateItemsDisplay() {
             itemElement.dataset.playerIndex = i;
             itemElement.dataset.itemIndex = index;
             
-            // 只有当前玩家且存活时可以使用道具
-            if (i === gameState.currentPlayer && player.status === 'alive') {
+            // 只有当前玩家且存活时且游戏未胜利时可以使用道具
+            if (i === gameState.currentPlayer && player.status === 'alive' && !gameState.gameWon) {
                 itemElement.addEventListener('click', () => useItem(i, index));
             } else {
                 itemElement.classList.add('used');
@@ -838,6 +840,12 @@ function updateItemsDisplay() {
 function useItem(playerIndex, itemIndex) {
     const player = gameState.players[playerIndex];
     const item = player.items[itemIndex];
+    
+    if (gameState.gameWon) {
+        elements.gameMessage.textContent = '游戏已胜利，无法使用道具！';
+        logEvent('游戏已胜利，无法使用道具');
+        return;
+    }
     
     if (player.status !== 'alive') {
         elements.gameMessage.textContent = `玩家${playerIndex + 1}已死亡，无法使用道具！`;
@@ -1192,22 +1200,28 @@ function checkWinCondition() {
         if (player.type === 'A' && player.favor >= 100) {
             elements.gameMessage.textContent = `玩家${i + 1}（A类型）好感度达到100，游戏胜利！`;
             logEvent(`游戏胜利：玩家${i + 1}（A类型）好感度达到100`);
+            gameState.gameWon = true;
             return true;
         }
     }
     
     // 检查B玩家是否杀死所有A玩家
     let aliveAPlayers = 0;
+    let aliveBPlayers = 0;
     for (let i = 0; i < 3; i++) {
         const player = gameState.players[i];
         if (player.type === 'A' && player.status === 'alive') {
             aliveAPlayers++;
         }
+        if (player.type === 'B' && player.status === 'alive') {
+            aliveBPlayers++;
+        }
     }
     
-    if (aliveAPlayers === 0) {
+    if (aliveAPlayers === 0 && aliveBPlayers > 0) {
         elements.gameMessage.textContent = '所有A玩家已被杀死，B玩家胜利！';
         logEvent(`游戏胜利：所有A玩家已被杀死，B玩家胜利`);
+        gameState.gameWon = true;
         return true;
     }
     
@@ -1248,6 +1262,9 @@ async function resetGame() {
     if (!loaded) {
         updateItemLoadStatus('未加载，请选择文件');
     }
+    
+    // 重置游戏胜利状态
+    gameState.gameWon = false;
     
     // 重置回合数
     gameState.round = 1;
