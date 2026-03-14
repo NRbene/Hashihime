@@ -30,15 +30,18 @@ function parseCSV(csvText) {
             } else if (values[7] === '电影院') {
                 item.targetGrid = 24; // 电影院是第25个格子，索引为24
             } else if (values[7] === '可指定本回合内你希望棋子移动的步数') {
+                //提灯
                 item.type = 'custom_move';
             }
         }
         
-        // 处理玉森的原稿道具
-        if (values[8] === '可从除川濑外的其他角色手中强制夺走任意一张道具手牌') {
+        // 处理特殊道具类型
+        if (item.name === '玉森的原稿') {
             item.type = 'steal';
-        } else if (values[8] === '可从牌堆或其他人手中交换1张道具') {
+        } else if (item.name === '钱') {
             item.type = 'exchange';
+        } else if (item.name === '军刀') {
+            item.type = 'kill_with_knife';
         }
 
         parsedItems[item.name] = item;
@@ -1093,10 +1096,183 @@ function useItem(playerIndex, itemIndex) {
                 // 恢复行动点
                 player.action++;
             });
+        } else if (item.type === 'kill_with_knife') {
+            // 处理军刀道具，可杀死一名剩余行动点等于小于1的角色
+            // 过滤出符合条件的目标玩家
+            const availablePlayers = [];
+            gameState.players.forEach((targetPlayer, targetIndex) => {
+                if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && (targetPlayer.action <= 1 || targetPlayer.action === undefined || targetPlayer.action === null)) {
+                    availablePlayers.push(targetIndex);
+                }
+            });
+
+            if (availablePlayers.length === 0) {
+                elements.gameMessage.textContent = '没有可杀死的目标！';
+                logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用军刀，但没有符合条件的目标`);
+                // 恢复行动点
+                player.action++;
+                return;
+            }
+
+            // 构建选择界面
+            let killOptions = '';
+            availablePlayers.forEach(targetIndex => {
+                const targetPlayer = gameState.players[targetIndex];
+                killOptions += `<div class="kill-item" data-target-player="${targetIndex}">玩家${targetIndex + 1}（${targetPlayer.role}）- 剩余行动点：${targetPlayer.action || 0}</div>`;
+            });
+
+            // 创建弹出框
+            const killDialog = document.createElement('div');
+            killDialog.className = 'kill-dialog';
+            killDialog.innerHTML = `
+                <div class="kill-dialog-content">
+                    <h3>选择要杀死的角色：</h3>
+                    <div class="kill-options">${killOptions}</div>
+                    <button class="cancel-kill">取消</button>
+                </div>
+            `;
+            document.body.appendChild(killDialog);
+
+            // 添加样式
+            const style = document.createElement('style');
+            style.textContent = `
+                .kill-dialog {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 10000;
+                }
+                .kill-dialog-content {
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 5px;
+                    width: 80%;
+                    max-width: 600px;
+                    max-height: 80%;
+                    overflow-y: auto;
+                }
+                .kill-item {
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    margin: 5px 0;
+                    cursor: pointer;
+                }
+                .kill-item:hover {
+                    background-color: #f0f0f0;
+                }
+                .cancel-kill {
+                    margin-top: 20px;
+                    padding: 10px;
+                    background-color: #ccc;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // 处理目标选择
+            const killItems = killDialog.querySelectorAll('.kill-item');
+            killItems.forEach(itemElement => {
+                itemElement.addEventListener('click', () => {
+                    const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
+                    const targetPlayer = gameState.players[targetPlayerIndex];
+                    
+                    // 保存游戏状态
+                    saveGameState();
+                    
+                    // 检查是否是花泽使用军刀（不消耗行动点）
+                    if (player.role !== '花泽') {
+                        // 消耗行动点
+                        player.action--;
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用军刀`);
+                    } else {
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）使用军刀（特殊：不消耗行动点）`);
+                    }
+                    
+                    // 从当前玩家的道具栏中移除军刀（一次性道具）
+                    player.items.splice(itemIndex, 1);
+                    player.cards = Math.max(0, player.cards - 1);
+                    
+                    // 检查目标玩家是否持有大瓶可尔思必道具，且当前玩家是薰
+                    let hasKillscreen = false;
+                    let killScreenIndex = -1;
+                    for (let i = 0; i < targetPlayer.items.length; i++) {
+                        if (targetPlayer.items[i].name === '大瓶可尔思必' && player.role === '薰') {
+                            hasKillscreen = true;
+                            killScreenIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    if (hasKillscreen) {
+                        // 移除大瓶可尔思必道具
+                        targetPlayer.items.splice(killScreenIndex, 1);
+                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                        
+                        // 记录日志
+                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了杀害`);
+                        
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了杀害！`;
+                    } else {
+                        // 设置目标玩家为死亡
+                        targetPlayer.status = 'die';
+                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被军刀杀死`);
+
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被军刀杀死！`;
+                    }
+                    
+                    // 关闭对话框
+                    document.body.removeChild(killDialog);
+                    document.head.removeChild(style);
+                    
+                    // 更新UI
+                    updateUI();
+                    
+                    // 检查胜利条件
+                    checkWinCondition();
+                    
+                    // 检查行动点是否为0，如果是则自动结束行动
+                    if (player.action <= 0) {
+                        setTimeout(() => {
+                            elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                            logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                            endTurn();
+                        }, 1000);
+                    } else {
+                        // 检查是否在停滞格子上
+                        const currentGrid = gridConfig[gameState.tokenPosition];
+                        if (!currentGrid.isStagnant) {
+                            // 不在停滞格子上，重新启用掷骰子按钮
+                            elements.rollDice.disabled = false;
+                        } else {
+                            // 在停滞格子上，保持掷骰子按钮禁用
+                            elements.rollDice.disabled = true;
+                        }
+                    }
+                });
+            });
+
+            // 处理取消按钮
+            const cancelButton = killDialog.querySelector('.cancel-kill');
+            cancelButton.addEventListener('click', () => {
+                document.body.removeChild(killDialog);
+                document.head.removeChild(style);
+                // 恢复行动点
+                player.action++;
+            });
         }
 
-        // 从道具列表中移除（玉森的原稿、大瓶可尔思必和钱已在各自的逻辑中处理）
-        if (item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange') {
+        // 从道具列表中移除（玉森的原稿、大瓶可尔思必、钱和军刀已在各自的逻辑中处理）
+        if (item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange' && item.type !== 'kill_with_knife') {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
