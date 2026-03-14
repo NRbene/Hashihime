@@ -309,6 +309,7 @@ const elements = {
     resetGame: document.getElementById('reset-game'),
     undoAction: document.getElementById('undo-action'),
     killPlayer: document.getElementById('kill-player'),
+    drawCard: document.getElementById('draw-card'),
     diceResult: document.getElementById('dice-result'),
     currentPlayerDisplay: document.getElementById('current-player'),
     roundCount: document.getElementById('round-count'),
@@ -1245,6 +1246,72 @@ function killPlayer() {
     }
 }
 
+// 抽牌操作
+function drawCard() {
+    if (!gameState.gameStarted) return;
+
+    // 检查当前玩家是否存活
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    if (currentPlayer.status !== 'alive') {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}已死亡，无法执行抽牌操作！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}已死亡，无法执行抽牌操作`);
+        return;
+    }
+
+    // 检查行动点
+    if (!currentPlayer.action || currentPlayer.action < 1) {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点不足，无法执行抽牌操作！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}行动点不足，无法执行抽牌操作`);
+        return;
+    }
+
+    // 获取角色的手牌上限
+    const maxCards = characterAttributes[currentPlayer.role].maxCards;
+    
+    // 检查手牌是否已达上限
+    if (currentPlayer.cards >= maxCards) {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}的手牌已达上限！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）尝试抽牌，但手牌已达上限`);
+        return;
+    }
+
+    // 检查道具池是否为空
+    if (gameState.itemPool.length === 0) {
+        elements.gameMessage.textContent = `道具池已空，无法抽取道具！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）尝试抽牌，但道具池已空`);
+        return;
+    }
+
+    // 保存游戏状态
+    saveGameState();
+
+    // 消耗行动点
+    currentPlayer.action--;
+    logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗1点行动点执行抽牌操作`);
+
+    // 从道具池中随机获取一个道具
+    const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+    const itemName = gameState.itemPool[randomIndex];
+    const item = items[itemName];
+
+    // 从道具池中移除该道具
+    gameState.itemPool.splice(randomIndex, 1);
+
+    // 添加道具到玩家的道具数组
+    currentPlayer.items.push(item);
+    currentPlayer.cards++;
+
+    // 更新道具池显示
+    updateItemPoolDisplay();
+
+    // 更新UI
+    updateUI();
+
+    // 显示消息
+    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${item.name}！${item.description}`;
+    logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）抽取了道具${item.name}（${item.description}）`);
+}
+
 // 事件监听器
 elements.startGame.addEventListener('click', initGame);
 elements.rollDice.addEventListener('click', rollDice);
@@ -1253,6 +1320,7 @@ elements.resetGame.addEventListener('click', async () => {
 });
 elements.undoAction.addEventListener('click', undoAction);
 elements.killPlayer.addEventListener('click', killPlayer);
+elements.drawCard.addEventListener('click', drawCard);
 document.getElementById('random-roles').addEventListener('click', randomRoles);
 document.getElementById('end-turn').addEventListener('click', endTurn);
 

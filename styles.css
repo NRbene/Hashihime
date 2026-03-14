@@ -367,22 +367,57 @@ h2 {
     margin-bottom: 15px;
 }
 
-#roll-dice {
-    padding: 10px 30px;
-    background-color: #2196F3;
-    color: white;
+/* 游戏按钮样式 */
+.game-btn {
+    width: 120px;
+    height: 40px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 16px;
-    margin-bottom: 15px;
+    font-size: 14px;
+    margin: 5px;
 }
 
-#roll-dice:hover {
-    background-color: #1976D2;
+/* 按钮颜色 */
+.btn-roll {
+    background-color: blue;
+    color: white;
 }
 
-#roll-dice:disabled {
+.btn-draw {
+    background-color: yellow;
+    color: black;
+}
+
+.btn-kill {
+    background-color: red;
+    color: white;
+}
+
+.btn-end {
+    background-color: gray;
+    color: white;
+}
+
+.btn-undo {
+    background-color: white;
+    color: black;
+    border: 1px solid #ddd;
+}
+
+.btn-reset {
+    background-color: #f0f0f0;
+    color: black;
+    border: 1px solid #ddd;
+}
+
+/* 按钮悬停效果 */
+.game-btn:hover {
+    opacity: 0.8;
+}
+
+/* 禁用状态 */
+.game-btn:disabled {
     background-color: #ccc;
     cursor: not-allowed;
 }
