@@ -77,7 +77,6 @@ function loadItemsFromFile() {
         const csvText = e.target.result;
         const success = loadItemsFromCSV(csvText);
         if (success) {
-            alert('道具加载成功！');
             updateItemLoadStatus('已加载');
         } else {
             alert('道具加载失败，请检查CSV文件格式！');
@@ -1360,6 +1359,9 @@ window.onload = async function() {
     // 初始化拖动功能
     initDraggableLog();
     
+    // 添加tab切换逻辑
+    initLogTabs();
+    
     // 添加加载道具按钮的事件监听器
     document.getElementById('load-items').addEventListener('click', loadItemsFromFile);
     
@@ -1369,9 +1371,6 @@ window.onload = async function() {
     if (!loaded) {
         updateItemLoadStatus('未加载，请选择文件');
     }
-    
-    // 添加tab切换逻辑
-    initLogTabs();
 };
 
 // 初始化日志栏tab切换
