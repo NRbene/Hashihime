@@ -37,6 +37,8 @@ function parseCSV(csvText) {
         // 处理玉森的原稿道具
         if (values[8] === '可从除川濑外的其他角色手中强制夺走任意一张道具手牌') {
             item.type = 'steal';
+        } else if (values[8] === '可从牌堆或其他人手中交换1张道具') {
+            item.type = 'exchange';
         }
 
         parsedItems[item.name] = item;
@@ -824,10 +826,276 @@ function useItem(playerIndex, itemIndex) {
                     elements.rollDice.disabled = true;
                 }
             }
+        } else if (item.type === 'exchange') {
+            // 处理钱道具，可从牌堆或其他人手中交换1张道具
+            // 创建选择对话框
+            const exchangeDialog = document.createElement('div');
+            exchangeDialog.className = 'exchange-dialog';
+            exchangeDialog.innerHTML = `
+                <div class="exchange-dialog-content">
+                    <h3>选择交换方式：</h3>
+                    <div class="exchange-options">
+                        <div class="exchange-option" data-option="draw">1. 从牌堆重新抽取一张手牌</div>
+                        <div class="exchange-option" data-option="trade">2. 与他人进行交易</div>
+                    </div>
+                    <button class="cancel-exchange">取消</button>
+                </div>
+            `;
+            document.body.appendChild(exchangeDialog);
+
+            // 添加样式
+            const style = document.createElement('style');
+            style.textContent = `
+                .exchange-dialog {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 10000;
+                }
+                .exchange-dialog-content {
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 5px;
+                    width: 80%;
+                    max-width: 600px;
+                    max-height: 80%;
+                    overflow-y: auto;
+                }
+                .exchange-option {
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    margin: 5px 0;
+                    cursor: pointer;
+                }
+                .exchange-option:hover {
+                    background-color: #f0f0f0;
+                }
+                .cancel-exchange {
+                    margin-top: 20px;
+                    padding: 10px;
+                    background-color: #ccc;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                }
+                .trade-options {
+                    margin-top: 10px;
+                }
+                .player-trade {
+                    margin: 10px 0;
+                }
+                .player-trade h4 {
+                    margin: 5px 0;
+                }
+                .item-trade {
+                    padding: 5px;
+                    border: 1px solid #ccc;
+                    margin: 2px 0;
+                    cursor: pointer;
+                }
+                .item-trade:hover {
+                    background-color: #f0f0f0;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // 处理交换方式选择
+            const exchangeOptions = exchangeDialog.querySelectorAll('.exchange-option');
+            exchangeOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    const optionType = option.dataset.option;
+                    
+                    if (optionType === 'draw') {
+                        // 从牌堆重新抽取一张手牌
+                        if (gameState.itemPool.length > 0) {
+                            // 从道具池中随机获取一个道具
+                            const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+                            const itemName = gameState.itemPool[randomIndex];
+                            const newItem = items[itemName];
+
+                            // 从道具池中移除该道具
+                            gameState.itemPool.splice(randomIndex, 1);
+
+                            // 从当前玩家的道具栏中移除钱
+                            player.items.splice(itemIndex, 1);
+                            player.cards = Math.max(0, player.cards - 1);
+
+                            // 添加新道具到玩家的道具数组
+                            player.items.push(newItem);
+                            player.cards++;
+
+                            // 记录日志
+                            logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，从牌堆抽取了${newItem.name}`);
+
+                            // 显示消息
+                            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，从牌堆抽取了${newItem.name}！`;
+                        } else {
+                            // 道具池为空
+                            elements.gameMessage.textContent = `道具池已空，无法抽取道具！`;
+                            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱从牌堆抽取道具，但道具池已空`);
+                            // 恢复行动点
+                            player.action++;
+                        }
+                        
+                        // 关闭对话框
+                        document.body.removeChild(exchangeDialog);
+                        document.head.removeChild(style);
+                        
+                        // 更新UI
+                        updateUI();
+                        
+                        // 检查行动点是否为0，如果是则自动结束行动
+                        if (player.action <= 0) {
+                            setTimeout(() => {
+                                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                                endTurn();
+                            }, 1000);
+                        } else {
+                            // 检查是否在停滞格子上
+                            const currentGrid = gridConfig[gameState.tokenPosition];
+                            if (!currentGrid.isStagnant) {
+                                // 不在停滞格子上，重新启用掷骰子按钮
+                                elements.rollDice.disabled = false;
+                            } else {
+                                // 在停滞格子上，保持掷骰子按钮禁用
+                                elements.rollDice.disabled = true;
+                            }
+                        }
+                    } else if (optionType === 'trade') {
+                        // 与他人进行交易
+                        // 过滤出其他存活玩家
+                        const availablePlayers = [];
+                        gameState.players.forEach((targetPlayer, targetIndex) => {
+                            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
+                                availablePlayers.push(targetIndex);
+                            }
+                        });
+
+                        if (availablePlayers.length === 0) {
+                            elements.gameMessage.textContent = '没有可交易的目标！';
+                            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱进行交易，但没有可交易的目标`);
+                            // 恢复行动点
+                            player.action++;
+                            // 关闭对话框
+                            document.body.removeChild(exchangeDialog);
+                            document.head.removeChild(style);
+                            return;
+                        }
+
+                        // 更新对话框内容，显示可交易的玩家和道具
+                        let tradeOptions = '';
+                        availablePlayers.forEach(targetIndex => {
+                            const targetPlayer = gameState.players[targetIndex];
+                            tradeOptions += `<div class="player-trade">
+                                <h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>
+                                <div class="item-trades">`;
+                            targetPlayer.items.forEach((targetItem, itemIndex) => {
+                                tradeOptions += `<div class="item-trade" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
+                            });
+                            tradeOptions += `</div></div>`;
+                        });
+
+                        exchangeDialog.innerHTML = `
+                            <div class="exchange-dialog-content">
+                                <h3>选择要交换的道具：</h3>
+                                <div class="trade-options">${tradeOptions}</div>
+                                <button class="cancel-exchange">取消</button>
+                            </div>
+                        `;
+
+                        // 处理道具选择
+                        const itemTrades = exchangeDialog.querySelectorAll('.item-trade');
+                        itemTrades.forEach(itemElement => {
+                            itemElement.addEventListener('click', () => {
+                                const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
+                                const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
+                                
+                                // 获取目标玩家和道具
+                                const targetPlayer = gameState.players[targetPlayerIndex];
+                                const tradedItem = targetPlayer.items[targetItemIndex];
+                                
+                                // 从目标玩家手中移除道具
+                                targetPlayer.items.splice(targetItemIndex, 1);
+                                targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                                
+                                // 从当前玩家的道具栏中移除钱
+                                const moneyItem = player.items[itemIndex];
+                                player.items.splice(itemIndex, 1);
+                                player.cards = Math.max(0, player.cards - 1);
+                                
+                                // 添加交易的道具到当前玩家手中
+                                player.items.push(tradedItem);
+                                player.cards++;
+                                
+                                // 添加钱到目标玩家手中
+                                targetPlayer.items.push(moneyItem);
+                                targetPlayer.cards++;
+                                
+                                // 记录日志
+                                logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，与玩家${targetPlayerIndex + 1}（${targetPlayer.role}）交换了${tradedItem.name}`);
+                                
+                                // 关闭对话框
+                                document.body.removeChild(exchangeDialog);
+                                document.head.removeChild(style);
+                                
+                                // 显示消息
+                                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，与玩家${targetPlayerIndex + 1}（${targetPlayer.role}）交换了${tradedItem.name}！`;
+                                
+                                // 更新UI
+                                updateUI();
+                                
+                                // 检查行动点是否为0，如果是则自动结束行动
+                                if (player.action <= 0) {
+                                    setTimeout(() => {
+                                        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                                        logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                                        endTurn();
+                                    }, 1000);
+                                } else {
+                                    // 检查是否在停滞格子上
+                                    const currentGrid = gridConfig[gameState.tokenPosition];
+                                    if (!currentGrid.isStagnant) {
+                                        // 不在停滞格子上，重新启用掷骰子按钮
+                                        elements.rollDice.disabled = false;
+                                    } else {
+                                        // 在停滞格子上，保持掷骰子按钮禁用
+                                        elements.rollDice.disabled = true;
+                                    }
+                                }
+                            });
+                        });
+
+                        // 重新添加取消按钮的事件监听器
+                        const cancelButton = exchangeDialog.querySelector('.cancel-exchange');
+                        cancelButton.addEventListener('click', () => {
+                            document.body.removeChild(exchangeDialog);
+                            document.head.removeChild(style);
+                            // 恢复行动点
+                            player.action++;
+                        });
+                    }
+                });
+            });
+
+            // 处理取消按钮
+            const cancelButton = exchangeDialog.querySelector('.cancel-exchange');
+            cancelButton.addEventListener('click', () => {
+                document.body.removeChild(exchangeDialog);
+                document.head.removeChild(style);
+                // 恢复行动点
+                player.action++;
+            });
         }
 
-        // 从道具列表中移除（玉森的原稿和大瓶可尔思必已在各自的逻辑中处理）
-        if (item.type !== 'steal' && item.name !== '大瓶可尔思必') {
+        // 从道具列表中移除（玉森的原稿、大瓶可尔思必和钱已在各自的逻辑中处理）
+        if (item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange') {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
