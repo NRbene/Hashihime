@@ -294,7 +294,8 @@ let gameState = {
     round: 1,
     gameStarted: false,
     itemPool: [],
-    gameWon: false
+    gameWon: false,
+    history: []
 };
 
 
@@ -306,6 +307,7 @@ const elements = {
     gameBoard: document.querySelector('.game-board'),
     rollDice: document.getElementById('roll-dice'),
     resetGame: document.getElementById('reset-game'),
+    undoAction: document.getElementById('undo-action'),
     diceResult: document.getElementById('dice-result'),
     currentPlayerDisplay: document.getElementById('current-player'),
     roundCount: document.getElementById('round-count'),
@@ -338,6 +340,25 @@ const elements = {
     player3Status: document.getElementById('player3-status')
 };
 
+// 保存游戏状态到历史记录
+function saveGameState() {
+    // 深拷贝游戏状态，避免引用问题
+    const stateCopy = {
+        players: JSON.parse(JSON.stringify(gameState.players)),
+        currentPlayer: gameState.currentPlayer,
+        tokenPosition: gameState.tokenPosition,
+        round: gameState.round,
+        gameStarted: gameState.gameStarted,
+        itemPool: [...gameState.itemPool],
+        gameWon: gameState.gameWon
+    };
+    gameState.history.push(stateCopy);
+    // 限制历史记录长度，只保留最近10个状态
+    if (gameState.history.length > 10) {
+        gameState.history.shift();
+    }
+}
+
 // 初始化游戏
 function initGame() {
     // 检查道具是否已加载
@@ -351,6 +372,9 @@ function initGame() {
         alert('请先加载地图CSV文件！');
         return;
     }
+    
+    // 清空历史记录
+    gameState.history = [];
 
     // 获取玩家角色设置
     const player1Role = elements.player1Role.value;
@@ -491,6 +515,9 @@ function useItem(playerIndex, itemIndex) {
     }
 
     if (item && player.cards > 0) {
+        // 保存游戏状态
+        saveGameState();
+
         // 消耗行动点
         player.action--;
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具`);
@@ -646,6 +673,9 @@ function rollDice() {
         logEvent(`玩家${gameState.currentPlayer + 1}行动点不足，无法掷骰子`);
         return;
     }
+
+    // 保存游戏状态
+    saveGameState();
 
     // 消耗行动点
     currentPlayer.action--;
@@ -1102,12 +1132,45 @@ function randomRoles() {
     }
 }
 
+// 撤回操作
+function undoAction() {
+    if (!gameState.gameStarted || gameState.history.length === 0) {
+        elements.gameMessage.textContent = '没有可撤回的操作！';
+        return;
+    }
+
+    // 从历史记录中获取上一个状态
+    const previousState = gameState.history.pop();
+    if (previousState) {
+        // 恢复游戏状态
+        gameState.players = previousState.players;
+        gameState.currentPlayer = previousState.currentPlayer;
+        gameState.tokenPosition = previousState.tokenPosition;
+        gameState.round = previousState.round;
+        gameState.gameStarted = previousState.gameStarted;
+        gameState.itemPool = previousState.itemPool;
+        gameState.gameWon = previousState.gameWon;
+
+        // 更新UI
+        updateUI();
+        updateTokenPosition();
+
+        // 启用掷骰子按钮
+        elements.rollDice.disabled = false;
+
+        // 显示消息
+        elements.gameMessage.textContent = '已撤回上次操作！';
+        logEvent(`玩家${gameState.currentPlayer + 1}（${gameState.players[gameState.currentPlayer].role}）撤回了上次操作`);
+    }
+}
+
 // 事件监听器
 elements.startGame.addEventListener('click', initGame);
 elements.rollDice.addEventListener('click', rollDice);
 elements.resetGame.addEventListener('click', async () => {
     await resetGame();
 });
+elements.undoAction.addEventListener('click', undoAction);
 document.getElementById('random-roles').addEventListener('click', randomRoles);
 document.getElementById('end-turn').addEventListener('click', endTurn);
 
