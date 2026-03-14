@@ -382,14 +382,8 @@ function updateItemPoolDisplay() {
     });
 }
 
-// 角色属性配置
-let characterAttributes = {
-    '水上': { type: 'A', action: 3, maxCards: 4, initialFavor: 50 },
-    '川濑': { type: 'A', action: 3, maxCards: 4, initialFavor: 50 },
-    '花泽': { type: 'A', action: 4, maxCards: 4, initialFavor: 50 },
-    '博士': { type: 'A', action: 3, maxCards: 5, initialFavor: 30 },
-    '薰': { type: 'B', action: 5, maxCards: 2, initialFavor: 0 }
-};
+// 角色属性配置（从role.csv文件中加载）
+let characterAttributes = {};
 
 // 游戏状态
 let gameState = {
@@ -2563,7 +2557,7 @@ window.onload = async function () {
     // 尝试自动加载角色配置
     const loadedRoles = await autoLoadRolesFromCSV();
     if (!loadedRoles) {
-        console.log('角色配置加载失败，使用默认配置');
+        console.log('角色配置加载失败，请确保role.csv文件存在且格式正确');
     }
 };
 
