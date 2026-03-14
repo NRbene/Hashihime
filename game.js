@@ -2276,77 +2276,150 @@ function killPlayer() {
         return;
     }
 
-    // 显示选择框
-    let options = '';
-    availablePlayers.forEach(index => {
-        const player = gameState.players[index];
-        options += `<option value="${index}">玩家${index + 1}（${player.role}）</option>`;
+    // 构建选择界面
+    let killOptions = '';
+    availablePlayers.forEach(targetIndex => {
+        const targetPlayer = gameState.players[targetIndex];
+        killOptions += `<div class="kill-item" data-target-player="${targetIndex}">玩家${targetIndex + 1}（${targetPlayer.role}）- 剩余行动点：${targetPlayer.action || 0}</div>`;
     });
 
-    const selectHtml = `
-        <div style="padding: 10px;">
-            <p>选择要杀死的玩家：</p>
-            <select id="target-player">${options}</select>
+    // 创建弹出框
+    const killDialog = document.createElement('div');
+    killDialog.className = 'kill-dialog';
+    killDialog.innerHTML = `
+        <div class="kill-dialog-content">
+            <h3>选择要杀死的角色：</h3>
+            <div class="kill-options">${killOptions}</div>
+            <button class="cancel-kill">取消</button>
         </div>
     `;
+    document.body.appendChild(killDialog);
 
-    if (confirm(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）确定要消耗4点行动点执行杀人操作吗？`)) {
-        const targetIndex = parseInt(prompt(`请选择要杀死的玩家（输入编号）：\n${availablePlayers.map(index => `${index + 1}. 玩家${index + 1}（${gameState.players[index].role}）`).join('\n')}`));
-        
-        if (isNaN(targetIndex) || targetIndex < 1 || targetIndex > gameState.players.length || targetIndex - 1 === gameState.currentPlayer || gameState.players[targetIndex - 1].status !== 'alive') {
-            elements.gameMessage.textContent = '无效的选择！';
-            return;
+    // 添加样式
+    const style = document.createElement('style');
+    style.textContent = `
+        .kill-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
         }
+        .kill-dialog-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 600px;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        .kill-item {
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+        .kill-item:hover {
+            background-color: #f0f0f0;
+        }
+        .cancel-kill {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #ccc;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    `;
+    document.head.appendChild(style);
 
-        const targetPlayerIndex = targetIndex - 1;
-        const targetPlayer = gameState.players[targetPlayerIndex];
+    // 处理目标选择
+    const killItems = killDialog.querySelectorAll('.kill-item');
+    killItems.forEach(itemElement => {
+        itemElement.addEventListener('click', () => {
+            const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
+            const targetPlayer = gameState.players[targetPlayerIndex];
+            
+            // 保存游戏状态
+            saveGameState();
 
-        // 保存游戏状态
-        saveGameState();
-
-        // 检查目标玩家是否持有大瓶可尔思必道具，且当前玩家是薰
-        let hasKillscreen = false;
-        let killScreenIndex = -1;
-        for (let i = 0; i < targetPlayer.items.length; i++) {
-            if (targetPlayer.items[i].name === '大瓶可尔思必' && currentPlayer.role === '薰') {
-                hasKillscreen = true;
-                killScreenIndex = i;
-                break;
+            // 检查目标玩家是否持有大瓶可尔思必道具，且当前玩家是薰
+            let hasKillscreen = false;
+            let killScreenIndex = -1;
+            for (let i = 0; i < targetPlayer.items.length; i++) {
+                if (targetPlayer.items[i].name === '大瓶可尔思必' && currentPlayer.role === '薰') {
+                    hasKillscreen = true;
+                    killScreenIndex = i;
+                    break;
+                }
             }
-        }
 
-        if (hasKillscreen) {
-            // 移除大瓶可尔思必道具
-            targetPlayer.items.splice(killScreenIndex, 1);
-            targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+            if (hasKillscreen) {
+                // 移除大瓶可尔思必道具
+                targetPlayer.items.splice(killScreenIndex, 1);
+                targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                
+                // 记录日志
+                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害`);
+                
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害！`;
+            } else {
+                // 消耗行动点
+                currentPlayer.action -= 4;
+                logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗4点行动点执行杀人操作`);
+                
+                // 设置目标玩家为死亡
+                targetPlayer.status = 'die';
+                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死`);
+
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被杀死！`;
+            }
             
-            // 记录日志
-            logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害`);
+            // 关闭对话框
+            document.body.removeChild(killDialog);
+            document.head.removeChild(style);
             
             // 更新UI
             updateUI();
             
-            // 显示消息
-            elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害！`;
-        } else {
-            // 消耗行动点
-            currentPlayer.action -= 4;
-            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗4点行动点执行杀人操作`);
+            // 检查胜利条件
+            checkWinCondition();
             
-            // 设置目标玩家为死亡
-            targetPlayer.status = 'die';
-            logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死`);
+            // 检查行动点是否为0，如果是则自动结束行动
+            if (currentPlayer.action <= 0) {
+                setTimeout(() => {
+                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点已耗尽，自动结束行动。`;
+                    logEvent(`玩家${gameState.currentPlayer + 1}行动点已耗尽，自动结束行动`);
+                    endTurn();
+                }, 1000);
+            } else {
+                // 检查是否在停滞格子上
+                const currentGrid = gridConfig[gameState.tokenPosition];
+                if (!currentGrid.isStagnant) {
+                    // 不在停滞格子上，重新启用掷骰子按钮
+                    elements.rollDice.disabled = false;
+                } else {
+                    // 在停滞格子上，保持掷骰子按钮禁用
+                    elements.rollDice.disabled = true;
+                }
+            }
+        });
+    });
 
-            // 更新UI
-            updateUI();
-
-            // 显示消息
-            elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被杀死！`;
-        }
-
-        // 检查胜利条件
-        checkWinCondition();
-    }
+    // 处理取消按钮
+    const cancelButton = killDialog.querySelector('.cancel-kill');
+    cancelButton.addEventListener('click', () => {
+        document.body.removeChild(killDialog);
+        document.head.removeChild(style);
+    });
 }
 
 // 抽牌操作
