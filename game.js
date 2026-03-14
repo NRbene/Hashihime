@@ -798,6 +798,35 @@ function initGame() {
     // 重新初始化道具池
     gameState.itemPool = [...itemPool];
     
+    // 为所有玩家设置初始行动点
+    for (let i = 0; i < 3; i++) {
+        const player = gameState.players[i];
+        player.action = characterAttributes[player.role].action;
+    }
+    
+    // 游戏开始时，为第一个玩家摸一张道具卡（如果手牌未达到上限）
+    const firstPlayer = gameState.players[0];
+    let startMessage = '游戏开始！玩家1先开始掷骰子。';
+    const maxCards = characterAttributes[firstPlayer.role].maxCards;
+    if (firstPlayer.cards < maxCards && gameState.itemPool.length > 0) {
+        const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+        const itemName = gameState.itemPool[randomIndex];
+        const item = items[itemName];
+        
+        // 从道具池中移除该道具
+        gameState.itemPool.splice(randomIndex, 1);
+        
+        // 添加道具到玩家的道具数组
+        firstPlayer.items.push(item);
+        firstPlayer.cards++;
+        
+        startMessage = `游戏开始！玩家1先开始掷骰子。获得道具${item.name}。`;
+        logEvent(`玩家1（${firstPlayer.role}）游戏开始，获得道具${item.name}`);
+        
+        // 更新道具池显示
+        updateItemPoolDisplay();
+    }
+    
     // 更新UI
     updateUI();
     
@@ -806,7 +835,7 @@ function initGame() {
     elements.gameBoard.style.display = 'block';
     
     // 显示游戏开始消息
-    elements.gameMessage.textContent = '游戏开始！玩家1先开始掷骰子。';
+    elements.gameMessage.textContent = startMessage;
 }
 
 // 更新道具显示
@@ -1246,12 +1275,65 @@ function nextPlayer() {
     }
     
     gameState.currentPlayer = nextPlayerIndex;
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    const maxCards = characterAttributes[currentPlayer.role].maxCards;
+    
+    // 如果游戏已胜利，直接返回
+    if (gameState.gameWon) {
+        elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
+        elements.roundCount.textContent = gameState.round;
+        return;
+    }
+    
+    // 玩家行动开始时，从牌堆摸一张道具卡（如果手牌未达到上限）
+    let itemMessage = '';
+    if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
+        const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+        const itemName = gameState.itemPool[randomIndex];
+        const item = items[itemName];
+        
+        // 从道具池中移除该道具
+        gameState.itemPool.splice(randomIndex, 1);
+        
+        // 添加道具到玩家的道具数组
+        currentPlayer.items.push(item);
+        currentPlayer.cards++;
+        
+        itemMessage = `获得道具${item.name}，`;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动开始，获得道具${item.name}`);
+        
+        // 更新道具池显示
+        updateItemPoolDisplay();
+    }
+    
+    // 若当前角色行动点为零，自动回复1点
+    let actionMessage = '';
+    if (!currentPlayer.action || currentPlayer.action === 0) {
+        currentPlayer.action = characterAttributes[currentPlayer.role].action + 1;
+        actionMessage = '行动点自动回复1点，';
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动点为零，自动回复1点`);
+    } else {
+        // 确保行动点有初始值
+        if (!currentPlayer.action) {
+            currentPlayer.action = characterAttributes[currentPlayer.role].action;
+        }
+    }
+    
     elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
     elements.roundCount.textContent = gameState.round;
-    elements.gameMessage.textContent = `轮到玩家${gameState.currentPlayer + 1}掷骰子。`;
+    
+    // 组合消息
+    let message = `轮到玩家${gameState.currentPlayer + 1}掷骰子。`;
+    if (itemMessage || actionMessage) {
+        message = `轮到玩家${gameState.currentPlayer + 1}掷骰子。${itemMessage}${actionMessage}`;
+    }
+    elements.gameMessage.textContent = message;
     
     // 启用掷骰子按钮
     elements.rollDice.disabled = false;
+    
+    // 更新UI
+    updateUI();
 }
 
 // 重置游戏
