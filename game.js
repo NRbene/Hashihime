@@ -7,7 +7,7 @@ function parseCSV(csvText) {
     const lines = csvText.trim().split('\n');
     const parsedItems = {};
     const newItemPool = [];
-    
+
     for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split('\t');
         const item = {
@@ -18,7 +18,7 @@ function parseCSV(csvText) {
             description: values[10],
             quantity: parseInt(values[9])
         };
-        
+
         // 处理移动功能
         if (values[6] === '是') {
             if (values[7] === '机械汤') {
@@ -29,15 +29,15 @@ function parseCSV(csvText) {
                 item.type = 'custom_move';
             }
         }
-        
+
         parsedItems[item.name] = item;
-        
+
         // 填充道具池
         for (let j = 0; j < item.quantity; j++) {
             newItemPool.push(item.name);
         }
     }
-    
+
     return { items: parsedItems, itemPool: newItemPool };
 }
 
@@ -47,13 +47,13 @@ function loadItemsFromCSV(csvText) {
         const result = parseCSV(csvText);
         items = result.items;
         itemPool = result.itemPool;
-        
+
         // 更新游戏状态中的道具池
         gameState.itemPool = [...itemPool];
-        
+
         // 更新道具池显示
         updateItemPoolDisplay();
-        
+
         console.log('道具加载成功:', items);
         return true;
     } catch (error) {
@@ -66,14 +66,14 @@ function loadItemsFromCSV(csvText) {
 function loadItemsFromFile() {
     const fileInput = document.getElementById('item-csv');
     const file = fileInput.files[0];
-    
+
     if (!file) {
         alert('请先选择道具CSV文件！');
         return;
     }
-    
+
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         const csvText = e.target.result;
         const success = loadItemsFromCSV(csvText);
         if (success) {
@@ -82,7 +82,7 @@ function loadItemsFromFile() {
             alert('道具加载失败，请检查CSV文件格式！');
         }
     };
-    reader.onerror = function() {
+    reader.onerror = function () {
         alert('读取文件失败！');
     };
     reader.readAsText(file, 'UTF-8');
@@ -121,10 +121,10 @@ function updateItemLoadStatus(status) {
 function updateItemPoolDisplay() {
     const itemPoolContent = document.getElementById('item-pool-content');
     if (!itemPoolContent) return;
-    
+
     // 清空内容
     itemPoolContent.innerHTML = '';
-    
+
     // 统计道具数量
     const itemCount = {};
     gameState.itemPool.forEach(itemName => {
@@ -134,13 +134,13 @@ function updateItemPoolDisplay() {
             itemCount[itemName] = 1;
         }
     });
-    
+
     // 显示道具池内容
     if (Object.keys(itemCount).length === 0) {
         itemPoolContent.innerHTML = '<p style="text-align: center; color: #666;">道具池已空</p>';
         return;
     }
-    
+
     // 遍历道具并显示
     Object.keys(itemCount).forEach(itemName => {
         const item = items[itemName];
@@ -171,9 +171,9 @@ const characterAttributes = {
 // 游戏状态
 let gameState = {
     players: [
-        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive' },
-        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive' },
-        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive' }
+        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 },
+        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 },
+        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 }
     ],
     currentPlayer: 0,
     tokenPosition: 0,
@@ -753,12 +753,12 @@ function initGame() {
         alert('请先加载道具CSV文件！');
         return;
     }
-    
+
     // 获取玩家角色设置
     const player1Role = elements.player1Role.value;
     const player2Role = elements.player2Role.value;
     const player3Role = elements.player3Role.value;
-    
+
     // 设置玩家属性
     gameState.players[0] = {
         type: characterAttributes[player1Role].type,
@@ -766,7 +766,8 @@ function initGame() {
         cards: 0,
         items: [],
         favor: characterAttributes[player1Role].initialFavor,
-        status: 'alive'
+        status: 'alive',
+        action: characterAttributes[player1Role].action
     };
     
     gameState.players[1] = {
@@ -775,7 +776,8 @@ function initGame() {
         cards: 0,
         items: [],
         favor: characterAttributes[player2Role].initialFavor,
-        status: 'alive'
+        status: 'alive',
+        action: characterAttributes[player2Role].action
         
     };
     
@@ -785,25 +787,26 @@ function initGame() {
         cards: 0,
         items: [],
         favor: characterAttributes[player3Role].initialFavor,
-        status: 'die'
+        status: 'die',
+        action: characterAttributes[player3Role].action
     };
-    
+
     // 重置游戏状态
     gameState.currentPlayer = 0;
     gameState.tokenPosition = 0;
     gameState.lastTokenPosition = -1;
     gameState.gameStarted = true;
     gameState.gameWon = false;
-    
+
     // 重新初始化道具池
     gameState.itemPool = [...itemPool];
-    
+
     // 为所有玩家设置初始行动点
     for (let i = 0; i < 3; i++) {
         const player = gameState.players[i];
         player.action = characterAttributes[player.role].action;
     }
-    
+
     // 游戏开始时，为第一个玩家摸一张道具卡（如果手牌未达到上限）
     const firstPlayer = gameState.players[0];
     let startMessage = '游戏开始！玩家1先开始掷骰子。';
@@ -812,28 +815,28 @@ function initGame() {
         const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
         const itemName = gameState.itemPool[randomIndex];
         const item = items[itemName];
-        
+
         // 从道具池中移除该道具
         gameState.itemPool.splice(randomIndex, 1);
-        
+
         // 添加道具到玩家的道具数组
         firstPlayer.items.push(item);
         firstPlayer.cards++;
-        
+
         startMessage = `游戏开始！玩家1先开始掷骰子。获得道具${item.name}。`;
         logEvent(`玩家1（${firstPlayer.role}）游戏开始，获得道具${item.name}`);
-        
+
         // 更新道具池显示
         updateItemPoolDisplay();
     }
-    
+
     // 更新UI
     updateUI();
-    
+
     // 显示游戏界面，隐藏设置界面
     elements.gameSetup.style.display = 'none';
     elements.gameBoard.style.display = 'block';
-    
+
     // 显示游戏开始消息
     elements.gameMessage.textContent = startMessage;
 }
@@ -842,9 +845,9 @@ function initGame() {
 function updateItemsDisplay() {
     for (let i = 0; i < 3; i++) {
         const player = gameState.players[i];
-        const itemsContainer = document.getElementById(`player${i+1}-items`);
+        const itemsContainer = document.getElementById(`player${i + 1}-items`);
         itemsContainer.innerHTML = '';
-        
+
         player.items.forEach((item, index) => {
             const itemElement = document.createElement('div');
             itemElement.className = 'item';
@@ -852,14 +855,14 @@ function updateItemsDisplay() {
             itemElement.title = item.description;
             itemElement.dataset.playerIndex = i;
             itemElement.dataset.itemIndex = index;
-            
+
             // 只有当前玩家且存活时且游戏未胜利时可以使用道具
             if (i === gameState.currentPlayer && player.status === 'alive' && !gameState.gameWon) {
                 itemElement.addEventListener('click', () => useItem(i, index));
             } else {
                 itemElement.classList.add('used');
             }
-            
+
             itemsContainer.appendChild(itemElement);
         });
     }
@@ -869,32 +872,40 @@ function updateItemsDisplay() {
 function useItem(playerIndex, itemIndex) {
     const player = gameState.players[playerIndex];
     const item = player.items[itemIndex];
-    
+
     if (gameState.gameWon) {
         elements.gameMessage.textContent = '游戏已胜利，无法使用道具！';
         logEvent('游戏已胜利，无法使用道具');
         return;
     }
-    
+
     if (player.status !== 'alive') {
         elements.gameMessage.textContent = `玩家${playerIndex + 1}已死亡，无法使用道具！`;
         logEvent(`玩家${playerIndex + 1}已死亡，无法使用道具`);
         return;
     }
-    
+
+    // 检查行动点
+    if (!player.action || player.action <= 0) {
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点不足，无法使用道具！`;
+        logEvent(`玩家${playerIndex + 1}行动点不足，无法使用道具`);
+        return;
+    }
+
     if (item && player.cards > 0) {
+        // 消耗行动点
+        player.action--;
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具`);
+
         // 恢复行动点
         // 注意：这里我们直接修改player.action，因为这是临时的行动点变化
-        if (!player.action) {
-            player.action = characterAttributes[player.role].action;
-        }
         player.action += item.action;
-        
+
         // 增加好感度（如果有）
         if (item.favor > 0 && player.role !== '薰') {
             player.favor += item.favor;
         }
-        
+
         // 处理移动功能
         if (item.targetGrid !== undefined) {
             const oldPosition = gameState.tokenPosition;
@@ -902,35 +913,37 @@ function useItem(playerIndex, itemIndex) {
             gameState.tokenPosition = item.targetGrid;
             const newGrid = gridConfig[item.targetGrid];
             updateTokenPosition();
-            
+
             // 记录移动日志
             logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
         } else if (item.type === 'custom_move') {
             // 处理提灯道具，自定义移动步数
             let steps = prompt('请输入希望移动的步数（1-6）:', '');
-            
+
             // 验证输入
             steps = parseInt(steps);
             if (isNaN(steps) || steps < 1 || steps > 6) {
                 alert('输入无效，请输入1-6之间的数字！');
+                // 恢复行动点
+                player.action++;
                 return;
             }
-            
+
             // 移动棋子
             const oldPosition = gameState.tokenPosition;
             const oldGrid = gridConfig[oldPosition];
             gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
             const newGrid = gridConfig[gameState.tokenPosition];
             updateTokenPosition();
-            
+
             // 记录移动日志
             logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动了${steps}步到${newGrid.id}.${newGrid.name}`);
         }
-        
+
         // 从道具列表中移除
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
-        
+
         // 显示消息
         let message = `玩家${playerIndex + 1}使用了${item.name}`;
         if (item.action > 0) {
@@ -946,9 +959,21 @@ function useItem(playerIndex, itemIndex) {
         message += '！';
         elements.gameMessage.textContent = message;
         logEvent(message);
-        
+
         // 更新UI
         updateUI();
+
+        // 检查行动点是否为0，如果是则自动结束行动
+        if (player.action <= 0) {
+            setTimeout(() => {
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                endTurn();
+            }, 1000);
+        } else {
+            // 重新启用掷骰子按钮
+            elements.rollDice.disabled = false;
+        }
     }
 }
 
@@ -956,32 +981,32 @@ function useItem(playerIndex, itemIndex) {
 function updateUI() {
     // 更新当前玩家显示
     elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
-    
+
     // 更新回合数显示
     elements.roundCount.textContent = gameState.round;
-    
+
     // 更新玩家信息和当前玩家样式
     for (let i = 0; i < 3; i++) {
         const player = gameState.players[i];
-        elements[`player${i+1}TypeDisplay`].textContent = player.type;
-        elements[`player${i+1}RoleDisplay`].textContent = player.role;
-        elements[`player${i+1}Action`].textContent = player.action || characterAttributes[player.role].action;
-        elements[`player${i+1}Cards`].textContent = player.cards;
-        elements[`player${i+1}Favor`].textContent = player.favor;
-        elements[`player${i+1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
-        
+        elements[`player${i + 1}TypeDisplay`].textContent = player.type;
+        elements[`player${i + 1}RoleDisplay`].textContent = player.role;
+        elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
+        elements[`player${i + 1}Cards`].textContent = player.cards;
+        elements[`player${i + 1}Favor`].textContent = player.favor;
+        elements[`player${i + 1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
+
         // 更新当前玩家样式
-        const playerElement = document.querySelector(`.player.player${i+1}`);
+        const playerElement = document.querySelector(`.player.player${i + 1}`);
         if (i === gameState.currentPlayer) {
             playerElement.classList.add('current-player');
         } else {
             playerElement.classList.remove('current-player');
         }
     }
-    
+
     // 更新道具显示
     updateItemsDisplay();
-    
+
     // 更新棋子位置
     updateTokenPosition();
 }
@@ -992,7 +1017,7 @@ function updateTokenPosition() {
     if (grid) {
         const rect = grid.getBoundingClientRect();
         const mapRect = document.querySelector('.map').getBoundingClientRect();
-        
+
         elements.token.style.top = `${rect.top - mapRect.top + 15}px`;
         elements.token.style.left = `${rect.left - mapRect.left + 15}px`;
     }
@@ -1001,7 +1026,7 @@ function updateTokenPosition() {
 // 掷骰子
 function rollDice() {
     if (!gameState.gameStarted) return;
-    
+
     // 检查当前玩家是否存活
     const currentPlayer = gameState.players[gameState.currentPlayer];
     if (currentPlayer.status !== 'alive') {
@@ -1009,14 +1034,25 @@ function rollDice() {
         logEvent(`玩家${gameState.currentPlayer + 1}已死亡，无法掷骰子`);
         return;
     }
-    
+
+    // 检查行动点
+    if (!currentPlayer.action || currentPlayer.action <= 0) {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点不足，无法掷骰子！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}行动点不足，无法掷骰子`);
+        return;
+    }
+
+    // 消耗行动点
+    currentPlayer.action--;
+    logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗1点行动点掷骰子`);
+
     // 禁用掷骰子按钮
     elements.rollDice.disabled = true;
-    
+
     // 生成随机骰子结果（1-6）
     const diceValue = Math.floor(Math.random() * 6) + 1;
     elements.diceResult.textContent = `骰子结果: ${diceValue}`;
-    
+
     // 移动棋子
     setTimeout(() => {
         moveToken(diceValue);
@@ -1036,7 +1072,7 @@ function moveToken(steps) {
     const currentPlayer = gameState.players[gameState.currentPlayer];
     const startPosition = gameState.tokenPosition;
     const startGrid = gridConfig[startPosition];
-    
+
     // 检查是否触发停滞效果
     let canMove = true;
     let isStagnant = false;
@@ -1048,23 +1084,23 @@ function moveToken(steps) {
             isStagnant = true;
         }
     }
-    
+
     // 计算新位置
     if (canMove) {
         gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
         // 更新棋子位置
         updateTokenPosition();
-        
+
         const endPosition = gameState.tokenPosition;
         const endGrid = gridConfig[endPosition];
-        
+
         // 记录移动日志
         logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，从${startGrid.id}.${startGrid.name}移动到${endGrid.id}.${endGrid.name}`);
     } else {
         // 记录停滞日志
         logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，但因停滞效果无法移动`);
     }
-    
+
     // 处理格子功能
     setTimeout(() => {
         handleGridFunction(isStagnant);
@@ -1075,7 +1111,7 @@ function moveToken(steps) {
 function handleGridFunction(isStagnant) {
     const currentGrid = gridConfig[gameState.tokenPosition];
     const currentPlayer = gameState.players[gameState.currentPlayer];
-    
+
     // 处理好感度效果
     if (currentGrid.favorEffect) {
         const favorEffect = currentGrid.favorEffect;
@@ -1122,18 +1158,18 @@ function handleGridFunction(isStagnant) {
                 logEvent(`触发效果：没有A类型角色在场`);
             }
         }
-    } 
-    
+    }
+
     // 处理道具效果
     if (currentGrid.道具Effect) {
         const 道具Effect = currentGrid.道具Effect;
         if (道具Effect.type === 'add') {
             // 计算添加后的手牌数量
             const newCardsCount = currentPlayer.cards + 道具Effect.value;
-            
+
             // 获取角色的手牌上限
             const maxCards = characterAttributes[currentPlayer.role].maxCards;
-            
+
             // 如果手牌数量没有达到上限，增加手牌
             if (newCardsCount <= maxCards) {
                 // 从道具池中随机获取一个道具
@@ -1141,17 +1177,17 @@ function handleGridFunction(isStagnant) {
                     const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
                     const itemName = gameState.itemPool[randomIndex];
                     const item = items[itemName];
-                    
+
                     // 从道具池中移除该道具
                     gameState.itemPool.splice(randomIndex, 1);
-                    
+
                     // 添加道具到玩家的道具数组
                     currentPlayer.items.push(item);
                     currentPlayer.cards = newCardsCount;
-                    
+
                     // 更新道具池显示
                     updateItemPoolDisplay();
-                    
+
                     elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${item.name}！${item.description}`;
                     logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${item.name}（${item.description}）`);
                 } else {
@@ -1166,7 +1202,7 @@ function handleGridFunction(isStagnant) {
         } else if (道具Effect.type === 'remove') {
             // 计算减少后的手牌数量
             const newCardsCount = currentPlayer.cards - 道具Effect.value;
-            
+
             // 如果手牌数量没有达到下限，减少手牌
             if (newCardsCount >= 0) {
                 // 随机移除一个道具
@@ -1175,7 +1211,7 @@ function handleGridFunction(isStagnant) {
                     const removedItem = currentPlayer.items[randomIndex];
                     currentPlayer.items.splice(randomIndex, 1);
                     currentPlayer.cards = newCardsCount;
-                    
+
                     elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}失去了${removedItem.name}！`;
                     logEvent(`触发效果：玩家${gameState.currentPlayer + 1}失去了${removedItem.name}`);
                 } else {
@@ -1189,14 +1225,14 @@ function handleGridFunction(isStagnant) {
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}没有手牌可以失去`);
             }
         }
-    } 
-    
+    }
+
     // 处理起点
     if (currentGrid.types.includes('start')) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}回到了起点！`;
         logEvent(`触发效果：玩家${gameState.currentPlayer + 1}回到了起点`);
     }
-    
+
     // 更新lastTokenPosition
     // 如果是停滞状态，不更新lastTokenPosition，这样下一个玩家就可以正常移动
     if (!isStagnant) {
@@ -1205,20 +1241,29 @@ function handleGridFunction(isStagnant) {
         // 结束停滞状态，将lastTokenPosition设置为-1
         gameState.lastTokenPosition = -1;
     }
-    
+
     // 更新UI
     updateUI();
-    
+
     // 检查胜利条件
     if (checkWinCondition()) {
         elements.rollDice.disabled = true;
         return;
     }
-    
-    // 切换到下一个玩家
-    setTimeout(() => {
-        nextPlayer();
-    }, 1000);
+
+    // 检查行动点
+    if (currentPlayer.action <= 0) {
+        // 行动点为0，自动结束行动
+        setTimeout(() => {
+            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点已耗尽，自动结束行动。`;
+            logEvent(`玩家${gameState.currentPlayer + 1}行动点已耗尽，自动结束行动`);
+            endTurn();
+        }, 1000);
+    } else {
+        // 还有行动点，重新启用掷骰子按钮
+        elements.rollDice.disabled = false;
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}还有${currentPlayer.action}点行动点，可以继续操作。`;
+    }
 }
 
 // 检查胜利条件
@@ -1233,7 +1278,7 @@ function checkWinCondition() {
             return true;
         }
     }
-    
+
     // 检查B玩家是否杀死所有A玩家
     let aliveAPlayers = 0;
     let aliveBPlayers = 0;
@@ -1246,21 +1291,29 @@ function checkWinCondition() {
             aliveBPlayers++;
         }
     }
-    
+
     if (aliveAPlayers === 0 && aliveBPlayers > 0) {
         elements.gameMessage.textContent = '所有A玩家已被杀死，B玩家胜利！';
         logEvent(`游戏胜利：所有A玩家已被杀死，B玩家胜利`);
         gameState.gameWon = true;
         return true;
     }
-    
+
     return false;
 }
 
-// 切换到下一个玩家
+// 结束行动
+function endTurn() {
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）结束行动`);
+    nextPlayer();
+}
+
+
+// 切换到下一个玩家-准备阶段
 function nextPlayer() {
     const playerCount = gameState.players.length;
-    
+
     // 找到下一个存活的玩家
     let nextPlayerIndex = (gameState.currentPlayer + 1) % playerCount;
     while (gameState.players[nextPlayerIndex].status !== 'alive') {
@@ -1268,70 +1321,71 @@ function nextPlayer() {
         logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
         nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
     }
-    
+
     // 检查是否进入新回合
     if (nextPlayerIndex === 0) {
         gameState.round++;
     }
-    
+
     gameState.currentPlayer = nextPlayerIndex;
     const currentPlayer = gameState.players[gameState.currentPlayer];
     const maxCards = characterAttributes[currentPlayer.role].maxCards;
-    
+
     // 如果游戏已胜利，直接返回
     if (gameState.gameWon) {
         elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
         elements.roundCount.textContent = gameState.round;
         return;
     }
-    
+
     // 玩家行动开始时，从牌堆摸一张道具卡（如果手牌未达到上限）
     let itemMessage = '';
     if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
         const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
         const itemName = gameState.itemPool[randomIndex];
         const item = items[itemName];
-        
+
         // 从道具池中移除该道具
         gameState.itemPool.splice(randomIndex, 1);
-        
+
         // 添加道具到玩家的道具数组
         currentPlayer.items.push(item);
         currentPlayer.cards++;
-        
+
         itemMessage = `获得道具${item.name}，`;
         logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动开始，获得道具${item.name}`);
-        
+
         // 更新道具池显示
         updateItemPoolDisplay();
     }
-    
+
     // 若当前角色行动点为零，自动回复1点
     let actionMessage = '';
     if (!currentPlayer.action || currentPlayer.action === 0) {
-        currentPlayer.action = characterAttributes[currentPlayer.role].action + 1;
+        currentPlayer.action = 1;
         actionMessage = '行动点自动回复1点，';
         logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动点为零，自动回复1点`);
     } else {
         // 确保行动点有初始值
-        if (!currentPlayer.action) {
+        //当行动点为 0 时，会保持为 0 ，只有当行动点未定义时，才会设置为初始值。
+        if (currentPlayer.action === undefined || currentPlayer.action === null) {
             currentPlayer.action = characterAttributes[currentPlayer.role].action;
         }
     }
-    
+
     elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
     elements.roundCount.textContent = gameState.round;
-    
+
     // 组合消息
-    let message = `轮到玩家${gameState.currentPlayer + 1}掷骰子。`;
+    let message = `轮到玩家${gameState.currentPlayer + 1}行动。`;
     if (itemMessage || actionMessage) {
-        message = `轮到玩家${gameState.currentPlayer + 1}掷骰子。${itemMessage}${actionMessage}`;
+        message = `轮到玩家${gameState.currentPlayer + 1}行动。${itemMessage}${actionMessage}`;
     }
     elements.gameMessage.textContent = message;
-    
+
     // 启用掷骰子按钮
     elements.rollDice.disabled = false;
-    
+
     // 更新UI
     updateUI();
 }
@@ -1344,28 +1398,28 @@ async function resetGame() {
     if (!loaded) {
         updateItemLoadStatus('未加载，请选择文件');
     }
-    
+
     // 重置游戏胜利状态
     gameState.gameWon = false;
-    
+
     // 重置回合数
     gameState.round = 1;
-    
+
     // 重置棋子位置
     gameState.tokenPosition = 0;
-    
+
     // 重置当前玩家
     gameState.currentPlayer = 0;
-    
+
     // 重置玩家道具
     for (let i = 0; i < 3; i++) {
         gameState.players[i].items = [];
         gameState.players[i].cards = 0;
     }
-    
+
     // 更新UI
     updateUI();
-    
+
     // 显示重置消息
     if (Object.keys(items).length > 0) {
         elements.gameMessage.textContent = '游戏已重置！玩家1开始新的回合。';
@@ -1375,7 +1429,7 @@ async function resetGame() {
         logEvent('游戏已重置，开始新的游戏');
         logEvent('如果需要重新加载道具，请使用"加载道具"按钮');
     }
-    
+
     // 启用掷骰子按钮
     elements.rollDice.disabled = false;
 }
@@ -1384,36 +1438,36 @@ async function resetGame() {
 function initDraggableLog() {
     const logElement = document.querySelector('.game-log');
     const logHeader = document.querySelector('.game-log-header');
-    
+
     let isDragging = false;
     let offsetX = 0;
     let offsetY = 0;
-    
-    logHeader.addEventListener('mousedown', function(e) {
+
+    logHeader.addEventListener('mousedown', function (e) {
         isDragging = true;
         offsetX = e.clientX - logElement.getBoundingClientRect().left;
         offsetY = e.clientY - logElement.getBoundingClientRect().top;
         logElement.style.zIndex = '1000';
     });
-    
-    document.addEventListener('mousemove', function(e) {
+
+    document.addEventListener('mousemove', function (e) {
         if (isDragging) {
             const gameContainer = document.querySelector('.game-container');
             const containerRect = gameContainer.getBoundingClientRect();
-            
+
             let newX = e.clientX - containerRect.left - offsetX;
             let newY = e.clientY - containerRect.top - offsetY;
-            
+
             // 限制在容器内
             newX = Math.max(0, Math.min(newX, containerRect.width - logElement.offsetWidth));
             newY = Math.max(0, Math.min(newY, containerRect.height - logElement.offsetHeight));
-            
+
             logElement.style.left = newX + 'px';
             logElement.style.top = newY + 'px';
         }
     });
-    
-    document.addEventListener('mouseup', function() {
+
+    document.addEventListener('mouseup', function () {
         isDragging = false;
         logElement.style.zIndex = '100';
     });
@@ -1422,19 +1476,19 @@ function initDraggableLog() {
 // 随机分配角色
 function randomRoles() {
     const roles = ['水上', '川濑', '花泽', '博士', '薰'];
-    
+
     // 打乱角色顺序
     for (let i = roles.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [roles[i], roles[j]] = [roles[j], roles[i]];
     }
-    
+
     // 分配角色给玩家
     for (let i = 1; i <= 3; i++) {
         const role = roles[(i - 1) % roles.length];
         const playerRoleSelect = document.getElementById(`player${i}-role`);
         const playerTypeSelect = document.getElementById(`player${i}-type`);
-        
+
         if (playerRoleSelect && playerTypeSelect) {
             playerRoleSelect.value = role;
             // 根据角色类型自动设置玩家类型
@@ -1450,20 +1504,21 @@ elements.resetGame.addEventListener('click', async () => {
     await resetGame();
 });
 document.getElementById('random-roles').addEventListener('click', randomRoles);
+document.getElementById('end-turn').addEventListener('click', endTurn);
 
 // 初始化页面
-window.onload = async function() {
+window.onload = async function () {
     // 初始化UI
     updateUI();
     // 初始化拖动功能
     initDraggableLog();
-    
+
     // 添加tab切换逻辑
     initLogTabs();
-    
+
     // 添加加载道具按钮的事件监听器
     document.getElementById('load-items').addEventListener('click', loadItemsFromFile);
-    
+
     // 尝试自动加载道具
     updateItemLoadStatus('加载中...');
     const loaded = await autoLoadItemsFromCSV();
@@ -1476,19 +1531,19 @@ window.onload = async function() {
 function initLogTabs() {
     const tabs = document.querySelectorAll('.log-tab');
     tabs.forEach(tab => {
-        tab.addEventListener('click', function(e) {
+        tab.addEventListener('click', function (e) {
             // 阻止事件冒泡，防止触发拖动
             e.stopPropagation();
-            
+
             // 移除所有tab的active类
             tabs.forEach(t => t.classList.remove('active'));
             // 添加当前tab的active类
             this.classList.add('active');
-            
+
             // 隐藏所有内容
             const contents = document.querySelectorAll('.log-content');
             contents.forEach(content => content.classList.remove('active'));
-            
+
             // 显示对应内容
             const tabId = this.dataset.tab;
             document.getElementById(tabId + '-content').classList.add('active');
