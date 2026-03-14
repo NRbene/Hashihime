@@ -594,8 +594,8 @@ function useItem(playerIndex, itemIndex) {
         // 注意：这里我们直接修改player.action，因为这是临时的行动点变化
         player.action += item.action;
 
-        // 增加好感度（如果有）
-        if (item.favor > 0 && player.role !== '薰') {
+        // 增加好感度（如果有，大瓶可尔思必在特殊处理中单独处理）
+        if (item.favor > 0 && player.role !== '薰' && item.name !== '大瓶可尔思必') {
             player.favor += item.favor;
         }
 
@@ -670,7 +670,7 @@ function useItem(playerIndex, itemIndex) {
             stealDialog.className = 'steal-dialog';
             stealDialog.innerHTML = `
                 <div class="steal-dialog-content">
-                    <h3>选择要抢夺的道具：</h3>
+                    <h3>选择要使用原稿交换的道具：</h3>
                     <div class="steal-options">${stealOptions}</div>
                     <button class="cancel-steal">取消</button>
                 </div>
@@ -786,10 +786,48 @@ function useItem(playerIndex, itemIndex) {
                 // 恢复行动点
                 player.action++;
             });
+        } else if (item.name === '大瓶可尔思必') {
+            // 处理大瓶可尔思必道具，直接使用时增加20点好感度
+            // 从道具列表中移除
+            player.items.splice(itemIndex, 1);
+            player.cards = Math.max(0, player.cards - 1);
+
+            // 增加好感度
+            if (player.role !== '薰') {
+                player.favor += 20;
+            }
+
+            // 记录日志
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用大瓶可尔思必，增加了20点好感度`);
+
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了大瓶可尔思必，增加了20点好感度！`;
+
+            // 更新UI
+            updateUI();
+
+            // 检查行动点是否为0，如果是则自动结束行动
+            if (player.action <= 0) {
+                setTimeout(() => {
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                    logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                    endTurn();
+                }, 1000);
+            } else {
+                // 检查是否在停滞格子上
+                const currentGrid = gridConfig[gameState.tokenPosition];
+                if (!currentGrid.isStagnant) {
+                    // 不在停滞格子上，重新启用掷骰子按钮
+                    elements.rollDice.disabled = false;
+                } else {
+                    // 在停滞格子上，保持掷骰子按钮禁用
+                    elements.rollDice.disabled = true;
+                }
+            }
         }
 
-        // 从道具列表中移除（玉森的原稿已在抢夺逻辑中处理）
-        if (item.type !== 'steal') {
+        // 从道具列表中移除（玉森的原稿和大瓶可尔思必已在各自的逻辑中处理）
+        if (item.type !== 'steal' && item.name !== '大瓶可尔思必') {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
@@ -1585,15 +1623,41 @@ function killPlayer() {
         currentPlayer.action -= 4;
         logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗4点行动点执行杀人操作`);
 
-        // 设置目标玩家为死亡
-        targetPlayer.status = 'die';
-        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死`);
+        // 检查目标玩家是否持有大瓶可尔思必道具，且当前玩家是薰
+        let hasKillscreen = false;
+        let killScreenIndex = -1;
+        for (let i = 0; i < targetPlayer.items.length; i++) {
+            if (targetPlayer.items[i].name === '大瓶可尔思必' && currentPlayer.role === '薰') {
+                hasKillscreen = true;
+                killScreenIndex = i;
+                break;
+            }
+        }
 
-        // 更新UI
-        updateUI();
+        if (hasKillscreen) {
+            // 移除大瓶可尔思必道具
+            targetPlayer.items.splice(killScreenIndex, 1);
+            targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+            
+            // 记录日志
+            logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害`);
+            
+            // 更新UI
+            updateUI();
+            
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害！`;
+        } else {
+            // 设置目标玩家为死亡
+            targetPlayer.status = 'die';
+            logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死`);
 
-        // 显示消息
-        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被杀死！`;
+            // 更新UI
+            updateUI();
+
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被杀死！`;
+        }
 
         // 检查胜利条件
         checkWinCondition();
