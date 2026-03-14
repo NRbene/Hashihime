@@ -362,6 +362,7 @@ const elements = {
     weekCount: document.getElementById('week-count'),
     gameMessage: document.getElementById('game-message'),
     token: document.getElementById('token'),
+    directionIndicator: document.getElementById('direction-indicator'),
     logContent: document.getElementById('log-content'),
     playerCount: document.getElementById('player-count'),
     player1Type: document.getElementById('player1-type'),
@@ -1147,6 +1148,13 @@ function useItem(playerIndex, itemIndex) {
     }
 }
 
+// 更新方向指示器
+function updateDirectionIndicator() {
+    if (elements.directionIndicator) {
+        elements.directionIndicator.textContent = gameState.reverseDirection ? '逆时针' : '顺时针';
+    }
+}
+
 // 更新UI
 function updateUI() {
     // 更新当前玩家显示
@@ -1157,6 +1165,9 @@ function updateUI() {
     
     // 更新周目数显示
     elements.weekCount.textContent = gameState.week;
+
+    // 更新方向指示器
+    updateDirectionIndicator();
 
     // 更新玩家信息和当前玩家样式
     const playerCount = gameState.players.length;
