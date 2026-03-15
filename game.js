@@ -30,25 +30,36 @@ function parseItemCSV(csvText) {
             } else if (values[7] === '电影院') {
                 item.targetGrid = 24; // 电影院是第25个格子，索引为24
             } else if (values[7] === '可指定本回合内你希望棋子移动的步数') {
-                //提灯TODO 优化
+                //提灯
                 item.type = 'custom_move';
             }
         }
         
         // 处理特殊道具类型
-        if (item.name === '玉森的原稿') {
-            item.type = 'steal';
-        } else if (item.name === '钱') {
-            item.type = 'exchange';
-        } else if (item.name === '军刀') {
-            item.type = 'kill_with_weapon';
-            item.weaponType = 'knife';
-        } else if (item.name === '枪') {
-            item.type = 'kill_with_weapon';
-            item.weaponType = 'gun';
-        } else if (item.name === '雕刻刀') {
-            item.type = 'kill_with_weapon';
-            item.weaponType = 'carving_knife';
+        // 从CSV中读取道具类型（如果有）
+        if (values[11]) {
+            item.type = values[11];
+        } else {
+            // 向后兼容：当CSV中没有提供类型时，使用硬编码的默认值
+            if (item.name === '玉森的原稿') {
+                item.type = 'steal';
+            } else if (item.name === '钱') {
+                item.type = 'exchange';
+            } else if (item.name === '军刀') {
+                item.type = 'kill_with_weapon';
+                item.weaponType = 'knife';
+            } else if (item.name === '枪') {
+                item.type = 'kill_with_weapon';
+                item.weaponType = 'gun';
+            } else if (item.name === '雕刻刀') {
+                item.type = 'kill_with_weapon';
+                item.weaponType = 'carving_knife';
+            }
+        }
+        
+        // 处理武器类型
+        if (values[12]) {
+            item.weaponType = values[12];
         }
 
         parsedItems[item.name] = item;
@@ -532,76 +543,10 @@ class StealItemStrategy extends ItemStrategy {
             return false;
         }
 
-        // 构建选择界面
-        let stealOptions = '';
-        availablePlayers.forEach(targetIndex => {
-            const targetPlayer = gameState.players[targetIndex];
-            stealOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
-            targetPlayer.items.forEach((targetItem, itemIndex) => {
-                stealOptions += `<div class="steal-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
-            });
-        });
-
-        // 创建弹出框
-        const stealDialog = document.createElement('div');
-        stealDialog.className = 'steal-dialog';
-        stealDialog.innerHTML = `
-            <div class="steal-dialog-content">
-                <h3>选择要使用原稿交换的道具：</h3>
-                <div class="steal-options">${stealOptions}</div>
-                <button class="cancel-steal">取消</button>
-            </div>
-        `;
-        document.body.appendChild(stealDialog);
-
-        // 添加样式
-        const style = document.createElement('style');
-        style.textContent = `
-            .steal-dialog {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
-            }
-            .steal-dialog-content {
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                width: 80%;
-                max-width: 600px;
-                max-height: 80%;
-                overflow-y: auto;
-            }
-            .steal-item {
-                padding: 10px;
-                border: 1px solid #ccc;
-                margin: 5px 0;
-                cursor: pointer;
-            }
-            .steal-item:hover {
-                background-color: #f0f0f0;
-            }
-            .cancel-steal {
-                margin-top: 20px;
-                padding: 10px;
-                background-color: #ccc;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-            }
-        `;
-        document.head.appendChild(style);
-
-        // 处理道具选择
-        const stealItems = stealDialog.querySelectorAll('.steal-item');
-        stealItems.forEach(itemElement => {
-            itemElement.addEventListener('click', () => {
+        // 使用GameDialogService创建抢夺道具对话框
+        GameDialogService.createStealDialog(
+            availablePlayers,
+            (itemElement) => {
                 const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
                 const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
                 
@@ -623,10 +568,6 @@ class StealItemStrategy extends ItemStrategy {
                 
                 // 记录日志
                 logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}`);
-                
-                // 关闭对话框
-                document.body.removeChild(stealDialog);
-                document.head.removeChild(style);
                 
                 // 显示消息
                 elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}！`;
@@ -652,17 +593,12 @@ class StealItemStrategy extends ItemStrategy {
                         elements.rollDice.disabled = true;
                     }
                 }
-            });
-        });
-
-        // 处理取消按钮
-        const cancelButton = stealDialog.querySelector('.cancel-steal');
-        cancelButton.addEventListener('click', () => {
-            document.body.removeChild(stealDialog);
-            document.head.removeChild(style);
-            // 恢复行动点
-            player.action++;
-        });
+            },
+            () => {
+                // 恢复行动点
+                player.action++;
+            }
+        );
         return false; // 异步操作，不继续执行后续逻辑
     }
 }
@@ -719,73 +655,9 @@ class ColspiceItemStrategy extends ItemStrategy {
 // 钱道具策略
 class MoneyItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
-        // 创建选择对话框
-        const exchangeDialog = document.createElement('div');
-        exchangeDialog.className = 'exchange-dialog';
-        exchangeDialog.innerHTML = `
-            <div class="exchange-dialog-content">
-                <h3>选择交换方式：</h3>
-                <div class="exchange-options">
-                    <div class="exchange-option" data-type="draw">从牌堆抽取</div>
-                    <div class="exchange-option" data-type="player">从其他玩家交换</div>
-                </div>
-                <button class="cancel-exchange">取消</button>
-            </div>
-        `;
-        document.body.appendChild(exchangeDialog);
-
-        // 添加样式
-        const style = document.createElement('style');
-        style.textContent = `
-            .exchange-dialog {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
-            }
-            .exchange-dialog-content {
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                width: 80%;
-                max-width: 600px;
-                max-height: 80%;
-                overflow-y: auto;
-            }
-            .exchange-option {
-                padding: 10px;
-                border: 1px solid #ccc;
-                margin: 5px 0;
-                cursor: pointer;
-            }
-            .exchange-option:hover {
-                background-color: #f0f0f0;
-            }
-            .cancel-exchange {
-                margin-top: 20px;
-                padding: 10px;
-                background-color: #ccc;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-            }
-        `;
-        document.head.appendChild(style);
-
-        // 处理交换方式选择
-        const exchangeOptions = exchangeDialog.querySelectorAll('.exchange-option');
-        exchangeOptions.forEach(option => {
-            option.addEventListener('click', () => {
-                const exchangeType = option.dataset.type;
-                document.body.removeChild(exchangeDialog);
-                document.head.removeChild(style);
-                
+        // 使用GameDialogService创建交换道具对话框
+        GameDialogService.createExchangeDialog(
+            (exchangeType) => {
                 if (exchangeType === 'draw') {
                     // 从牌堆抽取
                     if (gameState.itemPool.length > 0) {
@@ -858,76 +730,10 @@ class MoneyItemStrategy extends ItemStrategy {
                         return;
                     }
 
-                    // 构建选择界面
-                    let playerOptions = '';
-                    availablePlayers.forEach(targetIndex => {
-                        const targetPlayer = gameState.players[targetIndex];
-                        playerOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
-                        targetPlayer.items.forEach((targetItem, itemIndex) => {
-                            playerOptions += `<div class="player-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
-                        });
-                    });
-
-                    // 创建弹出框
-                    const playerDialog = document.createElement('div');
-                    playerDialog.className = 'player-dialog';
-                    playerDialog.innerHTML = `
-                        <div class="player-dialog-content">
-                            <h3>选择要交换的道具：</h3>
-                            <div class="player-options">${playerOptions}</div>
-                            <button class="cancel-player">取消</button>
-                        </div>
-                    `;
-                    document.body.appendChild(playerDialog);
-
-                    // 添加样式
-                    const playerStyle = document.createElement('style');
-                    playerStyle.textContent = `
-                        .player-dialog {
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100%;
-                            height: 100%;
-                            background-color: rgba(0, 0, 0, 0.5);
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            z-index: 10000;
-                        }
-                        .player-dialog-content {
-                            background-color: white;
-                            padding: 20px;
-                            border-radius: 5px;
-                            width: 80%;
-                            max-width: 600px;
-                            max-height: 80%;
-                            overflow-y: auto;
-                        }
-                        .player-item {
-                            padding: 10px;
-                            border: 1px solid #ccc;
-                            margin: 5px 0;
-                            cursor: pointer;
-                        }
-                        .player-item:hover {
-                            background-color: #f0f0f0;
-                        }
-                        .cancel-player {
-                            margin-top: 20px;
-                            padding: 10px;
-                            background-color: #ccc;
-                            border: none;
-                            border-radius: 5px;
-                            cursor: pointer;
-                        }
-                    `;
-                    document.head.appendChild(playerStyle);
-
-                    // 处理道具选择
-                    const playerItems = playerDialog.querySelectorAll('.player-item');
-                    playerItems.forEach(itemElement => {
-                        itemElement.addEventListener('click', () => {
+                    // 使用GameDialogService创建玩家道具选择对话框
+                    GameDialogService.createPlayerItemDialog(
+                        availablePlayers,
+                        (itemElement) => {
                             const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
                             const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
                             
@@ -949,10 +755,6 @@ class MoneyItemStrategy extends ItemStrategy {
                             
                             // 记录日志
                             logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中交换了${targetItem.name}`);
-                            
-                            // 关闭对话框
-                            document.body.removeChild(playerDialog);
-                            document.head.removeChild(playerStyle);
                             
                             // 显示消息
                             elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中交换了${targetItem.name}！`;
@@ -978,29 +780,19 @@ class MoneyItemStrategy extends ItemStrategy {
                                     elements.rollDice.disabled = true;
                                 }
                             }
-                        });
-                    });
-
-                    // 处理取消按钮
-                    const cancelButton = playerDialog.querySelector('.cancel-player');
-                    cancelButton.addEventListener('click', () => {
-                        document.body.removeChild(playerDialog);
-                        document.head.removeChild(playerStyle);
-                        // 恢复行动点
-                        player.action++;
-                    });
+                        },
+                        () => {
+                            // 恢复行动点
+                            player.action++;
+                        }
+                    );
                 }
-            });
-        });
-
-        // 处理取消按钮
-        const cancelButton = exchangeDialog.querySelector('.cancel-exchange');
-        cancelButton.addEventListener('click', () => {
-            document.body.removeChild(exchangeDialog);
-            document.head.removeChild(style);
-            // 恢复行动点
-            player.action++;
-        });
+            },
+            () => {
+                // 恢复行动点
+                player.action++;
+            }
+        );
         return false; // 异步操作，不继续执行后续逻辑
     }
 }
@@ -1014,22 +806,328 @@ class WeaponItemStrategy extends ItemStrategy {
     }
 }
 
+// 道具类型到策略的映射表
+const itemStrategyMap = {
+    'move': MoveItemStrategy,
+    'custom_move': CustomMoveItemStrategy,
+    'steal': StealItemStrategy,
+    'colspice': ColspiceItemStrategy,
+    'exchange': MoneyItemStrategy,
+    'kill_with_weapon': WeaponItemStrategy
+};
+
+// 道具名称到类型的映射表
+const itemNameToTypeMap = {
+    '大瓶可尔思必': 'colspice'
+};
+
+// 游戏对话框服务
+class GameDialogService {
+    // 创建通用对话框
+    static createDialog(dialogClass, contentClass, title, content, cancelText, onConfirm, onCancel) {
+        // 创建弹出框
+        const dialog = document.createElement('div');
+        dialog.className = dialogClass;
+        dialog.innerHTML = `
+            <div class="${contentClass}">
+                <h3>${title}</h3>
+                <div>${content}</div>
+                <button class="cancel-button">${cancelText}</button>
+            </div>
+        `;
+        document.body.appendChild(dialog);
+
+        // 处理确认事件
+        if (onConfirm) {
+            const confirmElements = dialog.querySelectorAll('[data-action="confirm"]');
+            confirmElements.forEach(element => {
+                element.addEventListener('click', () => {
+                    onConfirm(element);
+                    this.closeDialog(dialog);
+                });
+            });
+        }
+
+        // 处理取消按钮
+        const cancelButton = dialog.querySelector('.cancel-button');
+        cancelButton.addEventListener('click', () => {
+            if (onCancel) {
+                onCancel();
+            }
+            this.closeDialog(dialog);
+        });
+
+        return dialog;
+    }
+
+    // 创建抢夺道具对话框
+    static createStealDialog(availablePlayers, onSteal, onCancel) {
+        // 构建选择界面
+        let stealOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            stealOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+            targetPlayer.items.forEach((targetItem, itemIndex) => {
+                stealOptions += `<div class="steal-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
+            });
+        });
+
+        // 创建对话框
+        const dialog = this.createDialog(
+            'steal-dialog',
+            'steal-dialog-content',
+            '选择要使用原稿交换的道具：',
+            `<div class="steal-options">${stealOptions}</div>`,
+            '取消',
+            null,
+            onCancel
+        );
+
+        // 处理道具选择
+        const stealItems = dialog.querySelectorAll('.steal-item');
+        stealItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                onSteal(itemElement);
+                this.closeDialog(dialog);
+            });
+        });
+
+        // 添加样式
+        this.addDialogStyle('steal-dialog');
+
+        return dialog;
+    }
+
+    // 创建交换道具对话框
+    static createExchangeDialog(onExchange, onCancel) {
+        // 创建对话框
+        const dialog = this.createDialog(
+            'exchange-dialog',
+            'exchange-dialog-content',
+            '选择交换方式：',
+            `<div class="exchange-options">
+                <div class="exchange-option" data-type="draw">从牌堆抽取</div>
+                <div class="exchange-option" data-type="player">从其他玩家交换</div>
+            </div>`,
+            '取消',
+            null,
+            onCancel
+        );
+
+        // 处理交换方式选择
+        const exchangeOptions = dialog.querySelectorAll('.exchange-option');
+        exchangeOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                onExchange(option.dataset.type);
+                this.closeDialog(dialog);
+            });
+        });
+
+        // 添加样式
+        this.addDialogStyle('exchange-dialog');
+
+        return dialog;
+    }
+
+    // 创建玩家道具选择对话框
+    static createPlayerItemDialog(availablePlayers, onSelect, onCancel) {
+        // 构建选择界面
+        let playerOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            playerOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+            targetPlayer.items.forEach((targetItem, itemIndex) => {
+                playerOptions += `<div class="player-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
+            });
+        });
+
+        // 创建对话框
+        const dialog = this.createDialog(
+            'player-dialog',
+            'player-dialog-content',
+            '选择要交换的道具：',
+            `<div class="player-options">${playerOptions}</div>`,
+            '取消',
+            null,
+            onCancel
+        );
+
+        // 处理道具选择
+        const playerItems = dialog.querySelectorAll('.player-item');
+        playerItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                onSelect(itemElement);
+                this.closeDialog(dialog);
+            });
+        });
+
+        // 添加样式
+        this.addDialogStyle('player-dialog');
+
+        return dialog;
+    }
+
+    // 创建武器目标选择对话框
+    static createWeaponDialog(availablePlayers, onSelect, onCancel) {
+        // 构建选择界面
+        let killOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            killOptions += `<div class="kill-item" data-target-player="${targetIndex}">玩家${targetIndex + 1}（${targetPlayer.role}）- 剩余行动点：${targetPlayer.action || 0}</div>`;
+        });
+
+        // 创建对话框
+        const dialog = this.createDialog(
+            'kill-dialog',
+            'kill-dialog-content',
+            '选择要杀死的角色：',
+            `<div class="kill-options">${killOptions}</div>`,
+            '取消',
+            null,
+            onCancel
+        );
+
+        // 处理目标选择
+        const killItems = dialog.querySelectorAll('.kill-item');
+        killItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                onSelect(itemElement);
+                this.closeDialog(dialog);
+            });
+        });
+
+        // 添加样式
+        this.addDialogStyle('kill-dialog');
+
+        return dialog;
+    }
+
+    // 添加对话框样式
+    static addDialogStyle(dialogClass) {
+        // 检查是否已经添加了样式
+        if (document.getElementById(`${dialogClass}-style`)) {
+            return;
+        }
+
+        // 创建样式
+        const style = document.createElement('style');
+        style.id = `${dialogClass}-style`;
+        style.textContent = `
+            .${dialogClass} {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            }
+            .${dialogClass}-content {
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                width: 80%;
+                max-width: 600px;
+                max-height: 80%;
+                overflow-y: auto;
+            }
+            .${dialogClass} .cancel-button {
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #ccc;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+        `;
+
+        // 添加特定样式
+        if (dialogClass === 'steal-dialog') {
+            style.textContent += `
+                .steal-item {
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    margin: 5px 0;
+                    cursor: pointer;
+                }
+                .steal-item:hover {
+                    background-color: #f0f0f0;
+                }
+            `;
+        } else if (dialogClass === 'exchange-dialog') {
+            style.textContent += `
+                .exchange-option {
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    margin: 5px 0;
+                    cursor: pointer;
+                }
+                .exchange-option:hover {
+                    background-color: #f0f0f0;
+                }
+            `;
+        } else if (dialogClass === 'player-dialog') {
+            style.textContent += `
+                .player-item {
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    margin: 5px 0;
+                    cursor: pointer;
+                }
+                .player-item:hover {
+                    background-color: #f0f0f0;
+                }
+            `;
+        } else if (dialogClass === 'kill-dialog') {
+            style.textContent += `
+                .kill-item {
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    margin: 5px 0;
+                    cursor: pointer;
+                }
+                .kill-item:hover {
+                    background-color: #f0f0f0;
+                }
+            `;
+        }
+
+        document.head.appendChild(style);
+    }
+
+    // 关闭对话框
+    static closeDialog(dialog) {
+        if (dialog) {
+            document.body.removeChild(dialog);
+        }
+    }
+}
+
 // 道具策略工厂
 class ItemStrategyFactory {
     static getStrategy(item) {
+        // 首先检查道具类型
         if (item.targetGrid !== undefined) {
             return new MoveItemStrategy();
-        } else if (item.type === 'custom_move') {
-            return new CustomMoveItemStrategy();
-        } else if (item.type === 'steal') {
-            return new StealItemStrategy();
-        } else if (item.name === '大瓶可尔思必') {
-            return new ColspiceItemStrategy();
-        } else if (item.type === 'exchange') {
-            return new MoneyItemStrategy();
-        } else if (item.type === 'kill_with_weapon') {
-            return new WeaponItemStrategy();
         }
+        
+        // 检查道具名称映射
+        if (itemNameToTypeMap[item.name]) {
+            const strategyClass = itemStrategyMap[itemNameToTypeMap[item.name]];
+            if (strategyClass) {
+                return new strategyClass();
+            }
+        }
+        
+        // 检查道具类型映射
+        if (item.type && itemStrategyMap[item.type]) {
+            const strategyClass = itemStrategyMap[item.type];
+            return new strategyClass();
+        }
+        
         return new ItemStrategy(); // 默认策略
     }
 }
@@ -1793,31 +1891,10 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
         return;
     }
 
-    // 构建选择界面
-    let killOptions = '';
-    availablePlayers.forEach(targetIndex => {
-        const targetPlayer = gameState.players[targetIndex];
-        killOptions += `<div class="kill-item" data-target-player="${targetIndex}">玩家${targetIndex + 1}（${targetPlayer.role}）- 剩余行动点：${targetPlayer.action || 0}</div>`;
-    });
-
-    // 创建弹出框
-    const killDialog = document.createElement('div');
-    killDialog.className = 'kill-dialog';
-    killDialog.innerHTML = `
-        <div class="kill-dialog-content">
-            <h3>选择要杀死的角色：</h3>
-            <div class="kill-options">${killOptions}</div>
-            <button class="cancel-kill">取消</button>
-        </div>
-    `;
-    document.body.appendChild(killDialog);
-
-
-
-    // 处理目标选择
-    const killItems = killDialog.querySelectorAll('.kill-item');
-    killItems.forEach(itemElement => {
-        itemElement.addEventListener('click', () => {
+    // 使用GameDialogService创建武器目标选择对话框
+    GameDialogService.createWeaponDialog(
+        availablePlayers,
+        (itemElement) => {
             const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
             const targetPlayer = gameState.players[targetPlayerIndex];
             
@@ -1890,9 +1967,6 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
                 elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被${item.name}杀死！`;
             }
             
-            // 关闭对话框
-            document.body.removeChild(killDialog);
-            
             // 更新UI
             updateUI();
             
@@ -1917,17 +1991,12 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
                     elements.rollDice.disabled = true;
                 }
             }
-        });
-    });
-
-    // 处理取消按钮
-    const cancelButton = killDialog.querySelector('.cancel-kill');
-    cancelButton.addEventListener('click', () => {
-        document.body.removeChild(killDialog);
-        document.head.removeChild(style);
-        // 恢复行动点
-        player.action++;
-    });
+        },
+        () => {
+            // 恢复行动点
+            player.action++;
+        }
+    );
 }
 
 // 处理格子功能
