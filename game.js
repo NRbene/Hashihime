@@ -451,9 +451,9 @@ class GameStateManager {
     constructor() {
         this.state = {
             players: [
-                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 },
-                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 },
-                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 }
+                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3, hasKeychain: false },
+                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3, hasKeychain: false },
+                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3, hasKeychain: false }
             ],
             currentPlayer: 0,
             tokenPosition: 0,
@@ -817,6 +817,46 @@ class ColspiceItemStrategy extends ItemStrategy {
     }
 }
 
+// 钥匙串道具策略
+class KeychainItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 设置钥匙串效果
+        player.hasKeychain = true;
+
+        // 记录日志
+        logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，本周目不能成为被杀害的目标`);
+        // 显示消息
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，本周目不能成为被杀害的目标！`;
+
+        // 更新UI
+        updateUI();
+
+        // 检查行动点是否为0，如果是则自动结束行动
+        if (player.action <= 0) {
+            setTimeout(() => {
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                endTurn();
+            }, 1000);
+        } else {
+            // 检查是否在停滞格子上
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            if (!currentGrid.isStagnant) {
+                // 不在停滞格子上，重新启用掷骰子按钮
+                elements.rollDice.disabled = false;
+            } else {
+                // 在停滞格子上，保持掷骰子按钮禁用
+                elements.rollDice.disabled = true;
+            }
+        }
+        return false; // 不继续执行后续逻辑
+    }
+}
+
 // 钱道具策略
 class MoneyItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
@@ -1077,7 +1117,8 @@ const itemStrategyMap = {
     'exchange': MoneyItemStrategy,
     'kill_with_weapon': WeaponItemStrategy,
     'favor': FavorItemStrategy,
-    'action': ActionItemStrategy
+    'action': ActionItemStrategy,
+    'keychain': KeychainItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1088,7 +1129,8 @@ const itemNameToTypeMap = {
     '电影票': 'favor',
     '蛋包饭': 'action',
     '咖啡': 'action',
-    '手电筒': 'reverse_move'
+    '手电筒': 'reverse_move',
+    '钥匙串': 'keychain'
 };
 
 // 游戏对话框服务
@@ -1555,6 +1597,8 @@ class WaterGridStrategy extends GridStrategy {
         // 重置所有人的行动点为初始行动点
         gameState.players.forEach((player, index) => {
             player.action = characterAttributes[player.role].action;
+            // 重置钥匙串效果
+            player.hasKeychain = false;
             // 如果玩家死亡，复活并重置好感度
             if (player.status === 'die') {
                 player.status = 'alive';
@@ -1726,7 +1770,8 @@ function initGame() {
                 items: [],
                 favor: characterAttributes[role].initialFavor,
                 status: 'alive',
-                action: characterAttributes[role].action
+                action: characterAttributes[role].action,
+                hasKeychain: false
             });
         }
 
@@ -1858,7 +1903,7 @@ function useItem(playerIndex, itemIndex) {
         // 保存游戏状态
         saveGameState();
 
-        // 消耗行动点（特殊角色使用特定武器不消耗行动点）
+        // 消耗行动点（特殊角色使用特定武器或道具不消耗行动点）
         let shouldConsumeAction = true;
         if (item.type === 'kill_with_weapon') {
             switch (item.weaponType) {
@@ -1877,6 +1922,14 @@ function useItem(playerIndex, itemIndex) {
                         shouldConsumeAction = false;
                     }
                     break;
+            }
+        } else if (item.name === '钥匙串') {
+            if (player.role === '川濑') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '念珠') {
+            if (player.role === '水上' || player.role === '薰') {
+                shouldConsumeAction = false;
             }
         }
         if (shouldConsumeAction) {
@@ -2144,6 +2197,11 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
     const getAvailablePlayers = () => {
         const availablePlayers = [];
         gameState.players.forEach((targetPlayer, targetIndex) => {
+            // 检查目标是否使用了钥匙串
+            if (targetPlayer.hasKeychain) {
+                return; // 无法攻击使用了钥匙串的玩家
+            }
+            
             let canTarget = false;
             
             switch (item.weaponType) {
@@ -2693,7 +2751,7 @@ function killPlayer() {
     // 生成可选择的玩家列表
     const availablePlayers = [];
     for (let i = 0; i < gameState.players.length; i++) {
-        if (i !== gameState.currentPlayer && gameState.players[i].status === 'alive') {
+        if (i !== gameState.currentPlayer && gameState.players[i].status === 'alive' && !gameState.players[i].hasKeychain) {
             availablePlayers.push(i);
         }
     }
