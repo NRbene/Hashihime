@@ -1858,9 +1858,33 @@ function useItem(playerIndex, itemIndex) {
         // 保存游戏状态
         saveGameState();
 
-        // 消耗行动点
-        player.action--;
-        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具`);
+        // 消耗行动点（特殊角色使用特定武器不消耗行动点）
+        let shouldConsumeAction = true;
+        if (item.type === 'kill_with_weapon') {
+            switch (item.weaponType) {
+                case 'knife': // 军刀
+                    if (player.role === '花泽') {
+                        shouldConsumeAction = false;
+                    }
+                    break;
+                case 'gun': // 枪
+                    if (player.role === '博士') {
+                        shouldConsumeAction = false;
+                    }
+                    break;
+                case 'carving_knife': // 雕刻刀
+                    if (player.role === '水上') {
+                        shouldConsumeAction = false;
+                    }
+                    break;
+            }
+        }
+        if (shouldConsumeAction) {
+            player.action--;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具`);
+        } else {
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用道具（特殊：不消耗行动点）`);
+        }
 
         // 使用策略模式处理道具效果
         const strategy = ItemStrategyFactory.getStrategy(item);
@@ -2147,8 +2171,29 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
     if (availablePlayers.length === 0) {
         elements.gameMessage.textContent = '没有可杀死的目标！';
         logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用${item.name}，但没有符合条件的目标`);
-        // 恢复行动点
-        player.action++;
+        // 检查是否是特殊角色使用特定武器（不消耗行动点）
+        let shouldConsumeAction = true;
+        switch (item.weaponType) {
+            case 'knife': // 军刀
+                if (player.role === '花泽') {
+                    shouldConsumeAction = false;
+                }
+                break;
+            case 'gun': // 枪
+                if (player.role === '博士') {
+                    shouldConsumeAction = false;
+                }
+                break;
+            case 'carving_knife': // 雕刻刀
+                if (player.role === '水上') {
+                    shouldConsumeAction = false;
+                }
+                break;
+        }
+        // 只有消耗了行动点的情况下才恢复
+        if (shouldConsumeAction) {
+            player.action++;
+        }
         return;
     }
 
