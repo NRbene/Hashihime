@@ -39,7 +39,11 @@ function parseItemCSV(csvText) {
         
         if (涉及行动点 === '是') {
             // 提取行动点值
-            const actionMatch = description.match(/恢复(\d+)行动点/);
+            let actionMatch = description.match(/恢复(\d+)行动点/);
+            if (!actionMatch) {
+                // 尝试匹配"薰使用则为恢复X行动点"模式
+                actionMatch = description.match(/薰使用则为恢复(\d+)行动点/);
+            }
             if (actionMatch) {
                 action = parseInt(actionMatch[1]);
             }
@@ -507,14 +511,76 @@ class ItemStrategy {
 // 移动道具策略
 class MoveItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 移动棋子
         const oldPosition = gameState.tokenPosition;
         const oldGrid = gridConfig[oldPosition];
         gameState.tokenPosition = item.targetGrid;
         const newGrid = gridConfig[item.targetGrid];
         updateTokenPosition();
 
-        // 记录移动日志
-        logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
+        // 处理好感度和行动点
+        if (player.role !== '薰') {
+            // 非薰玩家：只增加好感度，不恢复行动点
+            if (item.favor > 0) {
+                player.favor += item.favor;
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，增加了${item.favor}点好感度`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，增加了${item.favor}点好感度，移动到${newGrid.id}.${newGrid.name}！`;
+            } else {
+                // 记录移动日志
+                logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，移动到${newGrid.id}.${newGrid.name}！`;
+            }
+        } else {
+            // 薰玩家：只恢复行动点，不增加好感度
+            if (item.action > 0) {
+                player.action += item.action;
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点，移动到${newGrid.id}.${newGrid.name}！`;
+            } else {
+                // 记录移动日志
+                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，移动到${newGrid.id}.${newGrid.name}！`;
+            }
+        }
+
+        // 更新UI
+        updateUI();
+
+        // 检查行动点是否为0，如果是则自动结束行动
+        if (player.action <= 0) {
+            setTimeout(() => {
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                endTurn();
+            }, 1000);
+        } else {
+            // 检查是否在停滞格子上
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            if (!currentGrid.isStagnant) {
+                // 不在停滞格子上，重新启用掷骰子按钮
+                elements.rollDice.disabled = false;
+            } else {
+                // 在停滞格子上，保持掷骰子按钮禁用
+                elements.rollDice.disabled = true;
+            }
+        }
+
+        // 处理新位置的格子功能
+        setTimeout(() => {
+            handleGridFunction();
+        }, 500);
+
+        return false; // 不继续执行后续逻辑
     }
 }
 
@@ -832,6 +898,100 @@ class WeaponItemStrategy extends ItemStrategy {
     }
 }
 
+// 好感度/行动点道具策略
+class FavorItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 处理好感度和行动点
+        if (player.role !== '薰') {
+            // 非薰玩家：只增加好感度，不恢复行动点
+            if (item.favor > 0) {
+                player.favor += item.favor;
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，增加了${item.favor}点好感度`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，增加了${item.favor}点好感度！`;
+            }
+        } else {
+            // 薰玩家：只恢复行动点，不增加好感度
+            if (item.action > 0) {
+                player.action += item.action;
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点！`;
+            }
+        }
+
+        // 更新UI
+        updateUI();
+
+        // 检查行动点是否为0，如果是则自动结束行动
+        if (player.action <= 0) {
+            setTimeout(() => {
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                endTurn();
+            }, 1000);
+        } else {
+            // 检查是否在停滞格子上
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            if (!currentGrid.isStagnant) {
+                // 不在停滞格子上，重新启用掷骰子按钮
+                elements.rollDice.disabled = false;
+            } else {
+                // 在停滞格子上，保持掷骰子按钮禁用
+                elements.rollDice.disabled = true;
+            }
+        }
+        return false; // 不继续执行后续逻辑
+    }
+}
+
+// 行动点恢复道具策略
+class ActionItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 恢复行动点（全体人员都可以恢复）
+        if (item.action > 0) {
+            player.action += item.action;
+            // 记录日志
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，获得了${item.action}点行动点`);
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，获得了${item.action}点行动点！`;
+        }
+
+        // 更新UI
+        updateUI();
+
+        // 检查行动点是否为0，如果是则自动结束行动
+        if (player.action <= 0) {
+            setTimeout(() => {
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                endTurn();
+            }, 1000);
+        } else {
+            // 检查是否在停滞格子上
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            if (!currentGrid.isStagnant) {
+                // 不在停滞格子上，重新启用掷骰子按钮
+                elements.rollDice.disabled = false;
+            } else {
+                // 在停滞格子上，保持掷骰子按钮禁用
+                elements.rollDice.disabled = true;
+            }
+        }
+        return false; // 不继续执行后续逻辑
+    }
+}
+
 // 道具类型到策略的映射表
 const itemStrategyMap = {
     'move': MoveItemStrategy,
@@ -839,12 +999,19 @@ const itemStrategyMap = {
     'steal': StealItemStrategy,
     'colspice': ColspiceItemStrategy,
     'exchange': MoneyItemStrategy,
-    'kill_with_weapon': WeaponItemStrategy
+    'kill_with_weapon': WeaponItemStrategy,
+    'favor': FavorItemStrategy,
+    'action': ActionItemStrategy
 };
 
 // 道具名称到类型的映射表
 const itemNameToTypeMap = {
-    '大瓶可尔思必': 'colspice'
+    '大瓶可尔思必': 'colspice',
+    '可尔思必': 'favor',
+    '洗浴券': 'favor',
+    '电影票': 'favor',
+    '蛋包饭': 'action',
+    '咖啡': 'action'
 };
 
 // 游戏对话框服务
@@ -1611,39 +1778,17 @@ function useItem(playerIndex, itemIndex) {
         player.action--;
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具`);
 
-        // 恢复行动点
-        // 注意：这里我们直接修改player.action，因为这是临时的行动点变化
-        player.action += item.action;
-
-        // 增加好感度（如果有，大瓶可尔思必在特殊处理中单独处理）
-        if (item.favor > 0 && item.name !== '大瓶可尔思必') {
-            if (player.role !== '薰') {
-                player.favor += item.favor;
-            } else {
-                // 薰无法获得好感度，而是恢复行动点
-                // 直接使用item.action，这是从CSV中解析出来的行动点恢复值
-                player.action += item.action;
-                logEvent(`玩家${playerIndex + 1}（薰）获得了${item.action}点行动点`);
-            }
-        }
-
         // 使用策略模式处理道具效果
         const strategy = ItemStrategyFactory.getStrategy(item);
         const shouldContinue = strategy.execute(player, playerIndex, item, itemIndex);
 
         // 从道具列表中移除（特殊道具已在各自的策略中处理）
-        if (shouldContinue !== false && item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange' && item.type !== 'kill_with_weapon') {
+        if (shouldContinue !== false && item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange' && item.type !== 'kill_with_weapon' && item.type !== 'favor' && item.type !== 'action' && item.type !== 'move') {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
             // 显示消息
             let message = `玩家${playerIndex + 1}使用了${item.name}`;
-            if (item.action > 0) {
-                message += `，恢复了${item.action}点行动点`;
-            }
-            if (item.favor > 0 && player.role !== '薰') {
-                message += `，增加了${item.favor}点好感度`;
-            }
             if (item.targetGrid !== undefined) {
                 const targetGrid = gridConfig[item.targetGrid];
                 message += `，移动到${targetGrid.id}.${targetGrid.name}`;
