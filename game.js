@@ -1784,9 +1784,36 @@ function useItem(playerIndex, itemIndex) {
         return;
     }
 
-    // 检查行动点
+    // 检查行动点（特殊角色使用特定武器或道具不消耗行动点，所以即使行动点为0也可以使用）
     const actionPoints = Number(player.action) || 0;
-    if (actionPoints <= 0) {
+    let canUseWithoutAction = false;
+    
+    // 检查是否为特殊角色使用特定武器或道具
+    if (item.type === 'kill_with_weapon') {
+        switch (item.weaponType) {
+            case 'knife': // 军刀
+                if (player.role === '花泽') {
+                    canUseWithoutAction = true;
+                }
+                break;
+            case 'gun': // 枪
+                if (player.role === '博士') {
+                    canUseWithoutAction = true;
+                }
+                break;
+            case 'carving_knife': // 雕刻刀
+                if (player.role === '水上') {
+                    canUseWithoutAction = true;
+                }
+                break;
+        }
+    } else if (item.name === '钥匙串') {
+        if (player.role === '川濑') {
+            canUseWithoutAction = true;
+        }
+    }
+    
+    if (actionPoints <= 0 && !canUseWithoutAction) {
         elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点不足，无法使用道具！`;
         logEvent(`玩家${playerIndex + 1}行动点不足，无法使用道具`);
         return;
