@@ -460,6 +460,774 @@ const gameStateManager = new GameStateManager();
 // 游戏状态（向后兼容）
 let gameState = gameStateManager.getState();
 
+// 道具策略类
+class ItemStrategy {
+    constructor() {}
+    execute(player, playerIndex, item, itemIndex) {}
+}
+
+// 移动道具策略
+class MoveItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        const oldPosition = gameState.tokenPosition;
+        const oldGrid = gridConfig[oldPosition];
+        gameState.tokenPosition = item.targetGrid;
+        const newGrid = gridConfig[item.targetGrid];
+        updateTokenPosition();
+
+        // 记录移动日志
+        logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
+    }
+}
+
+// 自定义移动道具策略（提灯）
+class CustomMoveItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        let steps = prompt('请输入希望移动的步数（1-6）:', '');
+
+        // 验证输入
+        steps = parseInt(steps);
+        if (isNaN(steps) || steps < 1 || steps > 6) {
+            alert('输入无效，请输入1-6之间的数字！');
+            // 恢复行动点
+            player.action++;
+            return false;
+        }
+
+        // 移动棋子
+        const oldPosition = gameState.tokenPosition;
+        const oldGrid = gridConfig[oldPosition];
+        if (gameState.reverseDirection) {
+            // 逆转方向移动
+            gameState.tokenPosition = (gameState.tokenPosition - steps + 52) % 52;
+        } else {
+            // 正常方向移动
+            gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
+        }
+        const newGrid = gridConfig[gameState.tokenPosition];
+        updateTokenPosition();
+
+        // 记录移动日志
+        logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动了${steps}步到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
+        return true;
+    }
+}
+
+// 抢夺道具策略（玉森的原稿）
+class StealItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 过滤出除川濑外的其他存活玩家
+        const availablePlayers = [];
+        gameState.players.forEach((targetPlayer, targetIndex) => {
+            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.role !== '川濑' && targetPlayer.items.length > 0) {
+                availablePlayers.push(targetIndex);
+            }
+        });
+
+        if (availablePlayers.length === 0) {
+            elements.gameMessage.textContent = '没有可抢夺的目标！';
+            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用${item.name}，但没有可抢夺的目标`);
+            // 恢复行动点
+            player.action++;
+            return false;
+        }
+
+        // 构建选择界面
+        let stealOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            stealOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+            targetPlayer.items.forEach((targetItem, itemIndex) => {
+                stealOptions += `<div class="steal-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
+            });
+        });
+
+        // 创建弹出框
+        const stealDialog = document.createElement('div');
+        stealDialog.className = 'steal-dialog';
+        stealDialog.innerHTML = `
+            <div class="steal-dialog-content">
+                <h3>选择要使用原稿交换的道具：</h3>
+                <div class="steal-options">${stealOptions}</div>
+                <button class="cancel-steal">取消</button>
+            </div>
+        `;
+        document.body.appendChild(stealDialog);
+
+        // 添加样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .steal-dialog {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            }
+            .steal-dialog-content {
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                width: 80%;
+                max-width: 600px;
+                max-height: 80%;
+                overflow-y: auto;
+            }
+            .steal-item {
+                padding: 10px;
+                border: 1px solid #ccc;
+                margin: 5px 0;
+                cursor: pointer;
+            }
+            .steal-item:hover {
+                background-color: #f0f0f0;
+            }
+            .cancel-steal {
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #ccc;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 处理道具选择
+        const stealItems = stealDialog.querySelectorAll('.steal-item');
+        stealItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
+                const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
+                
+                // 抢夺道具
+                const targetPlayer = gameState.players[targetPlayerIndex];
+                const stolenItem = targetPlayer.items[targetItemIndex];
+                
+                // 从目标玩家手中移除道具
+                targetPlayer.items.splice(targetItemIndex, 1);
+                targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                
+                // 添加到当前玩家手中
+                player.items.push(stolenItem);
+                player.cards++;
+                
+                // 从当前玩家的道具栏中移除玉森的原稿（一次性道具）
+                player.items.splice(itemIndex, 1);
+                player.cards = Math.max(0, player.cards - 1);
+                
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}`);
+                
+                // 关闭对话框
+                document.body.removeChild(stealDialog);
+                document.head.removeChild(style);
+                
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}！`;
+                
+                // 更新UI
+                updateUI();
+                
+                // 检查行动点是否为0，如果是则自动结束行动
+                if (player.action <= 0) {
+                    setTimeout(() => {
+                        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                        logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                        endTurn();
+                    }, 1000);
+                } else {
+                    // 检查是否在停滞格子上
+                    const currentGrid = gridConfig[gameState.tokenPosition];
+                    if (!currentGrid.isStagnant) {
+                        // 不在停滞格子上，重新启用掷骰子按钮
+                        elements.rollDice.disabled = false;
+                    } else {
+                        // 在停滞格子上，保持掷骰子按钮禁用
+                        elements.rollDice.disabled = true;
+                    }
+                }
+            });
+        });
+
+        // 处理取消按钮
+        const cancelButton = stealDialog.querySelector('.cancel-steal');
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(stealDialog);
+            document.head.removeChild(style);
+            // 恢复行动点
+            player.action++;
+        });
+        return false; // 异步操作，不继续执行后续逻辑
+    }
+}
+
+// 大瓶可尔思必道具策略
+class ColspiceItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 增加好感度或恢复行动点
+        if (player.role !== '薰') {
+            player.favor += 20;
+            // 记录日志
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用大瓶可尔思必，增加了20点好感度`);
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了大瓶可尔思必，增加了20点好感度！`;
+        } else {
+            // 薰无法获得好感度，而是恢复行动点
+            const actionPoints = Math.floor(20 / 10);
+            player.action += actionPoints;
+            // 记录日志
+            logEvent(`玩家${playerIndex + 1}（薰）使用大瓶可尔思必，获得了${actionPoints}点行动点`);
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了大瓶可尔思必，获得了${actionPoints}点行动点！`;
+        }
+
+        // 更新UI
+        updateUI();
+
+        // 检查行动点是否为0，如果是则自动结束行动
+        if (player.action <= 0) {
+            setTimeout(() => {
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                endTurn();
+            }, 1000);
+        } else {
+            // 检查是否在停滞格子上
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            if (!currentGrid.isStagnant) {
+                // 不在停滞格子上，重新启用掷骰子按钮
+                elements.rollDice.disabled = false;
+            } else {
+                // 在停滞格子上，保持掷骰子按钮禁用
+                elements.rollDice.disabled = true;
+            }
+        }
+        return false; // 不继续执行后续逻辑
+    }
+}
+
+// 钱道具策略
+class MoneyItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 创建选择对话框
+        const exchangeDialog = document.createElement('div');
+        exchangeDialog.className = 'exchange-dialog';
+        exchangeDialog.innerHTML = `
+            <div class="exchange-dialog-content">
+                <h3>选择交换方式：</h3>
+                <div class="exchange-options">
+                    <div class="exchange-option" data-type="draw">从牌堆抽取</div>
+                    <div class="exchange-option" data-type="player">从其他玩家交换</div>
+                </div>
+                <button class="cancel-exchange">取消</button>
+            </div>
+        `;
+        document.body.appendChild(exchangeDialog);
+
+        // 添加样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .exchange-dialog {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            }
+            .exchange-dialog-content {
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                width: 80%;
+                max-width: 600px;
+                max-height: 80%;
+                overflow-y: auto;
+            }
+            .exchange-option {
+                padding: 10px;
+                border: 1px solid #ccc;
+                margin: 5px 0;
+                cursor: pointer;
+            }
+            .exchange-option:hover {
+                background-color: #f0f0f0;
+            }
+            .cancel-exchange {
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #ccc;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 处理交换方式选择
+        const exchangeOptions = exchangeDialog.querySelectorAll('.exchange-option');
+        exchangeOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const exchangeType = option.dataset.type;
+                document.body.removeChild(exchangeDialog);
+                document.head.removeChild(style);
+                
+                if (exchangeType === 'draw') {
+                    // 从牌堆抽取
+                    if (gameState.itemPool.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+                        const itemName = gameState.itemPool[randomIndex];
+                        const newItem = items[itemName];
+
+                        // 从道具池中移除该道具
+                        gameState.itemPool.splice(randomIndex, 1);
+
+                        // 添加道具到玩家的道具数组
+                        player.items.push(newItem);
+                        player.cards++;
+
+                        // 从当前玩家的道具栏中移除钱（一次性道具）
+                        player.items.splice(itemIndex, 1);
+                        player.cards = Math.max(0, player.cards - 1);
+
+                        // 记录日志
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，从牌堆抽取了道具${newItem.name}`);
+
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，从牌堆抽取了道具${newItem.name}！`;
+
+                        // 更新道具池显示
+                        updateItemPoolDisplay();
+
+                        // 更新UI
+                        updateUI();
+
+                        // 检查行动点是否为0，如果是则自动结束行动
+                        if (player.action <= 0) {
+                            setTimeout(() => {
+                                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                                endTurn();
+                            }, 1000);
+                        } else {
+                            // 检查是否在停滞格子上
+                            const currentGrid = gridConfig[gameState.tokenPosition];
+                            if (!currentGrid.isStagnant) {
+                                // 不在停滞格子上，重新启用掷骰子按钮
+                                elements.rollDice.disabled = false;
+                            } else {
+                                // 在停滞格子上，保持掷骰子按钮禁用
+                                elements.rollDice.disabled = true;
+                            }
+                        }
+                    } else {
+                        elements.gameMessage.textContent = '道具池已空，无法抽取道具！';
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱从牌堆抽取道具，但道具池已空`);
+                        // 恢复行动点
+                        player.action++;
+                    }
+                } else if (exchangeType === 'player') {
+                    // 从其他玩家交换
+                    // 过滤出其他存活玩家
+                    const availablePlayers = [];
+                    gameState.players.forEach((targetPlayer, targetIndex) => {
+                        if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
+                            availablePlayers.push(targetIndex);
+                        }
+                    });
+
+                    if (availablePlayers.length === 0) {
+                        elements.gameMessage.textContent = '没有可交换的目标！';
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱从其他玩家交换道具，但没有可交换的目标`);
+                        // 恢复行动点
+                        player.action++;
+                        return;
+                    }
+
+                    // 构建选择界面
+                    let playerOptions = '';
+                    availablePlayers.forEach(targetIndex => {
+                        const targetPlayer = gameState.players[targetIndex];
+                        playerOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+                        targetPlayer.items.forEach((targetItem, itemIndex) => {
+                            playerOptions += `<div class="player-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
+                        });
+                    });
+
+                    // 创建弹出框
+                    const playerDialog = document.createElement('div');
+                    playerDialog.className = 'player-dialog';
+                    playerDialog.innerHTML = `
+                        <div class="player-dialog-content">
+                            <h3>选择要交换的道具：</h3>
+                            <div class="player-options">${playerOptions}</div>
+                            <button class="cancel-player">取消</button>
+                        </div>
+                    `;
+                    document.body.appendChild(playerDialog);
+
+                    // 添加样式
+                    const playerStyle = document.createElement('style');
+                    playerStyle.textContent = `
+                        .player-dialog {
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background-color: rgba(0, 0, 0, 0.5);
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            z-index: 10000;
+                        }
+                        .player-dialog-content {
+                            background-color: white;
+                            padding: 20px;
+                            border-radius: 5px;
+                            width: 80%;
+                            max-width: 600px;
+                            max-height: 80%;
+                            overflow-y: auto;
+                        }
+                        .player-item {
+                            padding: 10px;
+                            border: 1px solid #ccc;
+                            margin: 5px 0;
+                            cursor: pointer;
+                        }
+                        .player-item:hover {
+                            background-color: #f0f0f0;
+                        }
+                        .cancel-player {
+                            margin-top: 20px;
+                            padding: 10px;
+                            background-color: #ccc;
+                            border: none;
+                            border-radius: 5px;
+                            cursor: pointer;
+                        }
+                    `;
+                    document.head.appendChild(playerStyle);
+
+                    // 处理道具选择
+                    const playerItems = playerDialog.querySelectorAll('.player-item');
+                    playerItems.forEach(itemElement => {
+                        itemElement.addEventListener('click', () => {
+                            const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
+                            const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
+                            
+                            // 交换道具
+                            const targetPlayer = gameState.players[targetPlayerIndex];
+                            const targetItem = targetPlayer.items[targetItemIndex];
+                            
+                            // 从目标玩家手中移除道具
+                            targetPlayer.items.splice(targetItemIndex, 1);
+                            targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                            
+                            // 添加到当前玩家手中
+                            player.items.push(targetItem);
+                            player.cards++;
+                            
+                            // 从当前玩家的道具栏中移除钱（一次性道具）
+                            player.items.splice(itemIndex, 1);
+                            player.cards = Math.max(0, player.cards - 1);
+                            
+                            // 记录日志
+                            logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中交换了${targetItem.name}`);
+                            
+                            // 关闭对话框
+                            document.body.removeChild(playerDialog);
+                            document.head.removeChild(playerStyle);
+                            
+                            // 显示消息
+                            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中交换了${targetItem.name}！`;
+                            
+                            // 更新UI
+                            updateUI();
+                            
+                            // 检查行动点是否为0，如果是则自动结束行动
+                            if (player.action <= 0) {
+                                setTimeout(() => {
+                                    elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                                    logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                                    endTurn();
+                                }, 1000);
+                            } else {
+                                // 检查是否在停滞格子上
+                                const currentGrid = gridConfig[gameState.tokenPosition];
+                                if (!currentGrid.isStagnant) {
+                                    // 不在停滞格子上，重新启用掷骰子按钮
+                                    elements.rollDice.disabled = false;
+                                } else {
+                                    // 在停滞格子上，保持掷骰子按钮禁用
+                                    elements.rollDice.disabled = true;
+                                }
+                            }
+                        });
+                    });
+
+                    // 处理取消按钮
+                    const cancelButton = playerDialog.querySelector('.cancel-player');
+                    cancelButton.addEventListener('click', () => {
+                        document.body.removeChild(playerDialog);
+                        document.head.removeChild(playerStyle);
+                        // 恢复行动点
+                        player.action++;
+                    });
+                }
+            });
+        });
+
+        // 处理取消按钮
+        const cancelButton = exchangeDialog.querySelector('.cancel-exchange');
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(exchangeDialog);
+            document.head.removeChild(style);
+            // 恢复行动点
+            player.action++;
+        });
+        return false; // 异步操作，不继续执行后续逻辑
+    }
+}
+
+// 武器道具策略
+class WeaponItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 处理武器类道具
+        handleWeaponItem(player, playerIndex, itemIndex, item);
+        return false; // 不继续执行后续逻辑
+    }
+}
+
+// 道具策略工厂
+class ItemStrategyFactory {
+    static getStrategy(item) {
+        if (item.targetGrid !== undefined) {
+            return new MoveItemStrategy();
+        } else if (item.type === 'custom_move') {
+            return new CustomMoveItemStrategy();
+        } else if (item.type === 'steal') {
+            return new StealItemStrategy();
+        } else if (item.name === '大瓶可尔思必') {
+            return new ColspiceItemStrategy();
+        } else if (item.type === 'exchange') {
+            return new MoneyItemStrategy();
+        } else if (item.type === 'kill_with_weapon') {
+            return new WeaponItemStrategy();
+        }
+        return new ItemStrategy(); // 默认策略
+    }
+}
+
+// 地格策略类
+class GridStrategy {
+    constructor() {}
+    execute(grid, player) {}
+}
+
+// 好感度效果地格策略
+class FavorGridStrategy extends GridStrategy {
+    execute(grid, player) {
+        const favorEffect = grid.favorEffect;
+        if (favorEffect.type === 'player') {
+            // 掷出此骰子的玩家好感度+10
+            if (player.type === 'A') {
+                player.favor += favorEffect.value;
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度`);
+            } else if (player.role === '薰') {
+                // 薰无法获得好感度，而是恢复行动点
+                const actionPoints = Math.floor(favorEffect.value / 10);
+                player.action += actionPoints;
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点`);
+            } else {
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度`);
+            }
+        } else if (favorEffect.type === 'role') {
+            // A类某种角色的所有玩家好感度+10
+            let affectedPlayers = 0;
+            let kaoruAffected = false;
+            gameState.players.forEach((targetPlayer, index) => {
+                if (targetPlayer.role === '薰' && targetPlayer.status === 'alive') {
+                    // 薰无法获得好感度，而是恢复行动点
+                    const actionPoints = Math.floor(favorEffect.value / 10);
+                    targetPlayer.action += actionPoints;
+                    kaoruAffected = true;
+                } else if (targetPlayer.type === 'A' && targetPlayer.role === favorEffect.role && targetPlayer.status === 'alive') {
+                    targetPlayer.favor += favorEffect.value;
+                    affectedPlayers++;
+                }
+            });
+            if (affectedPlayers > 0) {
+                elements.gameMessage.textContent = `所有${favorEffect.role}角色获得了${favorEffect.value}点好感度！`;
+                logEvent(`触发效果：所有${favorEffect.role}角色获得了${favorEffect.value}点好感度`);
+            } else if (kaoruAffected) {
+                elements.gameMessage.textContent = `薰获得了${Math.floor(favorEffect.value / 10)}点行动点！`;
+                logEvent(`触发效果：薰获得了${Math.floor(favorEffect.value / 10)}点行动点`);
+            } else {
+                elements.gameMessage.textContent = `没有${favorEffect.role}角色在场！`;
+                logEvent(`触发效果：没有${favorEffect.role}角色在场`);
+            }
+        } else if (favorEffect.type === 'all') {
+            // 全员好感度+10
+            let affectedPlayers = 0;
+            let kaoruAffected = false;
+            gameState.players.forEach((targetPlayer, index) => {
+                if (targetPlayer.role === '薰' && targetPlayer.status === 'alive') {
+                    // 薰无法获得好感度，而是恢复行动点
+                    const actionPoints = Math.floor(favorEffect.value / 10);
+                    targetPlayer.action += actionPoints;
+                    kaoruAffected = true;
+                } else if (targetPlayer.type === 'A' && targetPlayer.status === 'alive') {
+                    targetPlayer.favor += favorEffect.value;
+                    affectedPlayers++;
+                }
+            });
+            if (affectedPlayers > 0) {
+                elements.gameMessage.textContent = `所有A类型角色获得了${favorEffect.value}点好感度！`;
+                logEvent(`触发效果：所有A类型角色获得了${favorEffect.value}点好感度`);
+            } else if (kaoruAffected) {
+                elements.gameMessage.textContent = `薰获得了${Math.floor(favorEffect.value / 10)}点行动点！`;
+                logEvent(`触发效果：薰获得了${Math.floor(favorEffect.value / 10)}点行动点`);
+            } else {
+                elements.gameMessage.textContent = `没有A类型角色在场！`;
+                logEvent(`触发效果：没有A类型角色在场`);
+            }
+        }
+    }
+}
+
+// 道具效果地格策略
+class ItemGridStrategy extends GridStrategy {
+    execute(grid, player) {
+        const 道具Effect = grid.道具Effect;
+        if (道具Effect.type === 'add') {
+            // 计算添加后的手牌数量
+            const newCardsCount = player.cards + 道具Effect.value;
+
+            // 获取角色的手牌上限
+            const maxCards = characterAttributes[player.role].maxCards;
+
+            // 如果手牌数量没有达到上限，增加手牌
+            if (newCardsCount <= maxCards) {
+                // 从道具池中随机获取一个道具
+                if (gameState.itemPool.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+                    const itemName = gameState.itemPool[randomIndex];
+                    const item = items[itemName];
+
+                    // 从道具池中移除该道具
+                    gameState.itemPool.splice(randomIndex, 1);
+
+                    // 添加道具到玩家的道具数组
+                    player.items.push(item);
+                    player.cards = newCardsCount;
+
+                    // 记录日志
+                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（${player.role}）获得了道具${item.name}`);
+
+                    // 显示消息
+                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了道具${item.name}！`;
+
+                    // 更新道具池显示
+                    updateItemPoolDisplay();
+                } else {
+                    elements.gameMessage.textContent = '道具池已空，无法获得道具！';
+                    logEvent(`触发效果：道具池已空，玩家${gameState.currentPlayer + 1}（${player.role}）无法获得道具`);
+                }
+            } else {
+                elements.gameMessage.textContent = '手牌数量已达到上限，无法获得更多道具！';
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（${player.role}）手牌数量已达到上限，无法获得更多道具`);
+            }
+        }
+    }
+}
+
+// 停滞格子策略
+class StagnantGridStrategy extends GridStrategy {
+    execute(grid, player) {
+        // 停滞格子逻辑
+        gameState.stagnantTurn = gameState.currentPlayer;
+        elements.gameMessage.textContent = `棋子停留在停滞格子上，${gameState.currentPlayer + 1}玩家本回合无法移动！`;
+        logEvent(`触发效果：棋子停留在停滞格子上，${gameState.currentPlayer + 1}玩家本回合无法移动`);
+    }
+}
+
+// 水坑格子策略
+class WaterGridStrategy extends GridStrategy {
+    execute(grid, player) {
+        // 进入水坑，立刻结束行动，周目+1
+        elements.gameMessage.textContent = `棋子进入水坑，结束行动，周目+1！`;
+        logEvent(`触发效果：棋子进入水坑，结束行动，周目+1`);
+
+        // 周目+1
+        gameState.week++;
+
+        // 移动方向逆转
+        gameState.reverseDirection = !gameState.reverseDirection;
+
+        // 重置所有人的行动点为初始行动点
+        gameState.players.forEach((player, index) => {
+            player.action = characterAttributes[player.role].action;
+            // 如果玩家死亡，复活并重置好感度
+            if (player.status === 'die') {
+                player.status = 'alive';
+                player.favor = characterAttributes[player.role].initialFavor;
+                logEvent(`玩家${index + 1}（${player.role}）被复活，好感度重置为初始值`);
+            }
+        });
+
+        // 结束当前玩家的行动
+        endTurn();
+    }
+}
+
+// 地格策略工厂
+class GridStrategyFactory {
+    static getStrategies(grid) {
+        const strategies = [];
+        
+        // 好感度效果策略
+        if (grid.favorEffect) {
+            strategies.push(new FavorGridStrategy());
+        }
+        
+        // 道具效果策略
+        if (grid.道具Effect) {
+            strategies.push(new ItemGridStrategy());
+        }
+        
+        // 停滞格子策略
+        if (grid.isStagnant) {
+            strategies.push(new StagnantGridStrategy());
+        }
+        
+        // 水坑格子策略
+        if (grid.types && grid.types.includes('水坑')) {
+            strategies.push(new WaterGridStrategy());
+        }
+        
+        return strategies;
+    }
+}
+
 
 
 // DOM元素
@@ -710,8 +1478,6 @@ function useItem(playerIndex, itemIndex) {
         return;
     }
 
-
-
     if (item && player.cards > 0) {
         // 保存游戏状态
         saveGameState();
@@ -736,684 +1502,12 @@ function useItem(playerIndex, itemIndex) {
             }
         }
 
-        // 处理移动功能
-        if (item.targetGrid !== undefined) {
-            const oldPosition = gameState.tokenPosition;
-            const oldGrid = gridConfig[oldPosition];
-            gameState.tokenPosition = item.targetGrid;
-            const newGrid = gridConfig[item.targetGrid];
-            updateTokenPosition();
+        // 使用策略模式处理道具效果
+        const strategy = ItemStrategyFactory.getStrategy(item);
+        const shouldContinue = strategy.execute(player, playerIndex, item, itemIndex);
 
-            // 记录移动日志
-            logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
-        } else if (item.type === 'custom_move') {
-            // 处理提灯道具，自定义移动步数
-            let steps = prompt('请输入希望移动的步数（1-6）:', '');
-
-            // 验证输入
-            steps = parseInt(steps);
-            if (isNaN(steps) || steps < 1 || steps > 6) {
-                alert('输入无效，请输入1-6之间的数字！');
-                // 恢复行动点
-                player.action++;
-                return;
-            }
-
-            // 移动棋子
-            const oldPosition = gameState.tokenPosition;
-            const oldGrid = gridConfig[oldPosition];
-            if (gameState.reverseDirection) {
-                // 逆转方向移动
-                gameState.tokenPosition = (gameState.tokenPosition - steps + 52) % 52;
-            } else {
-                // 正常方向移动
-                gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
-            }
-            const newGrid = gridConfig[gameState.tokenPosition];
-            updateTokenPosition();
-
-            // 记录移动日志
-            logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动了${steps}步到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
-        } else if (item.type === 'steal') {
-            // 处理玉森的原稿道具，从其他角色手中抢夺道具
-            // 过滤出除川濑外的其他存活玩家
-            const availablePlayers = [];
-            gameState.players.forEach((targetPlayer, targetIndex) => {
-                if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.role !== '川濑' && targetPlayer.items.length > 0) {
-                    availablePlayers.push(targetIndex);
-                }
-            });
-
-            if (availablePlayers.length === 0) {
-                elements.gameMessage.textContent = '没有可抢夺的目标！';
-                logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用${item.name}，但没有可抢夺的目标`);
-                // 恢复行动点
-                player.action++;
-                return;
-            }
-
-            // 构建选择界面
-            let stealOptions = '';
-            availablePlayers.forEach(targetIndex => {
-                const targetPlayer = gameState.players[targetIndex];
-                stealOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
-                targetPlayer.items.forEach((targetItem, itemIndex) => {
-                    stealOptions += `<div class="steal-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
-                });
-            });
-
-            // 创建弹出框
-            const stealDialog = document.createElement('div');
-            stealDialog.className = 'steal-dialog';
-            stealDialog.innerHTML = `
-                <div class="steal-dialog-content">
-                    <h3>选择要使用原稿交换的道具：</h3>
-                    <div class="steal-options">${stealOptions}</div>
-                    <button class="cancel-steal">取消</button>
-                </div>
-            `;
-            document.body.appendChild(stealDialog);
-
-            // 添加样式
-            const style = document.createElement('style');
-            style.textContent = `
-                .steal-dialog {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background-color: rgba(0, 0, 0, 0.5);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 10000;
-                }
-                .steal-dialog-content {
-                    background-color: white;
-                    padding: 20px;
-                    border-radius: 5px;
-                    width: 80%;
-                    max-width: 600px;
-                    max-height: 80%;
-                    overflow-y: auto;
-                }
-                .steal-item {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .steal-item:hover {
-                    background-color: #f0f0f0;
-                }
-                .cancel-steal {
-                    margin-top: 20px;
-                    padding: 10px;
-                    background-color: #ccc;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                }
-            `;
-            document.head.appendChild(style);
-
-            // 处理道具选择
-            const stealItems = stealDialog.querySelectorAll('.steal-item');
-            stealItems.forEach(itemElement => {
-                itemElement.addEventListener('click', () => {
-                    const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
-                    const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
-                    
-                    // 抢夺道具
-                    const targetPlayer = gameState.players[targetPlayerIndex];
-                    const stolenItem = targetPlayer.items[targetItemIndex];
-                    
-                    // 从目标玩家手中移除道具
-                    targetPlayer.items.splice(targetItemIndex, 1);
-                    targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
-                    
-                    // 添加到当前玩家手中
-                    player.items.push(stolenItem);
-                    player.cards++;
-                    
-                    // 从当前玩家的道具栏中移除玉森的原稿（一次性道具）
-                    player.items.splice(itemIndex, 1);
-                    player.cards = Math.max(0, player.cards - 1);
-                    
-                    // 记录日志
-                    logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}`);
-                    
-                    // 关闭对话框
-                    document.body.removeChild(stealDialog);
-                    document.head.removeChild(style);
-                    
-                    // 显示消息
-                    elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}！`;
-                    
-                    // 更新UI
-                    updateUI();
-                    
-                    // 检查行动点是否为0，如果是则自动结束行动
-                    if (player.action <= 0) {
-                        setTimeout(() => {
-                            elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                            logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                            endTurn();
-                        }, 1000);
-                    } else {
-                        // 检查是否在停滞格子上
-                        const currentGrid = gridConfig[gameState.tokenPosition];
-                        if (!currentGrid.isStagnant) {
-                            // 不在停滞格子上，重新启用掷骰子按钮
-                            elements.rollDice.disabled = false;
-                        } else {
-                            // 在停滞格子上，保持掷骰子按钮禁用
-                            elements.rollDice.disabled = true;
-                        }
-                    }
-                });
-            });
-
-            // 处理取消按钮
-            const cancelButton = stealDialog.querySelector('.cancel-steal');
-            cancelButton.addEventListener('click', () => {
-                document.body.removeChild(stealDialog);
-                document.head.removeChild(style);
-                // 恢复行动点
-                player.action++;
-            });
-        } else if (item.name === '大瓶可尔思必') {
-            // 处理大瓶可尔思必道具，直接使用时增加20点好感度
-            // 从道具列表中移除
-            player.items.splice(itemIndex, 1);
-            player.cards = Math.max(0, player.cards - 1);
-
-            // 增加好感度或恢复行动点
-            if (player.role !== '薰') {
-                player.favor += 20;
-                // 记录日志
-                logEvent(`玩家${playerIndex + 1}（${player.role}）使用大瓶可尔思必，增加了20点好感度`);
-                // 显示消息
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了大瓶可尔思必，增加了20点好感度！`;
-            } else {
-                // 薰无法获得好感度，而是恢复行动点
-                const actionPoints = Math.floor(20 / 10);
-                player.action += actionPoints;
-                // 记录日志
-                logEvent(`玩家${playerIndex + 1}（薰）使用大瓶可尔思必，获得了${actionPoints}点行动点`);
-                // 显示消息
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了大瓶可尔思必，获得了${actionPoints}点行动点！`;
-            }
-
-            // 更新UI
-            updateUI();
-
-            // 检查行动点是否为0，如果是则自动结束行动
-            if (player.action <= 0) {
-                setTimeout(() => {
-                    elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                    logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                    endTurn();
-                }, 1000);
-            } else {
-                // 检查是否在停滞格子上
-                const currentGrid = gridConfig[gameState.tokenPosition];
-                if (!currentGrid.isStagnant) {
-                    // 不在停滞格子上，重新启用掷骰子按钮
-                    elements.rollDice.disabled = false;
-                } else {
-                    // 在停滞格子上，保持掷骰子按钮禁用
-                    elements.rollDice.disabled = true;
-                }
-            }
-        } else if (item.type === 'exchange') {
-            // 处理钱道具，可从牌堆或其他人手中交换1张道具
-            // 创建选择对话框
-            const exchangeDialog = document.createElement('div');
-            exchangeDialog.className = 'exchange-dialog';
-            exchangeDialog.innerHTML = `
-                <div class="exchange-dialog-content">
-                    <h3>选择交换方式：</h3>
-                    <div class="exchange-options">
-                        <div class="exchange-option" data-option="draw">1. 从牌堆重新抽取一张手牌</div>
-                        <div class="exchange-option" data-option="trade">2. 与他人进行交易</div>
-                    </div>
-                    <button class="cancel-exchange">取消</button>
-                </div>
-            `;
-            document.body.appendChild(exchangeDialog);
-
-            // 添加样式
-            const style = document.createElement('style');
-            style.textContent = `
-                .exchange-dialog {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background-color: rgba(0, 0, 0, 0.5);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 10000;
-                }
-                .exchange-dialog-content {
-                    background-color: white;
-                    padding: 20px;
-                    border-radius: 5px;
-                    width: 80%;
-                    max-width: 600px;
-                    max-height: 80%;
-                    overflow-y: auto;
-                }
-                .exchange-option {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .exchange-option:hover {
-                    background-color: #f0f0f0;
-                }
-                .cancel-exchange {
-                    margin-top: 20px;
-                    padding: 10px;
-                    background-color: #ccc;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                }
-                .trade-options {
-                    margin-top: 10px;
-                }
-                .player-trade {
-                    margin: 10px 0;
-                }
-                .player-trade h4 {
-                    margin: 5px 0;
-                }
-                .item-trade {
-                    padding: 5px;
-                    border: 1px solid #ccc;
-                    margin: 2px 0;
-                    cursor: pointer;
-                }
-                .item-trade:hover {
-                    background-color: #f0f0f0;
-                }
-            `;
-            document.head.appendChild(style);
-
-            // 处理交换方式选择
-            const exchangeOptions = exchangeDialog.querySelectorAll('.exchange-option');
-            exchangeOptions.forEach(option => {
-                option.addEventListener('click', () => {
-                    const optionType = option.dataset.option;
-                    
-                    if (optionType === 'draw') {
-                        // 从牌堆重新抽取一张手牌
-                        if (gameState.itemPool.length > 0) {
-                            // 从道具池中随机获取一个道具
-                            const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
-                            const itemName = gameState.itemPool[randomIndex];
-                            const newItem = items[itemName];
-
-                            // 从道具池中移除该道具
-                            gameState.itemPool.splice(randomIndex, 1);
-
-                            // 从当前玩家的道具栏中移除钱
-                            player.items.splice(itemIndex, 1);
-                            player.cards = Math.max(0, player.cards - 1);
-
-                            // 添加新道具到玩家的道具数组
-                            player.items.push(newItem);
-                            player.cards++;
-
-                            // 记录日志
-                            logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，从牌堆抽取了${newItem.name}`);
-
-                            // 显示消息
-                            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，从牌堆抽取了${newItem.name}！`;
-                        } else {
-                            // 道具池为空
-                            elements.gameMessage.textContent = `道具池已空，无法抽取道具！`;
-                            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱从牌堆抽取道具，但道具池已空`);
-                            // 恢复行动点
-                            player.action++;
-                        }
-                        
-                        // 关闭对话框
-                        document.body.removeChild(exchangeDialog);
-                        document.head.removeChild(style);
-                        
-                        // 更新UI
-                        updateUI();
-                        
-                        // 检查行动点是否为0，如果是则自动结束行动
-                        if (player.action <= 0) {
-                            setTimeout(() => {
-                                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                                endTurn();
-                            }, 1000);
-                        } else {
-                            // 检查是否在停滞格子上
-                            const currentGrid = gridConfig[gameState.tokenPosition];
-                            if (!currentGrid.isStagnant) {
-                                // 不在停滞格子上，重新启用掷骰子按钮
-                                elements.rollDice.disabled = false;
-                            } else {
-                                // 在停滞格子上，保持掷骰子按钮禁用
-                                elements.rollDice.disabled = true;
-                            }
-                        }
-                    } else if (optionType === 'trade') {
-                        // 与他人进行交易
-                        // 过滤出其他存活玩家
-                        const availablePlayers = [];
-                        gameState.players.forEach((targetPlayer, targetIndex) => {
-                            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
-                                availablePlayers.push(targetIndex);
-                            }
-                        });
-
-                        if (availablePlayers.length === 0) {
-                            elements.gameMessage.textContent = '没有可交易的目标！';
-                            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱进行交易，但没有可交易的目标`);
-                            // 恢复行动点
-                            player.action++;
-                            // 关闭对话框
-                            document.body.removeChild(exchangeDialog);
-                            document.head.removeChild(style);
-                            return;
-                        }
-
-                        // 更新对话框内容，显示可交易的玩家和道具
-                        let tradeOptions = '';
-                        availablePlayers.forEach(targetIndex => {
-                            const targetPlayer = gameState.players[targetIndex];
-                            tradeOptions += `<div class="player-trade">
-                                <h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>
-                                <div class="item-trades">`;
-                            targetPlayer.items.forEach((targetItem, itemIndex) => {
-                                tradeOptions += `<div class="item-trade" data-target-player="${targetIndex}" data-item-index="${itemIndex}">${targetItem.name} - ${targetItem.description}</div>`;
-                            });
-                            tradeOptions += `</div></div>`;
-                        });
-
-                        exchangeDialog.innerHTML = `
-                            <div class="exchange-dialog-content">
-                                <h3>选择要交换的道具：</h3>
-                                <div class="trade-options">${tradeOptions}</div>
-                                <button class="cancel-exchange">取消</button>
-                            </div>
-                        `;
-
-                        // 处理道具选择
-                        const itemTrades = exchangeDialog.querySelectorAll('.item-trade');
-                        itemTrades.forEach(itemElement => {
-                            itemElement.addEventListener('click', () => {
-                                const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
-                                const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
-                                
-                                // 获取目标玩家和道具
-                                const targetPlayer = gameState.players[targetPlayerIndex];
-                                const tradedItem = targetPlayer.items[targetItemIndex];
-                                
-                                // 从目标玩家手中移除道具
-                                targetPlayer.items.splice(targetItemIndex, 1);
-                                targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
-                                
-                                // 从当前玩家的道具栏中移除钱
-                                const moneyItem = player.items[itemIndex];
-                                player.items.splice(itemIndex, 1);
-                                player.cards = Math.max(0, player.cards - 1);
-                                
-                                // 添加交易的道具到当前玩家手中
-                                player.items.push(tradedItem);
-                                player.cards++;
-                                
-                                // 添加钱到目标玩家手中
-                                targetPlayer.items.push(moneyItem);
-                                targetPlayer.cards++;
-                                
-                                // 记录日志
-                                logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，与玩家${targetPlayerIndex + 1}（${targetPlayer.role}）交换了${tradedItem.name}`);
-                                
-                                // 关闭对话框
-                                document.body.removeChild(exchangeDialog);
-                                document.head.removeChild(style);
-                                
-                                // 显示消息
-                                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，与玩家${targetPlayerIndex + 1}（${targetPlayer.role}）交换了${tradedItem.name}！`;
-                                
-                                // 更新UI
-                                updateUI();
-                                
-                                // 检查行动点是否为0，如果是则自动结束行动
-                                if (player.action <= 0) {
-                                    setTimeout(() => {
-                                        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                                        logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                                        endTurn();
-                                    }, 1000);
-                                } else {
-                                    // 检查是否在停滞格子上
-                                    const currentGrid = gridConfig[gameState.tokenPosition];
-                                    if (!currentGrid.isStagnant) {
-                                        // 不在停滞格子上，重新启用掷骰子按钮
-                                        elements.rollDice.disabled = false;
-                                    } else {
-                                        // 在停滞格子上，保持掷骰子按钮禁用
-                                        elements.rollDice.disabled = true;
-                                    }
-                                }
-                            });
-                        });
-
-                        // 重新添加取消按钮的事件监听器
-                        const cancelButton = exchangeDialog.querySelector('.cancel-exchange');
-                        cancelButton.addEventListener('click', () => {
-                            document.body.removeChild(exchangeDialog);
-                            document.head.removeChild(style);
-                            // 恢复行动点
-                            player.action++;
-                        });
-                    }
-                });
-            });
-
-            // 处理取消按钮
-            const cancelButton = exchangeDialog.querySelector('.cancel-exchange');
-            cancelButton.addEventListener('click', () => {
-                document.body.removeChild(exchangeDialog);
-                document.head.removeChild(style);
-                // 恢复行动点
-                player.action++;
-            });
-        } else if (item.type === 'kill_with_knife') {
-            // 处理军刀道具，可杀死一名剩余行动点等于小于1的角色
-            // 过滤出符合条件的目标玩家
-            const availablePlayers = [];
-            gameState.players.forEach((targetPlayer, targetIndex) => {
-                if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && (targetPlayer.action <= 1 || targetPlayer.action === undefined || targetPlayer.action === null)) {
-                    availablePlayers.push(targetIndex);
-                }
-            });
-
-            if (availablePlayers.length === 0) {
-                elements.gameMessage.textContent = '没有可杀死的目标！';
-                logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用军刀，但没有符合条件的目标`);
-                // 恢复行动点
-                player.action++;
-                return;
-            }
-
-            // 构建选择界面
-            let killOptions = '';
-            availablePlayers.forEach(targetIndex => {
-                const targetPlayer = gameState.players[targetIndex];
-                killOptions += `<div class="kill-item" data-target-player="${targetIndex}">玩家${targetIndex + 1}（${targetPlayer.role}）- 剩余行动点：${targetPlayer.action || 0}</div>`;
-            });
-
-            // 创建弹出框
-            const killDialog = document.createElement('div');
-            killDialog.className = 'kill-dialog';
-            killDialog.innerHTML = `
-                <div class="kill-dialog-content">
-                    <h3>选择要杀死的角色：</h3>
-                    <div class="kill-options">${killOptions}</div>
-                    <button class="cancel-kill">取消</button>
-                </div>
-            `;
-            document.body.appendChild(killDialog);
-
-            // 添加样式
-            const style = document.createElement('style');
-            style.textContent = `
-                .kill-dialog {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background-color: rgba(0, 0, 0, 0.5);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 10000;
-                }
-                .kill-dialog-content {
-                    background-color: white;
-                    padding: 20px;
-                    border-radius: 5px;
-                    width: 80%;
-                    max-width: 600px;
-                    max-height: 80%;
-                    overflow-y: auto;
-                }
-                .kill-item {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .kill-item:hover {
-                    background-color: #f0f0f0;
-                }
-                .cancel-kill {
-                    margin-top: 20px;
-                    padding: 10px;
-                    background-color: #ccc;
-                    border: none;
-                    border-radius: 5px;
-                    cursor: pointer;
-                }
-            `;
-            document.head.appendChild(style);
-
-            // 处理目标选择
-            const killItems = killDialog.querySelectorAll('.kill-item');
-            killItems.forEach(itemElement => {
-                itemElement.addEventListener('click', () => {
-                    const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
-                    const targetPlayer = gameState.players[targetPlayerIndex];
-                    
-                    // 保存游戏状态
-                    saveGameState();
-                    
-                    // 从当前玩家的道具栏中移除军刀（一次性道具）
-                    player.items.splice(itemIndex, 1);
-                    player.cards = Math.max(0, player.cards - 1);
-                    
-                    // 检查目标玩家是否持有大瓶可尔思必道具，且当前玩家是薰
-                    let hasKillscreen = false;
-                    let killScreenIndex = -1;
-                    for (let i = 0; i < targetPlayer.items.length; i++) {
-                       
-                        if (targetPlayer.items[i].name === '大瓶可尔思必' && player.role === '薰') {
-                            hasKillscreen = true;
-                            killScreenIndex = i;
-                            break;
-                        }
-                    }
-                    
-                    if (hasKillscreen) {
-                        // 移除大瓶可尔思必道具
-                        targetPlayer.items.splice(killScreenIndex, 1);
-                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
-                        
-                        // 记录日志
-                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了杀害`);
-                        
-                        // 显示消息
-                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了杀害！`;
-                    } else {
-                        // 检查是否是花泽使用军刀（不消耗行动点）
-                        if (player.role !== '花泽') {
-                            // 消耗行动点
-                            player.action--;
-                            logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用军刀`);
-                        } else {
-                            logEvent(`玩家${playerIndex + 1}（${player.role}）使用军刀（特殊：不消耗行动点）`);
-                        }
-                        
-                        // 设置目标玩家为死亡
-                        targetPlayer.status = 'die';
-                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被军刀杀死`);
-
-                        // 显示消息
-                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被军刀杀死！`;
-                    }
-                    
-                    // 关闭对话框
-                    document.body.removeChild(killDialog);
-                    document.head.removeChild(style);
-                    
-                    // 更新UI
-                    updateUI();
-                    
-                    // 检查胜利条件
-                    checkWinCondition();
-                    
-                    // 检查行动点是否为0，如果是则自动结束行动
-                    if (player.action <= 0) {
-                        setTimeout(() => {
-                            elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                            logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                            endTurn();
-                        }, 1000);
-                    } else {
-                        // 检查是否在停滞格子上
-                        const currentGrid = gridConfig[gameState.tokenPosition];
-                        if (!currentGrid.isStagnant) {
-                            // 不在停滞格子上，重新启用掷骰子按钮
-                            elements.rollDice.disabled = false;
-                        } else {
-                            // 在停滞格子上，保持掷骰子按钮禁用
-                            elements.rollDice.disabled = true;
-                        }
-                    }
-                });
-            });
-
-            // 处理取消按钮
-            const cancelButton = killDialog.querySelector('.cancel-kill');
-            cancelButton.addEventListener('click', () => {
-                document.body.removeChild(killDialog);
-                document.head.removeChild(style);
-                // 恢复行动点
-                player.action++;
-            });
-        } else if (item.type === 'kill_with_weapon') {
-            // 处理武器类道具（军刀、枪、雕刻刀）
-            handleWeaponItem(player, playerIndex, itemIndex, item);
-        }
-
-        // 从道具列表中移除（玉森的原稿、大瓶可尔思必、钱和武器类道具已在各自的逻辑中处理）
-        if (item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange' && item.type !== 'kill_with_weapon') {
+        // 从道具列表中移除（特殊道具已在各自的策略中处理）
+        if (shouldContinue !== false && item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange' && item.type !== 'kill_with_weapon') {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
@@ -1781,10 +1875,9 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
                         break;
                 }
                 
-                // 消耗行动点
+                // 消耗行动点 - 已在useItem函数中消耗，这里不再消耗
                 if (shouldConsumeAction) {
-                    player.action--;
-                    logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用${item.name}`);
+                    logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}`);
                 } else {
                     logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}${actionLog}`);
                 }
@@ -1842,192 +1935,17 @@ function handleGridFunction() {
     const currentGrid = gridConfig[gameState.tokenPosition];
     const currentPlayer = gameState.players[gameState.currentPlayer];
 
-    // 处理好感度效果
-    if (currentGrid.favorEffect) {
-        const favorEffect = currentGrid.favorEffect;
-        if (favorEffect.type === 'player') {
-            // 掷出此骰子的玩家好感度+10
-            if (currentPlayer.type === 'A') {
-                currentPlayer.favor += favorEffect.value;
-                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度！`;
-                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度`);
-            } else if (currentPlayer.role === '薰') {
-                // 薰无法获得好感度，而是恢复行动点
-                const actionPoints = Math.floor(favorEffect.value / 10);
-                currentPlayer.action += actionPoints;
-                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点！`;
-                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点`);
-            } else {
-                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度！`;
-                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度`);
-            }
-        } else if (favorEffect.type === 'role') {
-            // A类某种角色的所有玩家好感度+10
-            let affectedPlayers = 0;
-            let kaoruAffected = false;
-            gameState.players.forEach((player, index) => {
-                if (player.role === '薰' && player.status === 'alive') {
-                    // 薰无法获得好感度，而是恢复行动点
-                    const actionPoints = Math.floor(favorEffect.value / 10);
-                    player.action += actionPoints;
-                    kaoruAffected = true;
-                } else if (player.type === 'A' && player.role === favorEffect.role && player.status === 'alive') {
-                    player.favor += favorEffect.value;
-                    affectedPlayers++;
-                }
-            });
-            if (affectedPlayers > 0) {
-                elements.gameMessage.textContent = `所有${favorEffect.role}角色获得了${favorEffect.value}点好感度！`;
-                logEvent(`触发效果：所有${favorEffect.role}角色获得了${favorEffect.value}点好感度`);
-            } else if (kaoruAffected) {
-                elements.gameMessage.textContent = `薰获得了${Math.floor(favorEffect.value / 10)}点行动点！`;
-                logEvent(`触发效果：薰获得了${Math.floor(favorEffect.value / 10)}点行动点`);
-            } else {
-                elements.gameMessage.textContent = `没有${favorEffect.role}角色在场！`;
-                logEvent(`触发效果：没有${favorEffect.role}角色在场`);
-            }
-        } else if (favorEffect.type === 'all') {
-            // 全员好感度+10
-            let affectedPlayers = 0;
-            let kaoruAffected = false;
-            gameState.players.forEach((player, index) => {
-                if (player.role === '薰' && player.status === 'alive') {
-                    // 薰无法获得好感度，而是恢复行动点
-                    const actionPoints = Math.floor(favorEffect.value / 10);
-                    player.action += actionPoints;
-                    kaoruAffected = true;
-                } else if (player.type === 'A' && player.status === 'alive') {
-                    player.favor += favorEffect.value;
-                    affectedPlayers++;
-                }
-            });
-            if (affectedPlayers > 0) {
-                elements.gameMessage.textContent = `所有A类型角色获得了${favorEffect.value}点好感度！`;
-                logEvent(`触发效果：所有A类型角色获得了${favorEffect.value}点好感度`);
-            } else if (kaoruAffected) {
-                elements.gameMessage.textContent = `薰获得了${Math.floor(favorEffect.value / 10)}点行动点！`;
-                logEvent(`触发效果：薰获得了${Math.floor(favorEffect.value / 10)}点行动点`);
-            } else {
-                elements.gameMessage.textContent = `没有A类型角色在场！`;
-                logEvent(`触发效果：没有A类型角色在场`);
-            }
-        }
-    }
-
-    // 处理道具效果
-    if (currentGrid.道具Effect) {
-        const 道具Effect = currentGrid.道具Effect;
-        if (道具Effect.type === 'add') {
-            // 计算添加后的手牌数量
-            const newCardsCount = currentPlayer.cards + 道具Effect.value;
-
-            // 获取角色的手牌上限
-            const maxCards = characterAttributes[currentPlayer.role].maxCards;
-
-            // 如果手牌数量没有达到上限，增加手牌
-            if (newCardsCount <= maxCards) {
-                // 从道具池中随机获取一个道具
-                if (gameState.itemPool.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
-                    const itemName = gameState.itemPool[randomIndex];
-                    const item = items[itemName];
-
-                    // 从道具池中移除该道具
-                    gameState.itemPool.splice(randomIndex, 1);
-
-                    // 添加道具到玩家的道具数组
-                    currentPlayer.items.push(item);
-                    currentPlayer.cards = newCardsCount;
-
-                    // 更新道具池显示
-                    updateItemPoolDisplay();
-
-                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${item.name}！${item.description}`;
-                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${item.name}（${item.description}）`);
-                } else {
-                    // 道具池为空，不增加手牌数量
-                    elements.gameMessage.textContent = `道具池已空，无法获得道具！`;
-                    logEvent(`触发效果：道具池已空，无法获得道具`);
-                }
-            } else {
-                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}的手牌已达到上限！`;
-                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}的手牌已达到上限`);
-            }
-        } else if (道具Effect.type === 'remove') {
-            // 计算减少后的手牌数量
-            const newCardsCount = currentPlayer.cards - 道具Effect.value;
-
-            // 如果手牌数量没有达到下限，减少手牌
-            if (newCardsCount >= 0) {
-                // 随机移除一个道具
-                if (currentPlayer.items.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * currentPlayer.items.length);
-                    const removedItem = currentPlayer.items[randomIndex];
-                    currentPlayer.items.splice(randomIndex, 1);
-                    currentPlayer.cards = newCardsCount;
-
-                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}失去了${removedItem.name}！`;
-                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}失去了${removedItem.name}`);
-                } else {
-                    // 没有道具，只减少手牌数量
-                    currentPlayer.cards = newCardsCount;
-                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌！`;
-                    logEvent(`触发效果：玩家${gameState.currentPlayer + 1}失去了${道具Effect.value}张手牌`);
-                }
-            } else {
-                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}没有手牌可以失去！`;
-                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}没有手牌可以失去`);
-            }
-        }
-    }
-
     // 处理起点
     if (currentGrid.types.includes('start')) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}回到了起点！`;
         logEvent(`触发效果：玩家${gameState.currentPlayer + 1}回到了起点`);
     }
-    
-    // 处理停滞格子
-    if (currentGrid.isStagnant) {
-        elements.gameMessage.textContent = `棋子停留在停滞格子上，无法移动！`;
-        logEvent(`触发效果：棋子停留在停滞格子上，无法移动`);
-        // 禁用掷骰子按钮
-        elements.rollDice.disabled = true;
-        // 记录当前玩家的回合为停滞回合
-        gameState.stagnantTurn = gameState.currentPlayer;
-    }
-    
-    // 处理水坑
-    if (currentGrid.types.includes('水坑')) {
-        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}进入了水坑！行动结束，周目+1！`;
-        logEvent(`触发效果：玩家${gameState.currentPlayer + 1}进入了水坑，行动结束`);
-        
-        // 增加周目
-        gameState.week++;
-        // 切换移动方向
-        gameState.reverseDirection = !gameState.reverseDirection;
-        logEvent(`周目更新：第${gameState.week}周目，移动方向${gameState.reverseDirection ? '逆转' : '正常'}`);
-        
-        // 重置所有人的行动点为初始行动点
-        // 死亡的玩家，状态改为alive，好感度重置为初始好感度
-        gameState.players.forEach((player, index) => {
-            // 重置行动点为初始值
-            player.action = characterAttributes[player.role].action;
-            
-            // 如果玩家死亡，复活并重置好感度
-            if (player.status !== 'alive') {
-                player.status = 'alive';
-                player.favor = characterAttributes[player.role].initialFavor;
-                logEvent(`玩家${index + 1}（${player.role}）被复活，好感度重置为初始值`);
-            }
-        });
-        
-        // 结束行动
-        setTimeout(() => {
-            endTurn();
-        }, 1000);
-        return;
-    }
+
+    // 使用策略模式处理格子效果
+    const strategies = GridStrategyFactory.getStrategies(currentGrid);
+    strategies.forEach(strategy => {
+        strategy.execute(currentGrid, currentPlayer);
+    });
 
     // 更新UI
     updateUI();
@@ -2421,6 +2339,10 @@ function killPlayer() {
             // 保存游戏状态
             saveGameState();
 
+            // 消耗行动点 - 无论是否被防御，都应当扣除行动点
+            currentPlayer.action -= 4;
+            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗4点行动点执行杀人操作`);
+
             // 检查目标玩家是否持有大瓶可尔思必道具，且当前玩家是薰
             let hasKillscreen = false;
             let killScreenIndex = -1;
@@ -2443,10 +2365,6 @@ function killPlayer() {
                 // 显示消息
                 elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害！`;
             } else {
-                // 消耗行动点
-                currentPlayer.action -= 4;
-                logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗4点行动点执行杀人操作`);
-                
                 // 设置目标玩家为死亡
                 targetPlayer.status = 'die';
                 logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死`);
