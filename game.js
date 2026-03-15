@@ -617,6 +617,74 @@ class CustomMoveItemStrategy extends ItemStrategy {
     }
 }
 
+// 反向移动道具策略（手电筒）
+class ReverseMoveItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        let steps = prompt('请输入希望移动的步数（1-6）:', '');
+
+        // 验证输入
+        steps = parseInt(steps);
+        if (isNaN(steps) || steps < 1 || steps > 6) {
+            alert('输入无效，请输入1-6之间的数字！');
+            // 恢复行动点
+            player.action++;
+            return false;
+        }
+
+        // 移动棋子（反向移动）
+        const oldPosition = gameState.tokenPosition;
+        const oldGrid = gridConfig[oldPosition];
+        if (gameState.reverseDirection) {
+            // 当前是逆转方向，向正常方向移动
+            gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
+        } else {
+            // 当前是正常方向，向逆转方向移动
+            gameState.tokenPosition = (gameState.tokenPosition - steps + 52) % 52;
+        }
+        const newGrid = gridConfig[gameState.tokenPosition];
+        updateTokenPosition();
+
+        // 记录移动日志
+        logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}反向移动了${steps}步到${newGrid.id}.${newGrid.name}`);
+
+        // 显示消息
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，反向移动了${steps}步到${newGrid.id}.${newGrid.name}！`;
+
+        // 更新UI
+        updateUI();
+
+        // 检查行动点是否为0，如果是则自动结束行动
+        if (player.action <= 0) {
+            setTimeout(() => {
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                endTurn();
+            }, 1000);
+        } else {
+            // 检查是否在停滞格子上
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            if (!currentGrid.isStagnant) {
+                // 不在停滞格子上，重新启用掷骰子按钮
+                elements.rollDice.disabled = false;
+            } else {
+                // 在停滞格子上，保持掷骰子按钮禁用
+                elements.rollDice.disabled = true;
+            }
+        }
+
+        // 处理新位置的格子功能
+        setTimeout(() => {
+            handleGridFunction();
+        }, 500);
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
 // 抢夺道具策略（玉森的原稿）
 class StealItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
@@ -996,6 +1064,7 @@ class ActionItemStrategy extends ItemStrategy {
 const itemStrategyMap = {
     'move': MoveItemStrategy,
     'custom_move': CustomMoveItemStrategy,
+    'reverse_move': ReverseMoveItemStrategy,
     'steal': StealItemStrategy,
     'colspice': ColspiceItemStrategy,
     'exchange': MoneyItemStrategy,
@@ -1011,7 +1080,8 @@ const itemNameToTypeMap = {
     '洗浴券': 'favor',
     '电影票': 'favor',
     '蛋包饭': 'action',
-    '咖啡': 'action'
+    '咖啡': 'action',
+    '手电筒': 'reverse_move'
 };
 
 // 游戏对话框服务
@@ -1783,7 +1853,7 @@ function useItem(playerIndex, itemIndex) {
         const shouldContinue = strategy.execute(player, playerIndex, item, itemIndex);
 
         // 从道具列表中移除（特殊道具已在各自的策略中处理）
-        if (shouldContinue !== false && item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange' && item.type !== 'kill_with_weapon' && item.type !== 'favor' && item.type !== 'action' && item.type !== 'move') {
+        if (shouldContinue !== false && item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange' && item.type !== 'kill_with_weapon' && item.type !== 'favor' && item.type !== 'action' && item.type !== 'move' && item.type !== 'reverse_move') {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
