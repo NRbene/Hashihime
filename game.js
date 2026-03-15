@@ -553,27 +553,8 @@ class MoveItemStrategy extends ItemStrategy {
             }
         }
 
-        // 更新UI
-        updateUI();
-
-        // 检查行动点是否为0，如果是则自动结束行动
-        if (player.action <= 0) {
-            setTimeout(() => {
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                endTurn();
-            }, 1000);
-        } else {
-            // 检查是否在停滞格子上
-            const currentGrid = gridConfig[gameState.tokenPosition];
-            if (!currentGrid.isStagnant) {
-                // 不在停滞格子上，重新启用掷骰子按钮
-                elements.rollDice.disabled = false;
-            } else {
-                // 在停滞格子上，保持掷骰子按钮禁用
-                elements.rollDice.disabled = true;
-            }
-        }
+        // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
 
         // 处理新位置的格子功能
         setTimeout(() => {
@@ -613,7 +594,16 @@ class CustomMoveItemStrategy extends ItemStrategy {
 
         // 记录移动日志
         logEvent(`玩家${playerIndex + 1}使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动了${steps}步到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
-        return true;
+        
+        // 处理行动后逻辑
+        handlePostActionLogic(player, playerIndex);
+        
+        // 处理新位置的格子功能
+        setTimeout(() => {
+            handleGridFunction();
+        }, 500);
+        
+        return false;
     }
 }
 
@@ -654,27 +644,8 @@ class ReverseMoveItemStrategy extends ItemStrategy {
         // 显示消息
         elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，反向移动了${steps}步到${newGrid.id}.${newGrid.name}！`;
 
-        // 更新UI
-        updateUI();
-
-        // 检查行动点是否为0，如果是则自动结束行动
-        if (player.action <= 0) {
-            setTimeout(() => {
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                endTurn();
-            }, 1000);
-        } else {
-            // 检查是否在停滞格子上
-            const currentGrid = gridConfig[gameState.tokenPosition];
-            if (!currentGrid.isStagnant) {
-                // 不在停滞格子上，重新启用掷骰子按钮
-                elements.rollDice.disabled = false;
-            } else {
-                // 在停滞格子上，保持掷骰子按钮禁用
-                elements.rollDice.disabled = true;
-            }
-        }
+        // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
 
         // 处理新位置的格子功能
         setTimeout(() => {
@@ -733,32 +704,8 @@ class StealItemStrategy extends ItemStrategy {
                 // 显示消息
                 elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中抢夺了${stolenItem.name}！`;
                 
-                // 更新UI
-                updateUI();
-                
-                // 检查行动点是否为0，如果是则自动结束行动
-                if (player.action <= 0) {
-                    // 保存当前玩家索引，避免在setTimeout中使用可能已更新的gameState.currentPlayer
-                    const currentPlayerIndex = playerIndex;
-                    setTimeout(() => {
-                        // 再次检查当前玩家是否仍然是原来的玩家，避免在setTimeout执行时玩家已经切换
-                        if (gameState.currentPlayer === currentPlayerIndex) {
-                            elements.gameMessage.textContent = `玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动。`;
-                            logEvent(`玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动`);
-                            endTurn();
-                        }
-                    }, 1000);
-                } else {
-                    // 检查是否在停滞格子上
-                    const currentGrid = gridConfig[gameState.tokenPosition];
-                    if (!currentGrid.isStagnant) {
-                        // 不在停滞格子上，重新启用掷骰子按钮
-                        elements.rollDice.disabled = false;
-                    } else {
-                        // 在停滞格子上，保持掷骰子按钮禁用
-                        elements.rollDice.disabled = true;
-                    }
-                }
+                // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
             },
             () => {
                 // 恢复行动点
@@ -792,27 +739,8 @@ class ColspiceItemStrategy extends ItemStrategy {
             elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点！`;
         }
 
-        // 更新UI
-        updateUI();
-
-        // 检查行动点是否为0，如果是则自动结束行动
-        if (player.action <= 0) {
-            setTimeout(() => {
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                endTurn();
-            }, 1000);
-        } else {
-            // 检查是否在停滞格子上
-            const currentGrid = gridConfig[gameState.tokenPosition];
-            if (!currentGrid.isStagnant) {
-                // 不在停滞格子上，重新启用掷骰子按钮
-                elements.rollDice.disabled = false;
-            } else {
-                // 在停滞格子上，保持掷骰子按钮禁用
-                elements.rollDice.disabled = true;
-            }
-        }
+        // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
         return false; // 不继续执行后续逻辑
     }
 }
@@ -832,27 +760,8 @@ class KeychainItemStrategy extends ItemStrategy {
         // 显示消息
         elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，本周目不能成为被杀害的目标！`;
 
-        // 更新UI
-        updateUI();
-
-        // 检查行动点是否为0，如果是则自动结束行动
-        if (player.action <= 0) {
-            setTimeout(() => {
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                endTurn();
-            }, 1000);
-        } else {
-            // 检查是否在停滞格子上
-            const currentGrid = gridConfig[gameState.tokenPosition];
-            if (!currentGrid.isStagnant) {
-                // 不在停滞格子上，重新启用掷骰子按钮
-                elements.rollDice.disabled = false;
-            } else {
-                // 在停滞格子上，保持掷骰子按钮禁用
-                elements.rollDice.disabled = true;
-            }
-        }
+        // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
         return false; // 不继续执行后续逻辑
     }
 }
@@ -860,10 +769,6 @@ class KeychainItemStrategy extends ItemStrategy {
 // 银怀表道具策略
 class SilverWatchItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
-        // 从道具列表中移除
-        player.items.splice(itemIndex, 1);
-        player.cards = Math.max(0, player.cards - 1);
-
         // 使用通用对话框函数
         return createActionDeductionDialog(
             player,
@@ -873,6 +778,10 @@ class SilverWatchItemStrategy extends ItemStrategy {
             1, // 扣除1点行动点
             (targetPlayer) => targetPlayer.action >= 1, // 条件：行动点>=1
             (targetPlayerIndex, targetPlayer) => {
+                // 从道具列表中移除
+                player.items.splice(itemIndex, 1);
+                player.cards = Math.max(0, player.cards - 1);
+                
                 // 非花泽角色使用此道具会扣10点好感
                 if (player.role !== '花泽') {
                     updateFavor(player, -10);
@@ -891,10 +800,6 @@ class SilverWatchItemStrategy extends ItemStrategy {
 // 笔记本道具策略
 class NotebookItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
-        // 从道具列表中移除
-        player.items.splice(itemIndex, 1);
-        player.cards = Math.max(0, player.cards - 1);
-
         // 使用通用对话框函数
         return createActionDeductionDialog(
             player,
@@ -904,6 +809,10 @@ class NotebookItemStrategy extends ItemStrategy {
             2, // 扣除2点行动点
             (targetPlayer) => targetPlayer.action >= 1, // 条件：行动点>=1
             (targetPlayerIndex, targetPlayer) => {
+                // 从道具列表中移除
+                player.items.splice(itemIndex, 1);
+                player.cards = Math.max(0, player.cards - 1);
+                
                 // 非水上角色使用此道具会扣10点好感
                 if (player.role !== '水上') {
                     updateFavor(player, -10);
@@ -952,27 +861,8 @@ class MoneyItemStrategy extends ItemStrategy {
                         // 更新道具池显示
                         updateItemPoolDisplay();
 
-                        // 更新UI
-                        updateUI();
-
-                        // 检查行动点是否为0，如果是则自动结束行动
-                        if (player.action <= 0) {
-                            setTimeout(() => {
-                                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                                endTurn();
-                            }, 1000);
-                        } else {
-                            // 检查是否在停滞格子上
-                            const currentGrid = gridConfig[gameState.tokenPosition];
-                            if (!currentGrid.isStagnant) {
-                                // 不在停滞格子上，重新启用掷骰子按钮
-                                elements.rollDice.disabled = false;
-                            } else {
-                                // 在停滞格子上，保持掷骰子按钮禁用
-                                elements.rollDice.disabled = true;
-                            }
-                        }
+                        // 处理行动后逻辑
+                        handlePostActionLogic(player, playerIndex);
                     } else {
                         elements.gameMessage.textContent = '道具池已空，无法抽取道具！';
                         logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱从牌堆抽取道具，但道具池已空`);
@@ -1026,27 +916,8 @@ class MoneyItemStrategy extends ItemStrategy {
                             // 显示消息
                             elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中交换了${targetItem.name}！`;
                             
-                            // 更新UI
-                            updateUI();
-                            
-                            // 检查行动点是否为0，如果是则自动结束行动
-                            if (player.action <= 0) {
-                                setTimeout(() => {
-                                    elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                                    logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                                    endTurn();
-                                }, 1000);
-                            } else {
-                                // 检查是否在停滞格子上
-                                const currentGrid = gridConfig[gameState.tokenPosition];
-                                if (!currentGrid.isStagnant) {
-                                    // 不在停滞格子上，重新启用掷骰子按钮
-                                    elements.rollDice.disabled = false;
-                                } else {
-                                    // 在停滞格子上，保持掷骰子按钮禁用
-                                    elements.rollDice.disabled = true;
-                                }
-                            }
+                            // 处理行动后逻辑
+                            handlePostActionLogic(player, playerIndex);
                         },
                         () => {
                             // 恢复行动点
@@ -1103,27 +974,8 @@ class FavorItemStrategy extends ItemStrategy {
             }
         }
 
-        // 更新UI
-        updateUI();
-
-        // 检查行动点是否为0，如果是则自动结束行动
-        if (player.action <= 0) {
-            setTimeout(() => {
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                endTurn();
-            }, 1000);
-        } else {
-            // 检查是否在停滞格子上
-            const currentGrid = gridConfig[gameState.tokenPosition];
-            if (!currentGrid.isStagnant) {
-                // 不在停滞格子上，重新启用掷骰子按钮
-                elements.rollDice.disabled = false;
-            } else {
-                // 在停滞格子上，保持掷骰子按钮禁用
-                elements.rollDice.disabled = true;
-            }
-        }
+        // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
         return false; // 不继续执行后续逻辑
     }
 }
@@ -1144,27 +996,8 @@ class ActionItemStrategy extends ItemStrategy {
             elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，获得了${item.action}点行动点！`;
         }
 
-        // 更新UI
-        updateUI();
-
-        // 检查行动点是否为0，如果是则自动结束行动
-        if (player.action <= 0) {
-            setTimeout(() => {
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                endTurn();
-            }, 1000);
-        } else {
-            // 检查是否在停滞格子上
-            const currentGrid = gridConfig[gameState.tokenPosition];
-            if (!currentGrid.isStagnant) {
-                // 不在停滞格子上，重新启用掷骰子按钮
-                elements.rollDice.disabled = false;
-            } else {
-                // 在停滞格子上，保持掷骰子按钮禁用
-                elements.rollDice.disabled = true;
-            }
-        }
+        // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
         return false; // 不继续执行后续逻辑
     }
 }
@@ -1952,7 +1785,8 @@ function useItem(playerIndex, itemIndex) {
     }
 
     // 检查行动点
-    if (!player.action || player.action <= 0) {
+    const actionPoints = Number(player.action) || 0;
+    if (actionPoints <= 0) {
         elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点不足，无法使用道具！`;
         logEvent(`玩家${playerIndex + 1}行动点不足，无法使用道具`);
         return;
@@ -1999,8 +1833,9 @@ function useItem(playerIndex, itemIndex) {
             }
         }
         if (shouldConsumeAction) {
+            player.action = Number(player.action) || 0;
             player.action--;
-            logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具`);
+            logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
         } else {
             logEvent(`玩家${playerIndex + 1}（${player.role}）使用道具（特殊：不消耗行动点）`);
         }
@@ -2030,32 +1865,8 @@ function useItem(playerIndex, itemIndex) {
                     handleGridFunction();
                 }, 500);
             } else {
-                // 更新UI
-                updateUI();
-
-                // 检查行动点是否为0，如果是则自动结束行动
-                if (player.action <= 0) {
-                    // 保存当前玩家索引，避免在setTimeout中使用可能已更新的gameState.currentPlayer
-                    const currentPlayerIndex = playerIndex;
-                    setTimeout(() => {
-                        // 再次检查当前玩家是否仍然是原来的玩家，避免在setTimeout执行时玩家已经切换
-                        if (gameState.currentPlayer === currentPlayerIndex) {
-                            elements.gameMessage.textContent = `玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动。`;
-                            logEvent(`玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动`);
-                            endTurn();
-                        }
-                    }, 1000);
-                } else {
-                    // 检查是否在停滞格子上
-                    const currentGrid = gridConfig[gameState.tokenPosition];
-                    if (!currentGrid.isStagnant) {
-                        // 不在停滞格子上，重新启用掷骰子按钮
-                        elements.rollDice.disabled = false;
-                    } else {
-                        // 在停滞格子上，保持掷骰子按钮禁用
-                        elements.rollDice.disabled = true;
-                    }
-                }
+                // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
             }
         }
     }
@@ -2180,7 +1991,8 @@ function rollDice() {
     }
 
     // 检查行动点
-    if (!currentPlayer.action || currentPlayer.action <= 0) {
+    const actionPoints = Number(currentPlayer.action) || 0;
+    if (actionPoints <= 0) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点不足，无法掷骰子！`;
         logEvent(`玩家${gameState.currentPlayer + 1}行动点不足，无法掷骰子`);
         return;
@@ -2190,8 +2002,9 @@ function rollDice() {
     saveGameState();
 
     // 消耗行动点
+    currentPlayer.action = Number(currentPlayer.action) || 0;
     currentPlayer.action--;
-    logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗1点行动点掷骰子`);
+    logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗1点行动点掷骰子，剩余行动点：${currentPlayer.action}`);
 
     // 禁用掷骰子按钮
     elements.rollDice.disabled = true;
@@ -2236,6 +2049,10 @@ function createActionDeductionDialog(player, playerIndex, item, itemIndex, actio
     if (availablePlayers.length === 0) {
         elements.gameMessage.textContent = '没有可选择的目标！';
         logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用${item.name}，但没有可选择的目标`);
+        // 返还行动点
+        player.action = Number(player.action) || 0;
+        player.action++;
+        logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}失败，返还1点行动点`);
         return false;
     }
 
@@ -2277,27 +2094,8 @@ function createActionDeductionDialog(player, playerIndex, item, itemIndex, actio
             // 移除对话框
             document.body.removeChild(targetDialog);
             
-            // 更新UI
-            updateUI();
-            
-            // 检查行动点是否为0，如果是则自动结束行动
-            if (player.action <= 0) {
-                setTimeout(() => {
-                    elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                    logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                    endTurn();
-                }, 1000);
-            } else {
-                // 检查是否在停滞格子上
-                const currentGrid = gridConfig[gameState.tokenPosition];
-                if (!currentGrid.isStagnant) {
-                    // 不在停滞格子上，重新启用掷骰子按钮
-                    elements.rollDice.disabled = false;
-                } else {
-                    // 在停滞格子上，保持掷骰子按钮禁用
-                    elements.rollDice.disabled = true;
-                }
-            }
+            // 处理行动后逻辑
+            handlePostActionLogic(player, playerIndex);
         });
     });
 
@@ -2364,6 +2162,35 @@ function addTargetDialogStyle(dialogClass) {
     `;
 
     document.head.appendChild(style);
+}
+
+// 处理行动后逻辑
+function handlePostActionLogic(player, playerIndex) {
+    // 确保行动点是数字
+    player.action = Number(player.action) || 0;
+    
+    // 更新UI
+    updateUI();
+
+    // 检查行动点是否为0
+    if (player.action <= 0) {
+        // 行动点已耗尽，显示提示信息，但不自动结束行动
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，请点击结束回合按钮结束本轮行动。`;
+        logEvent(`玩家${playerIndex + 1}行动点已耗尽`);
+        // 禁用掷骰子按钮
+        elements.rollDice.disabled = true;
+    } else {
+        // 检查是否在停滞格子上
+        const currentGrid = gridConfig[gameState.tokenPosition];
+        if (!currentGrid.isStagnant) {
+            // 不在停滞格子上，重新启用掷骰子按钮
+            elements.rollDice.disabled = false;
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}还有${player.action}点行动点，可以继续操作。`;
+        } else {
+            // 在停滞格子上，保持掷骰子按钮禁用
+            elements.rollDice.disabled = true;
+        }
+    }
 }
 
 // 移动棋子
@@ -2571,24 +2398,8 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
             // 检查胜利条件
             checkWinCondition();
             
-            // 检查行动点是否为0，如果是则自动结束行动
-            if (player.action <= 0) {
-                setTimeout(() => {
-                    elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                    logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                    endTurn();
-                }, 1000);
-            } else {
-                // 检查是否在停滞格子上
-                const currentGrid = gridConfig[gameState.tokenPosition];
-                if (!currentGrid.isStagnant) {
-                    // 不在停滞格子上，重新启用掷骰子按钮
-                    elements.rollDice.disabled = false;
-                } else {
-                    // 在停滞格子上，保持掷骰子按钮禁用
-                    elements.rollDice.disabled = true;
-                }
-            }
+            // 处理行动后逻辑
+            handlePostActionLogic(player, playerIndex);
         },
         () => {
             // 恢复行动点
@@ -2623,30 +2434,8 @@ function handleGridFunction() {
         return;
     }
 
-    // 检查行动点
-    if (currentPlayer.action <= 0) {
-        // 行动点为0，自动结束行动
-        // 保存当前玩家索引，避免在setTimeout中使用可能已更新的gameState.currentPlayer
-        const currentPlayerIndex = gameState.currentPlayer;
-        setTimeout(() => {
-            // 再次检查当前玩家是否仍然是原来的玩家，避免在setTimeout执行时玩家已经切换
-            if (gameState.currentPlayer === currentPlayerIndex) {
-                elements.gameMessage.textContent = `玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动。`;
-                logEvent(`玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动`);
-                endTurn();
-            }
-        }, 1000);
-    } else {
-        // 检查是否在停滞格子上
-        if (!currentGrid.isStagnant) {
-            // 不在停滞格子上，重新启用掷骰子按钮
-            elements.rollDice.disabled = false;
-            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}还有${currentPlayer.action}点行动点，可以继续操作。`;
-        } else {
-            // 在停滞格子上，保持掷骰子按钮禁用
-            elements.rollDice.disabled = true;
-        }
-    }
+    // 处理行动后逻辑
+    handlePostActionLogic(currentPlayer, gameState.currentPlayer);
 }
 
 // 检查胜利条件
@@ -2745,17 +2534,16 @@ function nextPlayer() {
 
     // 若当前角色行动点为零，自动回复1点
     let actionMessage = '';
-    if (!currentPlayer.action || currentPlayer.action === 0) {
+    if (currentPlayer.action === undefined || currentPlayer.action === null) {
+        // 行动点未定义时，设置为初始值
+        currentPlayer.action = characterAttributes[currentPlayer.role].action;
+    } else if (currentPlayer.action === 0) {
+        // 行动点为0时，自动回复1点
         currentPlayer.action = 1;
         actionMessage = '行动点自动回复1点，';
         logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动点为零，自动回复1点`);
-    } else {
-        // 确保行动点有初始值
-        //当行动点为 0 时，会保持为 0 ，只有当行动点未定义时，才会设置为初始值。
-        if (currentPlayer.action === undefined || currentPlayer.action === null) {
-            currentPlayer.action = characterAttributes[currentPlayer.role].action;
-        }
     }
+    // 行动点大于0时，保持不变（保留未使用的行动点）
 
     elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
     elements.roundCount.textContent = gameState.round;
@@ -2960,7 +2748,8 @@ function killPlayer() {
     }
 
     // 检查行动点
-    if (!currentPlayer.action || currentPlayer.action < 4) {
+    const actionPoints = Number(currentPlayer.action) || 0;
+    if (actionPoints < 4) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点不足4点，无法执行杀人操作！`;
         logEvent(`玩家${gameState.currentPlayer + 1}行动点不足4点，无法执行杀人操作`);
         return;
@@ -3064,35 +2853,11 @@ function killPlayer() {
             // 关闭对话框
             document.body.removeChild(killDialog);
             
-            // 更新UI
-            updateUI();
-            
             // 检查胜利条件
             checkWinCondition();
             
-            // 检查行动点是否为0，如果是则自动结束行动
-            if (currentPlayer.action <= 0) {
-                // 保存当前玩家索引，避免在setTimeout中使用可能已更新的gameState.currentPlayer
-                const currentPlayerIndex = gameState.currentPlayer;
-                setTimeout(() => {
-                    // 再次检查当前玩家是否仍然是原来的玩家，避免在setTimeout执行时玩家已经切换
-                    if (gameState.currentPlayer === currentPlayerIndex) {
-                        elements.gameMessage.textContent = `玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动。`;
-                        logEvent(`玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动`);
-                        endTurn();
-                    }
-                }, 1000);
-            } else {
-                // 检查是否在停滞格子上
-                const currentGrid = gridConfig[gameState.tokenPosition];
-                if (!currentGrid.isStagnant) {
-                    // 不在停滞格子上，重新启用掷骰子按钮
-                    elements.rollDice.disabled = false;
-                } else {
-                    // 在停滞格子上，保持掷骰子按钮禁用
-                    elements.rollDice.disabled = true;
-                }
-            }
+            // 处理行动后逻辑
+            handlePostActionLogic(currentPlayer, gameState.currentPlayer);
         });
     });
 
@@ -3117,7 +2882,8 @@ function drawCard() {
     }
 
     // 检查行动点
-    if (!currentPlayer.action || currentPlayer.action < 1) {
+    const actionPoints = Number(currentPlayer.action) || 0;
+    if (actionPoints < 1) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点不足，无法执行抽牌操作！`;
         logEvent(`玩家${gameState.currentPlayer + 1}行动点不足，无法执行抽牌操作`);
         return;
@@ -3144,8 +2910,9 @@ function drawCard() {
     saveGameState();
 
     // 消耗行动点
+    currentPlayer.action = Number(currentPlayer.action) || 0;
     currentPlayer.action--;
-    logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗1点行动点执行抽牌操作`);
+    logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗1点行动点执行抽牌操作，剩余行动点：${currentPlayer.action}`);
 
     // 从道具池中随机获取一个道具
     const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
@@ -3168,6 +2935,9 @@ function drawCard() {
     // 显示消息
     elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${item.name}！${item.description}`;
     logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）抽取了道具${item.name}（${item.description}）`);
+    
+    // 处理行动后逻辑
+    handlePostActionLogic(currentPlayer, gameState.currentPlayer);
 }
 
 // 事件监听器
