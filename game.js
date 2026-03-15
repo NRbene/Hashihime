@@ -738,10 +738,15 @@ class StealItemStrategy extends ItemStrategy {
                 
                 // 检查行动点是否为0，如果是则自动结束行动
                 if (player.action <= 0) {
+                    // 保存当前玩家索引，避免在setTimeout中使用可能已更新的gameState.currentPlayer
+                    const currentPlayerIndex = playerIndex;
                     setTimeout(() => {
-                        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                        logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                        endTurn();
+                        // 再次检查当前玩家是否仍然是原来的玩家，避免在setTimeout执行时玩家已经切换
+                        if (gameState.currentPlayer === currentPlayerIndex) {
+                            elements.gameMessage.textContent = `玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动。`;
+                            logEvent(`玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动`);
+                            endTurn();
+                        }
                     }, 1000);
                 } else {
                     // 检查是否在停滞格子上
@@ -956,6 +961,8 @@ class MoneyItemStrategy extends ItemStrategy {
         return false; // 异步操作，不继续执行后续逻辑
     }
 }
+
+
 
 // 武器道具策略
 class WeaponItemStrategy extends ItemStrategy {
@@ -1841,6 +1848,13 @@ function useItem(playerIndex, itemIndex) {
     }
 
     if (item && player.cards > 0) {
+        // 检查是否为被动道具
+        if (item.name === '念珠') {
+            elements.gameMessage.textContent = `念珠是被动道具，无法主动使用！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试主动使用念珠，但念珠是被动道具`);
+            return;
+        }
+
         // 保存游戏状态
         saveGameState();
 
@@ -1853,7 +1867,7 @@ function useItem(playerIndex, itemIndex) {
         const shouldContinue = strategy.execute(player, playerIndex, item, itemIndex);
 
         // 从道具列表中移除（特殊道具已在各自的策略中处理）
-        if (shouldContinue !== false && item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.type !== 'exchange' && item.type !== 'kill_with_weapon' && item.type !== 'favor' && item.type !== 'action' && item.type !== 'move' && item.type !== 'reverse_move') {
+        if (shouldContinue !== false && item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.name !== '念珠' && item.type !== 'exchange' && item.type !== 'kill_with_weapon' && item.type !== 'favor' && item.type !== 'action' && item.type !== 'move' && item.type !== 'reverse_move') {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
@@ -1878,10 +1892,15 @@ function useItem(playerIndex, itemIndex) {
 
                 // 检查行动点是否为0，如果是则自动结束行动
                 if (player.action <= 0) {
+                    // 保存当前玩家索引，避免在setTimeout中使用可能已更新的gameState.currentPlayer
+                    const currentPlayerIndex = playerIndex;
                     setTimeout(() => {
-                        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
-                        logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
-                        endTurn();
+                        // 再次检查当前玩家是否仍然是原来的玩家，避免在setTimeout执行时玩家已经切换
+                        if (gameState.currentPlayer === currentPlayerIndex) {
+                            elements.gameMessage.textContent = `玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动。`;
+                            logEvent(`玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动`);
+                            endTurn();
+                        }
                     }, 1000);
                 } else {
                     // 检查是否在停滞格子上
@@ -2147,27 +2166,43 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
             
-            // 检查目标玩家是否持有大瓶可尔思必道具，且当前玩家是薰
-            let hasKillscreen = false;
-            let killScreenIndex = -1;
+            // 检查目标玩家是否持有防御道具
+            let hasDefense = false;
+            let defenseIndex = -1;
+            let defenseItemName = '';
             for (let i = 0; i < targetPlayer.items.length; i++) {
-                if (targetPlayer.items[i].name === '大瓶可尔思必' && player.role === '薰') {
-                    hasKillscreen = true;
-                    killScreenIndex = i;
+                const defenseItem = targetPlayer.items[i];
+                if (defenseItem.name === '大瓶可尔思必' && player.role === '薰') {
+                    // 大瓶可尔思必：只能防御来自薰的攻击
+                    hasDefense = true;
+                    defenseIndex = i;
+                    defenseItemName = '大瓶可尔思必';
+                    break;
+                } else if (defenseItem.name === '念珠') {
+                    // 念珠：可以防御任何来自其他人的攻击
+                    hasDefense = true;
+                    defenseIndex = i;
+                    defenseItemName = '念珠';
                     break;
                 }
             }
             
-            if (hasKillscreen) {
-                // 移除大瓶可尔思必道具
-                targetPlayer.items.splice(killScreenIndex, 1);
+            if (hasDefense) {
+                // 移除防御道具
+                targetPlayer.items.splice(defenseIndex, 1);
                 targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
                 
                 // 记录日志
-                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了杀害`);
+                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害`);
                 
                 // 显示消息
-                elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了杀害！`;
+                elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害！`;
+                
+                // 如果使用念珠防御，且使用者不是薰或者水上，且行动点>=1，则扣除1行动点
+                if (defenseItemName === '念珠' && targetPlayer.role !== '薰' && targetPlayer.role !== '水上' && targetPlayer.action >= 1) {
+                    targetPlayer.action--;
+                    logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御杀害，扣除1点行动点`);
+                }
             } else {
                 // 检查是否是特殊角色使用武器（不消耗行动点）
                 let shouldConsumeAction = true;
@@ -2270,10 +2305,15 @@ function handleGridFunction() {
     // 检查行动点
     if (currentPlayer.action <= 0) {
         // 行动点为0，自动结束行动
+        // 保存当前玩家索引，避免在setTimeout中使用可能已更新的gameState.currentPlayer
+        const currentPlayerIndex = gameState.currentPlayer;
         setTimeout(() => {
-            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点已耗尽，自动结束行动。`;
-            logEvent(`玩家${gameState.currentPlayer + 1}行动点已耗尽，自动结束行动`);
-            endTurn();
+            // 再次检查当前玩家是否仍然是原来的玩家，避免在setTimeout执行时玩家已经切换
+            if (gameState.currentPlayer === currentPlayerIndex) {
+                elements.gameMessage.textContent = `玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动。`;
+                logEvent(`玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动`);
+                endTurn();
+            }
         }, 1000);
     } else {
         // 检查是否在停滞格子上
@@ -2654,27 +2694,43 @@ function killPlayer() {
             currentPlayer.action -= 4;
             logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗4点行动点执行杀人操作`);
 
-            // 检查目标玩家是否持有大瓶可尔思必道具，且当前玩家是薰
-            let hasKillscreen = false;
-            let killScreenIndex = -1;
+            // 检查目标玩家是否持有防御道具
+            let hasDefense = false;
+            let defenseIndex = -1;
+            let defenseItemName = '';
             for (let i = 0; i < targetPlayer.items.length; i++) {
-                if (targetPlayer.items[i].name === '大瓶可尔思必' && currentPlayer.role === '薰') {
-                    hasKillscreen = true;
-                    killScreenIndex = i;
+                const item = targetPlayer.items[i];
+                if (item.name === '大瓶可尔思必' && currentPlayer.role === '薰') {
+                    // 大瓶可尔思必：只能防御来自薰的攻击
+                    hasDefense = true;
+                    defenseIndex = i;
+                    defenseItemName = '大瓶可尔思必';
+                    break;
+                } else if (item.name === '念珠') {
+                    // 念珠：可以防御任何来自其他人的攻击
+                    hasDefense = true;
+                    defenseIndex = i;
+                    defenseItemName = '念珠';
                     break;
                 }
             }
 
-            if (hasKillscreen) {
-                // 移除大瓶可尔思必道具
-                targetPlayer.items.splice(killScreenIndex, 1);
+            if (hasDefense) {
+                // 移除防御道具
+                targetPlayer.items.splice(defenseIndex, 1);
                 targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
                 
                 // 记录日志
-                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害`);
+                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害`);
                 
                 // 显示消息
-                elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用大瓶可尔思必抵御了薰的杀害！`;
+                elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害！`;
+                
+                // 如果使用念珠防御，且使用者不是薰或者水上，且行动点>=1，则扣除1行动点
+                if (defenseItemName === '念珠' && targetPlayer.role !== '薰' && targetPlayer.role !== '水上' && targetPlayer.action >= 1) {
+                    targetPlayer.action--;
+                    logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御杀害，扣除1点行动点`);
+                }
             } else {
                 // 设置目标玩家为死亡
                 targetPlayer.status = 'die';
@@ -2695,10 +2751,15 @@ function killPlayer() {
             
             // 检查行动点是否为0，如果是则自动结束行动
             if (currentPlayer.action <= 0) {
+                // 保存当前玩家索引，避免在setTimeout中使用可能已更新的gameState.currentPlayer
+                const currentPlayerIndex = gameState.currentPlayer;
                 setTimeout(() => {
-                    elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}行动点已耗尽，自动结束行动。`;
-                    logEvent(`玩家${gameState.currentPlayer + 1}行动点已耗尽，自动结束行动`);
-                    endTurn();
+                    // 再次检查当前玩家是否仍然是原来的玩家，避免在setTimeout执行时玩家已经切换
+                    if (gameState.currentPlayer === currentPlayerIndex) {
+                        elements.gameMessage.textContent = `玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动。`;
+                        logEvent(`玩家${currentPlayerIndex + 1}行动点已耗尽，自动结束行动`);
+                        endTurn();
+                    }
                 }, 1000);
             } else {
                 // 检查是否在停滞格子上
