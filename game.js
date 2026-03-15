@@ -30,7 +30,7 @@ function parseItemCSV(csvText) {
             } else if (values[7] === '电影院') {
                 item.targetGrid = 24; // 电影院是第25个格子，索引为24
             } else if (values[7] === '可指定本回合内你希望棋子移动的步数') {
-                //提灯
+                //提灯TODO 优化
                 item.type = 'custom_move';
             }
         }
@@ -385,23 +385,80 @@ function updateItemPoolDisplay() {
 // 角色属性配置（从role.csv文件中加载）
 let characterAttributes = {};
 
-// 游戏状态
-let gameState = {
-    players: [
-        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 },
-        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 },
-        { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 }
-    ],
-    currentPlayer: 0,
-    tokenPosition: 0,
-    round: 1,
-    gameStarted: false,
-    itemPool: [],
-    gameWon: false,
-    history: [],
-    week: 1,
-    reverseDirection: false
-};
+// 观察者模式实现
+class Observable {
+    constructor() {
+        this.observers = [];
+    }
+
+    subscribe(observer) {
+        this.observers.push(observer);
+    }
+
+    unsubscribe(observer) {
+        this.observers = this.observers.filter(obs => obs !== observer);
+    }
+
+    notify(data) {
+        this.observers.forEach(observer => observer(data));
+    }
+}
+
+// 游戏状态管理器 - 使用观察者模式
+class GameStateManager {
+    constructor() {
+        this.state = {
+            players: [
+                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 },
+                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 },
+                { type: 'A', role: '水上', cards: 0, items: [], favor: 50, status: 'alive', action: 3 }
+            ],
+            currentPlayer: 0,
+            tokenPosition: 0,
+            round: 1,
+            gameStarted: false,
+            itemPool: [],
+            gameWon: false,
+            history: [],
+            week: 1,
+            reverseDirection: false
+        };
+        this.observable = new Observable();
+    }
+
+    getState() {
+        return this.state;
+    }
+
+    setState(path, value) {
+        const keys = path.split('.');
+        let current = this.state;
+        for (let i = 0; i < keys.length - 1; i++) {
+            current = current[keys[i]];
+        }
+        current[keys[keys.length - 1]] = value;
+        this.observable.notify({ path, value, state: this.state });
+    }
+
+    updateState(updater) {
+        updater(this.state);
+        this.observable.notify({ path: 'state', value: this.state, state: this.state });
+    }
+
+    subscribe(observer) {
+        this.observable.subscribe(observer);
+    }
+
+    unsubscribe(observer) {
+        this.observable.unsubscribe(observer);
+    }
+}
+
+// 游戏状态管理器实例
+const gameStateManager = new GameStateManager();
+
+// 游戏状态（向后兼容）
+let gameState = gameStateManager.getState();
 
 
 
@@ -520,29 +577,30 @@ function initGame() {
         playerRoles.push(role);
     }
 
-    // 设置玩家属性
-    gameState.players = [];
-    for (let i = 0; i < playerCount; i++) {
-        const role = playerRoles[i];
-        gameState.players.push({
-            type: characterAttributes[role].type,
-            role: role,
-            cards: 0,
-            items: [],
-            favor: characterAttributes[role].initialFavor,
-            status: 'alive',
-            action: characterAttributes[role].action
-        });
-    }
+    // 设置玩家属性和重置游戏状态（使用观察者模式）
+    gameStateManager.updateState((state) => {
+        state.players = [];
+        for (let i = 0; i < playerCount; i++) {
+            const role = playerRoles[i];
+            state.players.push({
+                type: characterAttributes[role].type,
+                role: role,
+                cards: 0,
+                items: [],
+                favor: characterAttributes[role].initialFavor,
+                status: 'alive',
+                action: characterAttributes[role].action
+            });
+        }
 
-    // 重置游戏状态
-    gameState.currentPlayer = 0;
-    gameState.tokenPosition = 0;
-    gameState.gameStarted = true;
-    gameState.gameWon = false;
-    gameState.week = 1;
-    gameState.reverseDirection = false;
-    gameState.stagnantTurn = -1;
+        state.currentPlayer = 0;
+        state.tokenPosition = 0;
+        state.gameStarted = true;
+        state.gameWon = false;
+        state.week = 1;
+        state.reverseDirection = false;
+        state.stagnantTurn = -1;
+    });
     
     // 确保棋子位置正确更新
     updateTokenPosition();
@@ -550,37 +608,41 @@ function initGame() {
     // 生成地图格子
     generateMapGrid();
 
-    // 重新初始化道具池
-    gameState.itemPool = [...itemPool];
+    // 重新初始化道具池和为玩家抽取道具（使用观察者模式）
+    gameStateManager.updateState((state) => {
+        state.itemPool = [...itemPool];
 
-    // 为所有玩家设置初始行动点
-    for (let i = 0; i < playerCount; i++) {
-        const player = gameState.players[i];
-        player.action = characterAttributes[player.role].action;
-    }
+        // 为所有玩家设置初始行动点
+        for (let i = 0; i < playerCount; i++) {
+            const player = state.players[i];
+            player.action = characterAttributes[player.role].action;
+        }
+    });
 
     // 游戏开始时，为所有玩家依次随机抽取能够拥有的最大道具数量的道具
     let startMessage = '游戏开始！玩家1先开始掷骰子。';
-    for (let i = 0; i < playerCount; i++) {
-        const player = gameState.players[i];
-        const maxCards = characterAttributes[player.role].maxCards;
-        
-        // 为玩家抽取最大数量的道具
-        while (player.cards < maxCards && gameState.itemPool.length > 0) {
-            const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
-            const itemName = gameState.itemPool[randomIndex];
-            const item = items[itemName];
+    gameStateManager.updateState((state) => {
+        for (let i = 0; i < playerCount; i++) {
+            const player = state.players[i];
+            const maxCards = characterAttributes[player.role].maxCards;
+            
+            // 为玩家抽取最大数量的道具
+            while (player.cards < maxCards && state.itemPool.length > 0) {
+                const randomIndex = Math.floor(Math.random() * state.itemPool.length);
+                const itemName = state.itemPool[randomIndex];
+                const item = items[itemName];
 
-            // 从道具池中移除该道具
-            gameState.itemPool.splice(randomIndex, 1);
+                // 从道具池中移除该道具
+                state.itemPool.splice(randomIndex, 1);
 
-            // 添加道具到玩家的道具数组
-            player.items.push(item);
-            player.cards++;
+                // 添加道具到玩家的道具数组
+                player.items.push(item);
+                player.cards++;
 
-            logEvent(`玩家${i + 1}（${player.role}）游戏开始，获得道具${item.name}`);
+                logEvent(`玩家${i + 1}（${player.role}）游戏开始，获得道具${item.name}`);
+            }
         }
-    }
+    });
 
     // 更新道具池显示
     updateItemPoolDisplay();
@@ -2056,10 +2118,10 @@ function nextPlayer() {
 
     // 检查是否进入新回合
     if (nextPlayerIndex === 0) {
-        gameState.round++;
+        gameStateManager.setState('round', gameState.round + 1);
     }
 
-    gameState.currentPlayer = nextPlayerIndex;
+    gameStateManager.setState('currentPlayer', nextPlayerIndex);
     const currentPlayer = gameState.players[gameState.currentPlayer];
     const maxCards = characterAttributes[currentPlayer.role].maxCards;
 
@@ -2511,6 +2573,12 @@ document.getElementById('end-turn').addEventListener('click', endTurn);
 
 // 初始化页面
 window.onload = async function () {
+    // 订阅状态变化观察者
+    gameStateManager.subscribe((data) => {
+        console.log('状态变化:', data.path, '->', data.value);
+        updateUI();
+    });
+    
     // 初始化UI
     updateUI();
     // 初始化拖动功能
