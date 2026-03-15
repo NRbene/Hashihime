@@ -639,19 +639,18 @@ class ColspiceItemStrategy extends ItemStrategy {
 
         // 增加好感度或恢复行动点
         if (player.role !== '薰') {
-            player.favor += 20;
+            player.favor += item.favor;
             // 记录日志
-            logEvent(`玩家${playerIndex + 1}（${player.role}）使用大瓶可尔思必，增加了20点好感度`);
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，增加了${item.favor}点好感度`);
             // 显示消息
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了大瓶可尔思必，增加了20点好感度！`;
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，增加了${item.favor}点好感度！`;
         } else {
             // 薰无法获得好感度，而是恢复行动点
-            const actionPoints = Math.floor(20 / 10);
-            player.action += actionPoints;
+            player.action += item.action;
             // 记录日志
-            logEvent(`玩家${playerIndex + 1}（薰）使用大瓶可尔思必，获得了${actionPoints}点行动点`);
+            logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
             // 显示消息
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了大瓶可尔思必，获得了${actionPoints}点行动点！`;
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点！`;
         }
 
         // 更新UI
@@ -1177,7 +1176,8 @@ class FavorGridStrategy extends GridStrategy {
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度`);
             } else if (player.role === '薰') {
                 // 薰无法获得好感度，而是恢复行动点
-                const actionPoints = Math.floor(favorEffect.value / 10);
+                // 从grid的道具Effect中获取行动点恢复值，如果没有则使用默认值
+                const actionPoints = grid.道具Effect ? grid.道具Effect.value : Math.floor(favorEffect.value / 10);
                 player.action += actionPoints;
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点！`;
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点`);
@@ -1189,10 +1189,10 @@ class FavorGridStrategy extends GridStrategy {
             // A类某种角色的所有玩家好感度+10
             let affectedPlayers = 0;
             let kaoruAffected = false;
+            let actionPoints = grid.道具Effect ? grid.道具Effect.value : Math.floor(favorEffect.value / 10);
             gameState.players.forEach((targetPlayer, index) => {
                 if (targetPlayer.role === '薰' && targetPlayer.status === 'alive') {
                     // 薰无法获得好感度，而是恢复行动点
-                    const actionPoints = Math.floor(favorEffect.value / 10);
                     targetPlayer.action += actionPoints;
                     kaoruAffected = true;
                 } else if (targetPlayer.type === 'A' && targetPlayer.role === favorEffect.role && targetPlayer.status === 'alive') {
@@ -1204,8 +1204,8 @@ class FavorGridStrategy extends GridStrategy {
                 elements.gameMessage.textContent = `所有${favorEffect.role}角色获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：所有${favorEffect.role}角色获得了${favorEffect.value}点好感度`);
             } else if (kaoruAffected) {
-                elements.gameMessage.textContent = `薰获得了${Math.floor(favorEffect.value / 10)}点行动点！`;
-                logEvent(`触发效果：薰获得了${Math.floor(favorEffect.value / 10)}点行动点`);
+                elements.gameMessage.textContent = `薰获得了${actionPoints}点行动点！`;
+                logEvent(`触发效果：薰获得了${actionPoints}点行动点`);
             } else {
                 elements.gameMessage.textContent = `没有${favorEffect.role}角色在场！`;
                 logEvent(`触发效果：没有${favorEffect.role}角色在场`);
@@ -1214,10 +1214,10 @@ class FavorGridStrategy extends GridStrategy {
             // 全员好感度+10
             let affectedPlayers = 0;
             let kaoruAffected = false;
+            let actionPoints = grid.道具Effect ? grid.道具Effect.value : Math.floor(favorEffect.value / 10);
             gameState.players.forEach((targetPlayer, index) => {
                 if (targetPlayer.role === '薰' && targetPlayer.status === 'alive') {
                     // 薰无法获得好感度，而是恢复行动点
-                    const actionPoints = Math.floor(favorEffect.value / 10);
                     targetPlayer.action += actionPoints;
                     kaoruAffected = true;
                 } else if (targetPlayer.type === 'A' && targetPlayer.status === 'alive') {
@@ -1229,8 +1229,8 @@ class FavorGridStrategy extends GridStrategy {
                 elements.gameMessage.textContent = `所有A类型角色获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：所有A类型角色获得了${favorEffect.value}点好感度`);
             } else if (kaoruAffected) {
-                elements.gameMessage.textContent = `薰获得了${Math.floor(favorEffect.value / 10)}点行动点！`;
-                logEvent(`触发效果：薰获得了${Math.floor(favorEffect.value / 10)}点行动点`);
+                elements.gameMessage.textContent = `薰获得了${actionPoints}点行动点！`;
+                logEvent(`触发效果：薰获得了${actionPoints}点行动点`);
             } else {
                 elements.gameMessage.textContent = `没有A类型角色在场！`;
                 logEvent(`触发效果：没有A类型角色在场`);
@@ -1621,9 +1621,9 @@ function useItem(playerIndex, itemIndex) {
                 player.favor += item.favor;
             } else {
                 // 薰无法获得好感度，而是恢复行动点
-                const actionPoints = Math.floor(item.favor / 10);
-                player.action += actionPoints;
-                logEvent(`玩家${playerIndex + 1}（薰）获得了${actionPoints}点行动点`);
+                // 直接使用item.action，这是从CSV中解析出来的行动点恢复值
+                player.action += item.action;
+                logEvent(`玩家${playerIndex + 1}（薰）获得了${item.action}点行动点`);
             }
         }
 
