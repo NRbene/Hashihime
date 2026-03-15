@@ -13,53 +13,80 @@ function parseItemCSV(csvText) {
 
     for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split('\t');
+        
+        // 新的CSV格式：涉及好感度	涉及行动点	其他功能	序号	道具名	数量	道具描述
+        const 涉及好感度 = values[0];
+        const 涉及行动点 = values[1];
+        const 其他功能 = values[2];
+        const id = parseInt(values[3]);
+        const name = values[4];
+        const quantity = parseInt(values[5]);
+        const description = values[6];
+        
+        // 解析好感度和行动点
+        let favor = 0;
+        let action = 0;
+        
+        // 从描述中提取好感度和行动点
+        //TODO 优化这段逻辑
+        if (涉及好感度 === '是') {
+            // 提取好感度值
+            const favorMatch = description.match(/增加(\d+)点/);
+            if (favorMatch) {
+                favor = parseInt(favorMatch[1]);
+            }
+        }
+        
+        if (涉及行动点 === '是') {
+            // 提取行动点值
+            const actionMatch = description.match(/恢复(\d+)行动点/);
+            if (actionMatch) {
+                action = parseInt(actionMatch[1]);
+            }
+        }
+        
         const item = {
-            id: parseInt(values[0]),
-            name: values[1],
-            favor: parseInt(values[3]),
-            action: parseInt(values[5]),
-            description: values[10],
-            quantity: parseInt(values[9])
+            id: id,
+            name: name,
+            favor: favor,
+            action: action,
+            description: description,
+            quantity: quantity
         };
 
-        // 处理移动功能
-        //TODO 这里不要写死，地图要做限制，只能够导入一个电影院、机械汤
-        if (values[6] === '是') {
-            if (values[7] === '机械汤') {
-                item.targetGrid = 5; // 机械汤是第6个格子，索引为5
-            } else if (values[7] === '电影院') {
-                item.targetGrid = 24; // 电影院是第25个格子，索引为24
-            } else if (values[7] === '可指定本回合内你希望棋子移动的步数') {
-                //提灯
-                item.type = 'custom_move';
-            }
-        }
-        
-        // 处理特殊道具类型
-        // 从CSV中读取道具类型（如果有）
-        if (values[11]) {
-            item.type = values[11];
-        } else {
-            // 向后兼容：当CSV中没有提供类型时，使用硬编码的默认值
-            if (item.name === '玉森的原稿') {
-                item.type = 'steal';
-            } else if (item.name === '钱') {
-                item.type = 'exchange';
-            } else if (item.name === '军刀') {
+        // 处理其他功能
+        switch (其他功能) {
+            case '移动':
+                if (name === '洗浴券') {
+                    item.targetGrid = 5; // 机械汤是第6个格子，索引为5
+                } else if (name === '电影票') {
+                    item.targetGrid = 24; // 电影院是第25个格子，索引为24
+                } else if (name === '提灯') {
+                    item.type = 'custom_move';
+                }
+                break;
+            case '手牌':
+                if (name === '玉森的原稿') {
+                    item.type = 'steal';
+                } else if (name === '钱') {
+                    item.type = 'exchange';
+                }
+                break;
+            case '攻击':
                 item.type = 'kill_with_weapon';
-                item.weaponType = 'knife';
-            } else if (item.name === '枪') {
-                item.type = 'kill_with_weapon';
-                item.weaponType = 'gun';
-            } else if (item.name === '雕刻刀') {
-                item.type = 'kill_with_weapon';
-                item.weaponType = 'carving_knife';
-            }
-        }
-        
-        // 处理武器类型
-        if (values[12]) {
-            item.weaponType = values[12];
+                if (name === '军刀') {
+                    item.weaponType = 'knife';
+                } else if (name === '枪') {
+                    item.weaponType = 'gun';
+                } else if (name === '雕刻刀') {
+                    item.weaponType = 'carving_knife';
+                }
+                break;
+            case '防御':
+                if (name === '大瓶可尔思必') {
+                    item.type = 'colspice';
+                }
+                break;
         }
 
         parsedItems[item.name] = item;
