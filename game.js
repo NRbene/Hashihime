@@ -526,7 +526,7 @@ class MoveItemStrategy extends ItemStrategy {
         if (player.role !== '薰') {
             // 非薰玩家：只增加好感度，不恢复行动点
             if (item.favor > 0) {
-                player.favor += item.favor;
+                updateFavor(player, item.favor);
                 // 记录日志
                 logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，增加了${item.favor}点好感度`);
                 // 显示消息
@@ -778,7 +778,7 @@ class ColspiceItemStrategy extends ItemStrategy {
 
         // 增加好感度或恢复行动点
         if (player.role !== '薰') {
-            player.favor += item.favor;
+            updateFavor(player, item.favor);
             // 记录日志
             logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，增加了${item.favor}点好感度`);
             // 显示消息
@@ -854,6 +854,165 @@ class KeychainItemStrategy extends ItemStrategy {
             }
         }
         return false; // 不继续执行后续逻辑
+    }
+}
+
+// 银怀表道具策略
+class SilverWatchItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 生成可选择的玩家列表（不能选择自己，且行动点>=1）
+        const availablePlayers = [];
+        for (let i = 0; i < gameState.players.length; i++) {
+            if (i !== playerIndex && gameState.players[i].status === 'alive' && gameState.players[i].action >= 1) {
+                availablePlayers.push(i);
+            }
+        }
+
+        if (availablePlayers.length === 0) {
+            elements.gameMessage.textContent = '没有可选择的目标！';
+            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用${item.name}，但没有可选择的目标`);
+            return false;
+        }
+
+        // 构建选择界面
+        let targetOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            targetOptions += `<div class="target-item" data-target-player="${targetIndex}">玩家${targetIndex + 1}（${targetPlayer.role}）- 剩余行动点：${targetPlayer.action || 0}</div>`;
+        });
+
+        // 创建弹出框
+        const targetDialog = document.createElement('div');
+        targetDialog.className = 'target-dialog';
+        targetDialog.innerHTML = `
+            <div class="target-dialog-content">
+                <h3>选择要扣除行动点的角色：</h3>
+                <div class="target-options">${targetOptions}</div>
+                <button class="cancel-target">取消</button>
+            </div>
+        `;
+        document.body.appendChild(targetDialog);
+
+        // 添加样式
+        this.addDialogStyle('target-dialog');
+
+        // 处理目标选择
+        const targetItems = targetDialog.querySelectorAll('.target-item');
+        targetItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
+                const targetPlayer = gameState.players[targetPlayerIndex];
+                
+                // 扣除目标玩家1点行动点
+                if (targetPlayer.action > 0) {
+                    targetPlayer.action--;
+                }
+                
+                // 非花泽角色使用此道具会扣10点好感
+                if (player.role !== '花泽') {
+                    updateFavor(player, -10);
+                    logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，扣除自己10点好感`);
+                }
+                
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，扣除玩家${targetPlayerIndex + 1}（${targetPlayer.role}）1点行动点`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，扣除玩家${targetPlayerIndex + 1}（${targetPlayer.role}）1点行动点${player.role !== '花泽' ? '，并扣除自己10点好感' : ''}！`;
+                
+                // 移除对话框
+                document.body.removeChild(targetDialog);
+                
+                // 更新UI
+                updateUI();
+                
+                // 检查行动点是否为0，如果是则自动结束行动
+                if (player.action <= 0) {
+                    setTimeout(() => {
+                        elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点已耗尽，自动结束行动。`;
+                        logEvent(`玩家${playerIndex + 1}行动点已耗尽，自动结束行动`);
+                        endTurn();
+                    }, 1000);
+                } else {
+                    // 检查是否在停滞格子上
+                    const currentGrid = gridConfig[gameState.tokenPosition];
+                    if (!currentGrid.isStagnant) {
+                        // 不在停滞格子上，重新启用掷骰子按钮
+                        elements.rollDice.disabled = false;
+                    } else {
+                        // 在停滞格子上，保持掷骰子按钮禁用
+                        elements.rollDice.disabled = true;
+                    }
+                }
+            });
+        });
+
+        // 处理取消按钮
+        const cancelButton = targetDialog.querySelector('.cancel-target');
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(targetDialog);
+            // 恢复行动点
+            player.action++;
+        });
+
+        return false; // 异步操作，不继续执行后续逻辑
+    }
+    
+    // 添加对话框样式
+    addDialogStyle(dialogClass) {
+        // 检查是否已经添加了样式
+        if (document.getElementById(`${dialogClass}-style`)) {
+            return;
+        }
+
+        // 创建样式
+        const style = document.createElement('style');
+        style.id = `${dialogClass}-style`;
+        style.textContent = `
+            .${dialogClass} {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            }
+            .${dialogClass}-content {
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                width: 80%;
+                max-width: 600px;
+                max-height: 80%;
+                overflow-y: auto;
+            }
+            .${dialogClass} .cancel-target {
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #ccc;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+            .target-item {
+                padding: 10px;
+                border: 1px solid #ccc;
+                margin: 5px 0;
+                cursor: pointer;
+            }
+            .target-item:hover {
+                background-color: #f0f0f0;
+            }
+        `;
+
+        document.head.appendChild(style);
     }
 }
 
@@ -1024,7 +1183,7 @@ class FavorItemStrategy extends ItemStrategy {
         if (player.role !== '薰') {
             // 非薰玩家：只增加好感度，不恢复行动点
             if (item.favor > 0) {
-                player.favor += item.favor;
+                updateFavor(player, item.favor);
                 // 记录日志
                 logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，增加了${item.favor}点好感度`);
                 // 显示消息
@@ -1118,7 +1277,8 @@ const itemStrategyMap = {
     'kill_with_weapon': WeaponItemStrategy,
     'favor': FavorItemStrategy,
     'action': ActionItemStrategy,
-    'keychain': KeychainItemStrategy
+    'keychain': KeychainItemStrategy,
+    'silver_watch': SilverWatchItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1130,7 +1290,8 @@ const itemNameToTypeMap = {
     '蛋包饭': 'action',
     '咖啡': 'action',
     '手电筒': 'reverse_move',
-    '钥匙串': 'keychain'
+    '钥匙串': 'keychain',
+    '银怀表': 'silver_watch'
 };
 
 // 游戏对话框服务
@@ -1457,7 +1618,7 @@ class FavorGridStrategy extends GridStrategy {
         if (favorEffect.type === 'player') {
             // 掷出此骰子的玩家好感度+10
             if (player.type === 'A') {
-                player.favor += favorEffect.value;
+                updateFavor(player, favorEffect.value);
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度`);
             } else if (player.role === '薰') {
@@ -1482,7 +1643,7 @@ class FavorGridStrategy extends GridStrategy {
                     targetPlayer.action += actionPoints;
                     kaoruAffected = true;
                 } else if (targetPlayer.type === 'A' && targetPlayer.role === favorEffect.role && targetPlayer.status === 'alive') {
-                    targetPlayer.favor += favorEffect.value;
+                    updateFavor(targetPlayer, favorEffect.value);
                     affectedPlayers++;
                 }
             });
@@ -1507,7 +1668,7 @@ class FavorGridStrategy extends GridStrategy {
                     targetPlayer.action += actionPoints;
                     kaoruAffected = true;
                 } else if (targetPlayer.type === 'A' && targetPlayer.status === 'alive') {
-                    targetPlayer.favor += favorEffect.value;
+                    updateFavor(targetPlayer, favorEffect.value);
                     affectedPlayers++;
                 }
             });
@@ -2146,6 +2307,15 @@ function logEvent(message) {
     logEntry.textContent = message;
     elements.logContent.appendChild(logEntry);
     elements.logContent.scrollTop = elements.logContent.scrollHeight;
+}
+
+// 处理好感度变更
+function updateFavor(player, change) {
+    // 假设好感度上限为100，下限为0
+    const maxFavor = 100;
+    const minFavor = 0;
+    
+    player.favor = Math.max(minFavor, Math.min(maxFavor, player.favor + change));
 }
 
 // 移动棋子
