@@ -69,6 +69,14 @@ function parseItemCSV(csvText) {
                     item.type = 'custom_move';
                 } else if (name === '金鱼花洒') {
                     item.type = 'goldfish_shower';
+                } else if (name === '三文鱼罐头') {
+                    item.type = 'salmon_can';
+                } else if (name === '摄像机') {
+                    item.type = 'camera';
+                } else if (name === '话剧剧本') {
+                    item.type = 'drama_script';
+                } else if (name === '校帽') {
+                    item.type = 'school_cap';
                 }
                 break;
             case '手牌':
@@ -1012,21 +1020,21 @@ class GoldfishShowerItemStrategy extends ItemStrategy {
         player.cards = Math.max(0, player.cards - 1);
 
         // 动态获取冰川宅范围内的格子
-        const glacierRange = [];
+        const targetRange = [];
         gridConfig.forEach((grid, index) => {
             if (grid.name === '冰川宅') {
-                glacierRange.push(index);
+                targetRange.push(index);
             }
         });
         
         // 创建地图选择对话框
-        this.createMapSelectionDialog(player, playerIndex, item, itemIndex, glacierRange);
+        this.createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, '冰川宅');
 
         return false; // 不继续执行后续逻辑
     }
     
     // 创建地图选择对话框
-    createMapSelectionDialog(player, playerIndex, item, itemIndex, glacierRange) {
+    createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, locationName) {
         // 创建弹出框
         const mapDialog = document.createElement('div');
         mapDialog.className = 'map-selection-dialog';
@@ -1034,15 +1042,15 @@ class GoldfishShowerItemStrategy extends ItemStrategy {
         // 构建地图HTML
         let mapHTML = '<div class="map-selection-content">';
         mapHTML += '<div class="map-selection-header">';
-        mapHTML += '<h3>选择要移动到的冰川宅地块：</h3>';
+        mapHTML += `<h3>选择要移动到的${locationName}地块：</h3>`;
         mapHTML += '</div>';
         mapHTML += '<div class="map-grid-container">';
         mapHTML += '<div class="map-grid" id="selection-map">';
         
         // 绘制地图格子
         gridConfig.forEach((grid, index) => {
-            const isSelectable = glacierRange.includes(index);
             const isCurrent = index === gameState.tokenPosition;
+            const isSelectable = targetRange.includes(index) && !isCurrent;
             const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
             const dataIndex = isSelectable ? `data-grid-index="${index}"` : '';
             
@@ -1102,13 +1110,115 @@ class GoldfishShowerItemStrategy extends ItemStrategy {
             player.cards++;
             // 移除对话框
             document.body.removeChild(mapDialog);
-            // 恢复行动点（如果不是博士）
-            if (player.role !== '博士') {
+            // 恢复行动点（如果不是特殊角色）
+            let shouldRestoreAction = true;
+            if (item.name === '金鱼花洒' && player.role === '博士') {
+                shouldRestoreAction = false;
+            } else if (item.name === '三文鱼罐头' && player.role === '花泽') {
+                shouldRestoreAction = false;
+            } else if (item.name === '摄像机' && player.role === '水上') {
+                shouldRestoreAction = false;
+            } else if (item.name === '话剧剧本' && player.role === '川濑') {
+                shouldRestoreAction = false;
+            }
+            if (shouldRestoreAction) {
                 player.action++;
             }
             // 显示消息
             elements.gameMessage.textContent = `取消使用${item.name}！`;
         });
+    }
+}
+
+// 三文鱼罐头道具策略
+class SalmonCanItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 动态获取花泽家范围内的格子
+        const targetRange = [];
+        gridConfig.forEach((grid, index) => {
+            if (grid.name === '花泽家') {
+                targetRange.push(index);
+            }
+        });
+        
+        // 创建地图选择对话框
+        const goldfishStrategy = new GoldfishShowerItemStrategy();
+        goldfishStrategy.createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, '花泽家');
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
+// 摄像机道具策略
+class CameraItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 动态获取大泉家范围内的格子
+        const targetRange = [];
+        gridConfig.forEach((grid, index) => {
+            if (grid.name === '大泉家') {
+                targetRange.push(index);
+            }
+        });
+        
+        // 创建地图选择对话框
+        const goldfishStrategy = new GoldfishShowerItemStrategy();
+        goldfishStrategy.createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, '大泉家');
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
+// 话剧剧本道具策略
+class DramaScriptItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 动态获取池田宅范围内的格子
+        const targetRange = [];
+        gridConfig.forEach((grid, index) => {
+            if (grid.name === '池田宅') {
+                targetRange.push(index);
+            }
+        });
+        
+        // 创建地图选择对话框
+        const goldfishStrategy = new GoldfishShowerItemStrategy();
+        goldfishStrategy.createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, '池田宅');
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
+// 校帽道具策略
+class SchoolCapItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 动态获取帝国大学范围内的格子
+        const targetRange = [];
+        gridConfig.forEach((grid, index) => {
+            if (grid.name === '帝国大学') {
+                targetRange.push(index);
+            }
+        });
+        
+        // 创建地图选择对话框
+        const goldfishStrategy = new GoldfishShowerItemStrategy();
+        goldfishStrategy.createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, '帝国大学');
+
+        return false; // 不继续执行后续逻辑
     }
 }
 
@@ -1126,7 +1236,11 @@ const itemStrategyMap = {
     'keychain': KeychainItemStrategy,
     'silver_watch': SilverWatchItemStrategy,
     'notebook': NotebookItemStrategy,
-    'goldfish_shower': GoldfishShowerItemStrategy
+    'goldfish_shower': GoldfishShowerItemStrategy,
+    'salmon_can': SalmonCanItemStrategy,
+    'camera': CameraItemStrategy,
+    'drama_script': DramaScriptItemStrategy,
+    'school_cap': SchoolCapItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1926,6 +2040,18 @@ function useItem(playerIndex, itemIndex) {
         if (player.role === '博士') {
             canUseWithoutAction = true;
         }
+    } else if (item.name === '三文鱼罐头') {
+        if (player.role === '花泽') {
+            canUseWithoutAction = true;
+        }
+    } else if (item.name === '摄像机') {
+        if (player.role === '水上') {
+            canUseWithoutAction = true;
+        }
+    } else if (item.name === '话剧剧本') {
+        if (player.role === '川濑') {
+            canUseWithoutAction = true;
+        }
     }
     
     if (actionPoints <= 0 && !canUseWithoutAction) {
@@ -1975,6 +2101,18 @@ function useItem(playerIndex, itemIndex) {
             }
         } else if (item.name === '金鱼花洒') {
             if (player.role === '博士') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '三文鱼罐头') {
+            if (player.role === '花泽') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '摄像机') {
+            if (player.role === '水上') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '话剧剧本') {
+            if (player.role === '川濑') {
                 shouldConsumeAction = false;
             }
         }
