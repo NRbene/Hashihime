@@ -963,6 +963,8 @@ class MoneyItemStrategy extends ItemStrategy {
         const isAtMechanicalBath = currentGrid.name === '机械汤';
         // 检查当前是否在咖啡厅格子上
         const isAtCoffeeShop = currentGrid.name === '咖啡厅';
+        // 检查当前是否在电影院格子上
+        const isAtCinema = currentGrid.name === '电影院';
         
         // 使用GameDialogService创建交换道具对话框
         GameDialogService.createExchangeDialog(
@@ -1095,6 +1097,32 @@ class MoneyItemStrategy extends ItemStrategy {
                     
                     // 显示咖啡厅对话框
                     showCoffeeShopDialog();
+                } else if (exchangeType === 'cinema') {
+                    // 兑换电影票
+                    // 从当前玩家的道具栏中移除钱（一次性道具）
+                    player.items.splice(itemIndex, 1);
+                    player.cards = Math.max(0, player.cards - 1);
+                    
+                    // 添加电影票到玩家的道具数组
+                    const movieTicket = items['电影票'];
+                    if (movieTicket) {
+                        player.items.push(movieTicket);
+                        player.cards++;
+                        
+                        // 记录日志
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，兑换了电影票`);
+                        
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，兑换了电影票！`;
+                        
+                        // 处理行动后逻辑
+                        handlePostActionLogic(player, playerIndex);
+                    } else {
+                        elements.gameMessage.textContent = '电影票不存在！';
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱兑换电影票，但电影票不存在`);
+                        // 恢复行动点
+                        player.action++;
+                    }
                 }
             },
             () => {
@@ -1103,7 +1131,8 @@ class MoneyItemStrategy extends ItemStrategy {
             },
             isAtStation, // 传递是否显示搭乘电车选项
             isAtMechanicalBath, // 传递是否显示兑换洗浴券选项
-            isAtCoffeeShop // 传递是否显示点餐选项
+            isAtCoffeeShop, // 传递是否显示点餐选项
+            isAtCinema // 传递是否显示兑换电影票选项
         );
         return false; // 异步操作，不继续执行后续逻辑
     }
@@ -1217,22 +1246,6 @@ class GoldfishShowerItemStrategy extends ItemStrategy {
             // 替换模板中的变量
             templateHTML = templateHTML.replace('{{locationName}}', locationName);
             mapDialog.innerHTML = templateHTML;
-        } else {
-            // 如果模板不存在，使用默认HTML
-            mapDialog.innerHTML = `
-                <div class="map-selection-content">
-                    <div class="map-selection-header">
-                        <h3>选择要移动到的${locationName}地块：</h3>
-                    </div>
-                    <div class="map-grid-container">
-                        <div class="map-grid" id="selection-map">
-                        </div>
-                    </div>
-                    <div class="map-selection-footer">
-                        <button class="cancel-map-selection">取消</button>
-                    </div>
-                </div>
-            `;
         }
         
         document.body.appendChild(mapDialog);
@@ -1840,7 +1853,7 @@ class GameDialogService {
     }
 
     // 创建交换道具对话框
-    static createExchangeDialog(onExchange, onCancel, showStationOption = false, showBathOption = false, showCoffeeOption = false) {
+    static createExchangeDialog(onExchange, onCancel, showStationOption = false, showBathOption = false, showCoffeeOption = false, showCinemaOption = false) {
         // 构建选项HTML
         let optionsHTML = `<div class="exchange-options">
                 <div class="exchange-option" data-type="draw">从牌堆抽取</div>
@@ -1859,6 +1872,11 @@ class GameDialogService {
         // 如果显示点餐选项
         if (showCoffeeOption) {
             optionsHTML += `<div class="exchange-option" data-type="coffee">点餐</div>`;
+        }
+        
+        // 如果显示兑换电影票选项
+        if (showCinemaOption) {
+            optionsHTML += `<div class="exchange-option" data-type="cinema">兑换电影票</div>`;
         }
         
         optionsHTML += `</div>`;
@@ -2591,9 +2609,9 @@ function useItem(playerIndex, itemIndex) {
             canUseWithoutAction = true;
         }
     } else if (item.name === '钱') {
-            // 检查当前是否在市营电车站、机械汤或咖啡厅格子上
+            // 检查当前是否在市营电车站、机械汤、咖啡厅或电影院格子上
             const currentGrid = gridConfig[gameState.tokenPosition];
-            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅')) {
+            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅' || currentGrid.name === '电影院')) {
                 canUseWithoutAction = true;
             }
         }
@@ -2676,9 +2694,9 @@ function useItem(playerIndex, itemIndex) {
                 shouldConsumeAction = false;
             }
         } else if (item.name === '钱') {
-            // 检查当前是否在市营电车站、机械汤或咖啡厅格子上
+            // 检查当前是否在市营电车站、机械汤、咖啡厅或电影院格子上
             const currentGrid = gridConfig[gameState.tokenPosition];
-            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅')) {
+            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅' || currentGrid.name === '电影院')) {
                 shouldConsumeAction = false;
             }
         }
@@ -2880,23 +2898,6 @@ function showStationDialog(player, playerIndex, itemIndex) {
     }
     if (template) {
         stationDialog.innerHTML = template.innerHTML;
-    } else {
-        // 如果模板不存在，使用默认HTML
-        stationDialog.innerHTML = `
-            <div class="station-dialog-content">
-                <div class="station-dialog-header">
-                    <h3>是否搭上电车？</h3>
-                    <p>使用"钱"道具卡可以传送到其他车站，不消耗行动点</p>
-                </div>
-                <div class="map-grid-container">
-                    <div class="map-grid" id="station-map">
-                    </div>
-                </div>
-                <div class="station-dialog-footer">
-                    <button class="cancel-station">取消</button>
-                </div>
-            </div>
-        `;
     }
     
     document.body.appendChild(stationDialog);
@@ -2986,21 +2987,6 @@ function showWaterwayDialog() {
     }
     if (template) {
         waterwayDialog.innerHTML = template.innerHTML;
-    } else {
-        // 如果模板不存在，使用默认HTML
-        waterwayDialog.innerHTML = `
-            <div class="station-dialog-content">
-                <div class="station-dialog-header">
-                    <h3>是否要丢弃道具？</h3>
-                    <p>可以丢弃手里不需要的任意道具卡，不消耗行动点</p>
-                </div>
-                <div class="item-list" id="waterway-item-list">
-                </div>
-                <div class="station-dialog-footer">
-                    <button class="cancel-waterway">取消</button>
-                </div>
-            </div>
-        `;
     }
     
     document.body.appendChild(waterwayDialog);
@@ -3076,31 +3062,14 @@ function showCoffeeShopDialog() {
     }
     if (template) {
         coffeeShopDialog.innerHTML = template.innerHTML;
-    } else {
-        // 如果模板不存在，使用默认HTML
+        // 根据玩家角色动态调整蛋包饭选项的显示
         const currentPlayer = gameState.players[gameState.currentPlayer];
-        const isKawase = currentPlayer.role === '川濑';
-        let optionsHTML = `
-            <div class="coffee-shop-options">
-                <div class="coffee-shop-option" data-item="可尔思必">可尔思必</div>
-                <div class="coffee-shop-option" data-item="咖啡">咖啡</div>`;
-        if (isKawase) {
-            optionsHTML += `<div class="coffee-shop-option" data-item="蛋包饭">蛋包饭</div>`;
+        if (currentPlayer.role !== '川濑') {
+            const eggOption = coffeeShopDialog.querySelector('.coffee-shop-option[data-item="蛋包饭"]');
+            if (eggOption) {
+                eggOption.style.display = 'none';
+            }
         }
-        optionsHTML += `</div>`;
-        
-        coffeeShopDialog.innerHTML = `
-            <div class="station-dialog-content">
-                <div class="station-dialog-header">
-                    <h3>选择要置换的道具</h3>
-                    <p>使用"钱"道具卡可以置换道具，不消耗行动点</p>
-                </div>
-                ${optionsHTML}
-                <div class="station-dialog-footer">
-                    <button class="cancel-coffee-shop">取消</button>
-                </div>
-            </div>
-        `;
     }
     
     document.body.appendChild(coffeeShopDialog);
@@ -3700,15 +3669,6 @@ function showWinDialog(winner) {
         if (winnerNameElement) {
             winnerNameElement.textContent = winner;
         }
-    } else {
-        // 如果模板不存在，使用默认HTML
-        winDialog.innerHTML = `
-            <div class="win-dialog-content">
-                <h2>游戏已结束</h2>
-                <p>胜利者是：${winner}</p>
-                <button class="close-win-dialog">确定</button>
-            </div>
-        `;
     }
     
     document.body.appendChild(winDialog);
