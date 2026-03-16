@@ -67,6 +67,8 @@ function parseItemCSV(csvText) {
                     item.targetGrid = 24; // 电影院是第25个格子，索引为24
                 } else if (name === '提灯') {
                     item.type = 'custom_move';
+                } else if (name === '能面') {
+                    item.type = 'mask';
                 } else if (name === '金鱼花洒') {
                     item.type = 'goldfish_shower';
                 } else if (name === '三文鱼罐头') {
@@ -1222,6 +1224,29 @@ class SchoolCapItemStrategy extends ItemStrategy {
     }
 }
 
+// 能面道具策略
+class MaskItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 动态获取不影响好感度的任意区域的格子
+        const targetRange = [];
+        gridConfig.forEach((grid, index) => {
+            if (!grid.favorEffect) {
+                targetRange.push(index);
+            }
+        });
+        
+        // 创建地图选择对话框
+        const goldfishStrategy = new GoldfishShowerItemStrategy();
+        goldfishStrategy.createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, '不影响好感度的区域');
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
 // 道具类型到策略的映射表
 const itemStrategyMap = {
     'move': MoveItemStrategy,
@@ -1240,7 +1265,8 @@ const itemStrategyMap = {
     'salmon_can': SalmonCanItemStrategy,
     'camera': CameraItemStrategy,
     'drama_script': DramaScriptItemStrategy,
-    'school_cap': SchoolCapItemStrategy
+    'school_cap': SchoolCapItemStrategy,
+    'mask': MaskItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1997,6 +2023,12 @@ function useItem(playerIndex, itemIndex) {
     const player = gameState.players[playerIndex];
     const item = player.items[itemIndex];
 
+    if (!item) {
+        elements.gameMessage.textContent = '道具不存在，无法使用！';
+        logEvent(`玩家${playerIndex + 1}尝试使用不存在的道具`);
+        return;
+    }
+
     if (gameState.gameWon) {
         elements.gameMessage.textContent = '游戏已胜利，无法使用道具！';
         logEvent('游戏已胜利，无法使用道具');
@@ -2050,6 +2082,10 @@ function useItem(playerIndex, itemIndex) {
         }
     } else if (item.name === '话剧剧本') {
         if (player.role === '川濑') {
+            canUseWithoutAction = true;
+        }
+    } else if (item.name === '能面') {
+        if (player.role === '薰') {
             canUseWithoutAction = true;
         }
     }
@@ -2113,6 +2149,10 @@ function useItem(playerIndex, itemIndex) {
             }
         } else if (item.name === '话剧剧本') {
             if (player.role === '川濑') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '能面') {
+            if (player.role === '薰') {
                 shouldConsumeAction = false;
             }
         }
