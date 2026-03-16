@@ -1,53 +1,53 @@
-id	name	isSpecial	types	favorEffectType	favorEffectRole	favorEffectValue	isStagnant	道具EffectType	道具EffectValue
-1	梅钵堂	true	start,favor	all		10	false		
-2	水洼	true	水坑, cards				false	add	1
-3	水洼	true	水坑, cards				false	add	1
-4	市营电车站	true	cards				false	add	1
-5	水洼	true	水坑, cards				false	add	1
-6	机械汤	true	cards,stagnant				true	add	1
-7	水洼	true	水坑, cards				false	add	1
-8	大泉家	true	favor	role	水上	10	false		
-9	大泉家	true	favor	role	水上	10	false		
-10	普通格子	false					false		
-11	水道桥	true	cards				false	remove	1
-12	市营电车站	true	cards				false	add	1
-13	普通格子	false					false		
-14	普通格子	false					false		
-15	咖啡厅	true	cards				false	add	1
-16	普通格子	false					false		
-17	普通格子	false					false		
-18	池田宅	true	favor	role	川濑	10	false		
-19	池田宅	true	favor	role	川濑	10	false		
-20	池田宅	true	favor	role	川濑	10	false		
-21	水洼	true	水坑, cards				false	add	1
-22	普通格子	false					false		
-23	普通格子	false					false		
-24	普通格子	false					false		
-25	电影院	true	cards				false	add	1
-26	普通格子	false					false		
-27	十二阶	true	favor	player		10	false		
-28	普通格子	false					false		
-29	水洼	true	水坑, cards				false	add	1
-30	市营电车站	true	cards				false	add	1
-31	帝国大学	true	favor	player		10	false		
-32	帝国大学	true	favor	player		10	false		
-33	帝国大学	true	favor	player		10	false		
-34	帝国大学	true	favor	player		10	false		
-35	帝国大学	true	favor	player		10	false		
-36	帝国大学	true	favor	player		10	false		
-37	普通格子	false					false		
-38	市营电车站	true	cards				false	add	1
-39	花泽家	true	favor	role	花泽	10	false		
-40	普通格子	false					false		
-41	冰川宅	true	favor	role	博士	10	false		
-42	冰川宅	true	favor	role	博士	10	false		
-43	冰川宅	true	favor	role	博士	10	false		
-44	冰川宅	true	favor	role	博士	10	false		
-45	水洼	true	水坑, cards				false	add	1
-46	吾妻桥	true	cards				false	add	1
-47	普通格子	false					false		
-48	普通格子	false					false		
-49	三千堂	true	stagnant				true		
-50	三千堂	true	stagnant				true		
-51	三千堂	true	stagnant				true		
-52	水洼	true	水坑, cards				false	add	1
+是否涉及好感度	功能分类	所在格	地点	地点描述
+是	好感	1	梅钵堂	无
+否	无	2	普通格子	无
+否	无	3	普通格子	无
+否	交易	4	市营电车站	无
+否	无	5	普通格子	无
+否	交易+停滞	6	机械汤	无
+否	无	7	普通格子	无
+是	好感	8	大泉家	无
+是	好感	9	大泉家	无
+否	新周目	10	水洼	无
+否	弃置	11	水道桥	无
+否	交易	12	市营电车站	无
+否	无	13	普通格子	无
+否	无	14	普通格子	无
+是	交易	15	咖啡厅	无
+否	无	16	普通格子	无
+否	无	17	普通格子	无
+是	好感	18	池田宅	无
+是	好感	19	池田宅	无
+是	好感	20	池田宅	无
+否	新周目	21	水洼	无
+否	无	22	普通格子	无
+否	无	23	普通格子	无
+否	无	24	普通格子	无
+否	交易	25	电影院	无
+否	无	26	普通格子	无
+是	好感	27	十二阶	无
+否	无	28	普通格子	无
+否	新周目	29	水洼	无
+否	交易	30	市营电车站	无
+是	好感	31	帝国大学	无
+是	好感	32	帝国大学	无
+是	好感	33	帝国大学	无
+是	好感	34	帝国大学	无
+是	好感	35	帝国大学	无
+是	好感	36	帝国大学	无
+否	无	37	普通格子	无
+否	交易	38	市营电车站	无
+是	好感	39	花泽家	无
+否	无	40	普通格子	无
+是	好感	41	冰川宅	无
+是	好感	42	冰川宅	无
+是	好感	43	冰川宅	无
+是	好感	44	冰川宅	无
+否	新周目	45	水洼	无
+否	弃置	46	吾妻桥	无
+否	无	47	普通格子	无
+否	无	48	普通格子	无
+否	无	49	普通格子	无
+否	无	50	普通格子	无
+否	停滞	51	三千堂	无
+否	新周目	52	水洼	无

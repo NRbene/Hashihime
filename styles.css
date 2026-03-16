@@ -236,6 +236,43 @@ h2 {
     margin-top: 4px;
 }
 
+/* 道具池头部 */
+.item-pool-header {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+/* 道具池统计信息 */
+.item-pool-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: #666;
+    font-weight: bold;
+}
+
+/* 道具池搜索框 */
+.item-pool-search {
+    margin-bottom: 10px;
+}
+
+.item-pool-search input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+/* 道具池列表 */
+.item-pool-list {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
 /* 地图 */
 .map {
     position: relative;

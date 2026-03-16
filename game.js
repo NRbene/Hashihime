@@ -123,34 +123,81 @@ function parseMapCSV(csvText) {
 
     for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split('\t');
+        const 涉及好感度 = values[0];
+        const 功能分类 = values[1];
+        const 所在格 = parseInt(values[2]);
+        const 地点 = values[3];
+        const 地点描述 = values[4];
+
+        // 构建格子对象
         const grid = {
-            name: values[1],
-            id: parseInt(values[0]),
-            isSpecial: values[2] === 'true',
-            types: values[3] ? values[3].split(',') : [],
-            isStagnant: values[7] === 'true',
+            name: 地点,
+            id: 所在格,
+            isSpecial: 功能分类 !== '无',
+            types: [],
+            isStagnant: 功能分类.includes('停滞'),
             道具Effect: null
         };
 
-        // 处理好感度效果
-        if (values[4]) {
-            grid.favorEffect = {
-                type: values[4],
-                value: parseInt(values[6])
+        // 处理功能分类
+        if (功能分类.includes('交易')) {
+            grid.types.push('cards');
+            grid.道具Effect = {
+                type: 'add',
+                value: 1
             };
-            if (values[5]) {
-                grid.favorEffect.role = values[5];
+        }
+
+        if (功能分类.includes('弃置')) {
+            grid.types.push('cards');
+            grid.道具Effect = {
+                type: 'remove',
+                value: 1
+            };
+        }
+
+        if (功能分类.includes('新周目')) {
+            grid.types.push('水坑');
+        }
+
+        // 处理好感度效果
+        if (涉及好感度 === '是') {
+            grid.favorEffect = {
+                type: 'player',
+                value: 10
+            };
+
+            // 根据地点设置特定角色的好感度效果
+            switch (地点) {
+                case '大泉家':
+                    grid.favorEffect.type = 'role';
+                    grid.favorEffect.role = '水上';
+                    break;
+                case '池田宅':
+                    grid.favorEffect.type = 'role';
+                    grid.favorEffect.role = '川濑';
+                    break;
+                case '花泽家':
+                    grid.favorEffect.type = 'role';
+                    grid.favorEffect.role = '花泽';
+                    break;
+                case '冰川宅':
+                    grid.favorEffect.type = 'role';
+                    grid.favorEffect.role = '博士';
+                    break;
+                case '梅钵堂':
+                case '咖啡厅':
+                    grid.favorEffect.type = 'all';
+                    break;
             }
         } else {
             grid.favorEffect = null;
         }
 
-        // 处理道具效果
-        if (values[8]) {
-            grid.道具Effect = {
-                type: values[8],
-                value: parseInt(values[9])
-            };
+        // 处理起点
+        if (所在格 === 1) {
+            grid.types.push('start');
+            grid.types.push('favor');
         }
 
         newGridConfig.push(grid);
@@ -306,7 +353,7 @@ function generateMapGrid() {
             gridElement.classList.add('grid-cards');
         } else if (grid.types.includes('stagnant')) {
             gridElement.classList.add('grid-stagnant');
-        } else if (grid.types.includes('水坑')) {
+        } else if (grid.types.includes('水坑') || grid.types.includes('水洼')) {
             gridElement.classList.add('grid-water');
         }
         
@@ -412,9 +459,32 @@ function updateItemPoolDisplay() {
         }
     });
 
+    // 计算道具总数
+    const currentItemCount = Object.values(itemCount).reduce((sum, count) => sum + count, 0);
+    const initialItemCount = itemPool.length + currentItemCount; // 初始道具数量 = 当前道具池数量 + 已被抽取的道具数量
+
+    // 创建道具池头部，包含总数展示和搜索框
+    const itemPoolHeader = document.createElement('div');
+    itemPoolHeader.className = 'item-pool-header';
+    itemPoolHeader.innerHTML = `
+        <div class="item-pool-stats">
+            <span>初始道具数量: ${initialItemCount}</span>
+            <span>当前剩余数量: ${currentItemCount}</span>
+        </div>
+        <div class="item-pool-search">
+            <input type="text" id="item-search" placeholder="搜索道具...">
+        </div>
+    `;
+    itemPoolContent.appendChild(itemPoolHeader);
+
+    // 创建道具列表容器
+    const itemPoolList = document.createElement('div');
+    itemPoolList.className = 'item-pool-list';
+
     // 显示道具池内容
     if (Object.keys(itemCount).length === 0) {
-        itemPoolContent.innerHTML = '<p style="text-align: center; color: #666;">道具池已空</p>';
+        itemPoolList.innerHTML = '<p style="text-align: center; color: #666;">道具池已空</p>';
+        itemPoolContent.appendChild(itemPoolList);
         return;
     }
 
@@ -424,6 +494,7 @@ function updateItemPoolDisplay() {
         if (item) {
             const itemElement = document.createElement('div');
             itemElement.className = 'item-pool-item';
+            itemElement.dataset.itemName = item.name.toLowerCase();
             itemElement.innerHTML = `
                 <div class="item-name">${item.name}</div>
                 <div class="item-info">数量: ${itemCount[itemName]}</div>
@@ -431,9 +502,28 @@ function updateItemPoolDisplay() {
                 ${item.favor > 0 ? `<div class="item-info">好感度: +${item.favor}</div>` : ''}
                 ${item.action > 0 ? `<div class="item-info">行动点: +${item.action}</div>` : ''}
             `;
-            itemPoolContent.appendChild(itemElement);
+            itemPoolList.appendChild(itemElement);
         }
     });
+
+    itemPoolContent.appendChild(itemPoolList);
+
+    // 添加搜索功能
+    const searchInput = document.getElementById('item-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const itemElements = itemPoolList.querySelectorAll('.item-pool-item');
+            itemElements.forEach(element => {
+                const itemName = element.dataset.itemName;
+                if (itemName.includes(searchTerm)) {
+                    element.style.display = 'block';
+                } else {
+                    element.style.display = 'none';
+                }
+            });
+        });
+    }
 }
 
 // 角色属性配置（从role.csv文件中加载）
@@ -1482,6 +1572,46 @@ class BrainHellItemStrategy extends ItemStrategy {
     }
 }
 
+// 雨水道具策略
+class RainWaterItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 进入新周目，参见地图水坑规则，但不算水坑次数
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了雨水，原地进入新周目！`;
+        logEvent(`触发效果：玩家${playerIndex + 1}（${player.role}）使用雨水，原地进入新周目`);
+
+        // 周目+1
+        gameState.week++;
+
+        // 移动方向逆转
+        gameState.reverseDirection = !gameState.reverseDirection;
+
+        // 重置所有人的行动点为初始行动点
+        gameState.players.forEach((player, index) => {
+            player.action = characterAttributes[player.role].action;
+            // 重置钥匙串效果
+            player.hasKeychain = false;
+            // 如果玩家死亡，复活并重置好感度
+            if (player.status === 'die') {
+                player.status = 'alive';
+                player.favor = characterAttributes[player.role].initialFavor;
+                logEvent(`玩家${index + 1}（${player.role}）被复活，好感度重置为初始值`);
+            }
+        });
+
+        // 立即更新UI
+        updateUI();
+
+        // 结束当前玩家的行动
+        endTurn();
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
 // 道具类型到策略的映射表
 const itemStrategyMap = {
     'move': MoveItemStrategy,
@@ -1506,7 +1636,8 @@ const itemStrategyMap = {
     'white_haired_monk': WhiteHairedMonkItemStrategy,
     'ghost_tower': GhostTowerItemStrategy,
     'two_virgins': TwoVirginsItemStrategy,
-    'brain_hell': BrainHellItemStrategy
+    'brain_hell': BrainHellItemStrategy,
+    'rain_water': RainWaterItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1521,11 +1652,18 @@ const itemNameToTypeMap = {
     '钥匙串': 'keychain',
     '银怀表': 'silver_watch',
     '笔记本': 'notebook',
+    '金鱼花洒': 'goldfish_shower',
+    '三文鱼罐头': 'salmon_can',
+    '摄像机': 'camera',
+    '话剧剧本': 'drama_script',
+    '校帽': 'school_cap',
+    '能面': 'mask',
     '七味粉': 'seven_spice',
     '《白发小僧》': 'white_haired_monk',
     '《幽灵塔》': 'ghost_tower',
     '《阁楼里的两位处女》': 'two_virgins',
-    '《脑髓地狱》': 'brain_hell'
+    '《脑髓地狱》': 'brain_hell',
+    '雨水': 'rain_water'
 };
 
 // 游戏对话框服务
@@ -2002,6 +2140,13 @@ class WaterGridStrategy extends GridStrategy {
             }
         });
 
+        // 增加水洼数
+        gameState.puddleCount = (gameState.puddleCount || 0) + 1;
+        logEvent(`水洼数增加到${gameState.puddleCount}`);
+
+        // 立即更新UI，显示当前水洼数
+        updateUI();
+
         // 结束当前玩家的行动
         endTurn();
     }
@@ -2028,7 +2173,7 @@ class GridStrategyFactory {
         }
         
         // 水坑格子策略
-        if (grid.types && grid.types.includes('水坑')) {
+        if (grid.types && (grid.types.includes('水坑') || grid.types.includes('水洼'))) {
             strategies.push(new WaterGridStrategy());
         }
         
@@ -2291,7 +2436,7 @@ function useItem(playerIndex, itemIndex) {
     let canUseWithoutAction = false;
     
     // 检查是否为特殊角色使用特定武器或道具
-    if (item.type === 'kill_with_weapon') {
+    if (item.type && item.type === 'kill_with_weapon') {
         switch (item.weaponType) {
             case 'knife': // 军刀
                 if (player.role === '花泽') {
@@ -2367,7 +2512,7 @@ function useItem(playerIndex, itemIndex) {
 
         // 消耗行动点（特殊角色使用特定武器或道具不消耗行动点）
         let shouldConsumeAction = true;
-        if (item.type === 'kill_with_weapon') {
+        if (item.type && item.type === 'kill_with_weapon') {
             switch (item.weaponType) {
                 case 'knife': // 军刀
                     if (player.role === '花泽') {
@@ -2439,7 +2584,7 @@ function useItem(playerIndex, itemIndex) {
         const shouldContinue = strategy.execute(player, playerIndex, item, itemIndex);
 
         // 从道具列表中移除（特殊道具已在各自的策略中处理）
-        if (shouldContinue !== false && item.type !== 'steal' && item.name !== '大瓶可尔思必' && item.name !== '念珠' && item.type !== 'exchange' && item.type !== 'kill_with_weapon' && item.type !== 'favor' && item.type !== 'action' && item.type !== 'move' && item.type !== 'reverse_move') {
+        if (shouldContinue !== false && (!item.type || item.type !== 'steal') && item.name !== '大瓶可尔思必' && item.name !== '念珠' && (!item.type || item.type !== 'exchange') && (!item.type || item.type !== 'kill_with_weapon') && (!item.type || item.type !== 'favor') && (!item.type || item.type !== 'action') && (!item.type || item.type !== 'move') && (!item.type || item.type !== 'reverse_move')) {
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
 
@@ -2454,7 +2599,7 @@ function useItem(playerIndex, itemIndex) {
             logEvent(message);
 
             // 处理新位置的格子功能
-            if (item.targetGrid !== undefined || item.type === 'custom_move') {
+            if (item.targetGrid !== undefined || (item.type && item.type === 'custom_move')) {
                 setTimeout(() => {
                     handleGridFunction();
                 }, 500);
