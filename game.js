@@ -368,6 +368,9 @@ function generateMapGrid() {
         } else if (grid.name === '机械汤' || grid.name === '水道桥' || grid.name === '咖啡厅' || grid.name === '电影院' || grid.name === '十二阶' || grid.name === '吾妻桥' || grid.name === '三千堂') {
             // 机械汤、水道桥、咖啡厅、电影院、十二阶、吾妻桥、三千堂格子特殊样式 - 灰色
             gridElement.classList.add('grid-mechanical-bath');
+        } else if (grid.name === '大泉家' || grid.name === '池田宅' || grid.name === '帝国大学' || grid.name === '花泽家' || grid.name === '冰川宅') {
+            // 大泉家、池田宅、帝国大学、花泽家、冰川宅格子特殊样式 - 淡橙色
+            gridElement.classList.add('grid-residence');
         } else if (!grid.isSpecial && !grid.types.length) {
             // 普通格子样式 - 白色
             gridElement.classList.add('grid-normal');
@@ -1190,7 +1193,14 @@ class GoldfishShowerItemStrategy extends ItemStrategy {
         mapDialog.className = 'map-selection-dialog';
         
         // 从模板加载HTML内容
-        const template = document.getElementById('map-selection-dialog-template');
+        const templatesIframe = document.getElementById('templates-iframe');
+        let template = null;
+        if (templatesIframe && templatesIframe.contentDocument) {
+            template = templatesIframe.contentDocument.getElementById('map-selection-dialog-template');
+        }
+        if (!template) {
+            template = document.getElementById('map-selection-dialog-template');
+        }
         if (template) {
             let templateHTML = template.innerHTML;
             // 替换模板中的变量
@@ -2844,7 +2854,14 @@ function showStationDialog(player, playerIndex, itemIndex) {
     stationDialog.className = 'station-dialog';
     
     // 从模板加载HTML内容
-    const template = document.getElementById('station-dialog-template');
+    const templatesIframe = document.getElementById('templates-iframe');
+    let template = null;
+    if (templatesIframe && templatesIframe.contentDocument) {
+        template = templatesIframe.contentDocument.getElementById('station-dialog-template');
+    }
+    if (!template) {
+        template = document.getElementById('station-dialog-template');
+    }
     if (template) {
         stationDialog.innerHTML = template.innerHTML;
     } else {
@@ -2943,7 +2960,14 @@ function showWaterwayDialog() {
     waterwayDialog.className = 'station-dialog';
     
     // 从模板加载HTML内容
-    const template = document.getElementById('waterway-dialog-template');
+    const templatesIframe = document.getElementById('templates-iframe');
+    let template = null;
+    if (templatesIframe && templatesIframe.contentDocument) {
+        template = templatesIframe.contentDocument.getElementById('waterway-dialog-template');
+    }
+    if (!template) {
+        template = document.getElementById('waterway-dialog-template');
+    }
     if (template) {
         waterwayDialog.innerHTML = template.innerHTML;
     } else {
@@ -3486,8 +3510,8 @@ function handleGridFunction() {
         });
     }
 
-    // 处理水道桥格子 - 可点击
-    if (currentGrid.name === '水道桥') {
+    // 处理水道桥和吾妻桥格子 - 可点击
+    if (currentGrid.name === '水道桥' || currentGrid.name === '吾妻桥') {
         const currentWaterway = document.querySelector(`.grid-${gameState.tokenPosition}`);
         if (currentWaterway) {
             currentWaterway.classList.add('clickable');
@@ -3544,13 +3568,34 @@ function showWinDialog(winner) {
     // 创建弹窗
     const winDialog = document.createElement('div');
     winDialog.className = 'win-dialog';
-    winDialog.innerHTML = `
-        <div class="win-dialog-content">
-            <h2>游戏已结束</h2>
-            <p>胜利者是：${winner}</p>
-            <button class="close-win-dialog">确定</button>
-        </div>
-    `;
+    
+    // 从模板加载HTML内容
+    const templatesIframe = document.getElementById('templates-iframe');
+    let template = null;
+    if (templatesIframe && templatesIframe.contentDocument) {
+        template = templatesIframe.contentDocument.getElementById('win-dialog-template');
+    }
+    if (!template) {
+        template = document.getElementById('win-dialog-template');
+    }
+    if (template) {
+        winDialog.innerHTML = template.innerHTML;
+        // 设置胜利者名称
+        const winnerNameElement = winDialog.querySelector('#winner-name');
+        if (winnerNameElement) {
+            winnerNameElement.textContent = winner;
+        }
+    } else {
+        // 如果模板不存在，使用默认HTML
+        winDialog.innerHTML = `
+            <div class="win-dialog-content">
+                <h2>游戏已结束</h2>
+                <p>胜利者是：${winner}</p>
+                <button class="close-win-dialog">确定</button>
+            </div>
+        `;
+    }
+    
     document.body.appendChild(winDialog);
     
     // 处理关闭按钮

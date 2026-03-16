@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>游戏模板</title>
 </head>
 <body>
-    <!-- 市营电车站对话框模板 -->
+    <!-- 市营电车站弹窗模板 -->
     <div id="station-dialog-template" style="display: none;">
         <div class="station-dialog-content">
             <div class="station-dialog-header">
@@ -13,7 +15,6 @@
             </div>
             <div class="map-grid-container">
                 <div class="map-grid" id="station-map">
-                    <!-- 地图格子将由 JavaScript 动态生成 -->
                 </div>
             </div>
             <div class="station-dialog-footer">
@@ -22,19 +23,54 @@
         </div>
     </div>
 
-    <!-- 地图选择对话框模板 -->
+    <!-- 水道桥/吾妻桥弹窗模板 -->
+    <div id="waterway-dialog-template" style="display: none;">
+        <div class="station-dialog-content">
+            <div class="station-dialog-header">
+                <h3>是否要丢弃道具？</h3>
+                <p>可以丢弃手里不需要的任意道具卡，不消耗行动点</p>
+            </div>
+            <div class="item-list" id="waterway-item-list">
+            </div>
+            <div class="station-dialog-footer">
+                <button class="cancel-waterway">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 地图选择弹窗模板 -->
     <div id="map-selection-dialog-template" style="display: none;">
         <div class="map-selection-content">
             <div class="map-selection-header">
-                <h3>选择要移动到的{{locationName}}地块：</h3>
+                <h3>选择目的地</h3>
             </div>
             <div class="map-grid-container">
                 <div class="map-grid" id="selection-map">
-                    <!-- 地图格子将由 JavaScript 动态生成 -->
                 </div>
             </div>
             <div class="map-selection-footer">
                 <button class="cancel-map-selection">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 胜利弹窗模板 -->
+    <div id="win-dialog-template" style="display: none;">
+        <div class="win-dialog-content">
+            <h2>游戏胜利！</h2>
+            <p>胜利者是：<span id="winner-name"></span></p>
+            <button class="close-win-dialog">关闭</button>
+        </div>
+    </div>
+
+    <!-- 脑髓地狱弹窗模板 -->
+    <div id="brain-hell-dialog-template" style="display: none;">
+        <div class="brain-hell-content">
+            <h3>选择要降低好感度的角色</h3>
+            <div class="player-list" id="brain-hell-player-list">
+            </div>
+            <div class="dialog-footer">
+                <button class="cancel-button">取消</button>
             </div>
         </div>
     </div>
