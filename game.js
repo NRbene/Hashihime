@@ -79,6 +79,8 @@ function parseItemCSV(csvText) {
                     item.type = 'drama_script';
                 } else if (name === '校帽') {
                     item.type = 'school_cap';
+                } else if (name === '汽车') {
+                    item.type = 'car';
                 }
                 break;
             case '手牌':
@@ -1431,12 +1433,196 @@ class SchoolCapItemStrategy extends ItemStrategy {
                 targetRange.push(index);
             }
         });
-
+        
         // 创建地图选择对话框
         const goldfishStrategy = new GoldfishShowerItemStrategy();
         goldfishStrategy.createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, '帝国大学');
 
         return false; // 不继续执行后续逻辑
+    }
+}
+
+// 汽车道具策略
+class CarItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 确保行动点是数字类型
+        player.action = Number(player.action) || 0;
+        
+        // 检查行动点是否足够
+        if (player.action < 2) {
+            elements.gameMessage.textContent = `行动点不足，无法使用汽车！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用汽车，但行动点不足`);
+            return false;
+        }
+
+        // 消耗行动点
+        player.action -= 2;
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗2点行动点使用汽车，剩余行动点：${player.action}`);
+
+        // 弹出掷骰子对话框
+        this.createCarDialog(player, playerIndex, item, itemIndex);
+
+        return false; // 不继续执行后续逻辑
+    }
+
+    // 创建汽车道具对话框
+    createCarDialog(player, playerIndex, item, itemIndex) {
+        // 创建弹出框
+        const dialog = document.createElement('div');
+        dialog.className = 'car-dialog';
+        dialog.innerHTML = `
+            <div class="dialog-content">
+                <h3>使用汽车</h3>
+                <p>点击按钮掷骰子，移动点数 × 3</p>
+                <button class="roll-dice-button">掷骰子</button>
+                <div class="dice-result" style="margin-top: 10px;">骰子结果：-</div>
+                <div class="confirm-section" style="display: none; margin-top: 10px;">
+                    <p>本次点数为 <span class="final-dice-result">-</span>，是否确认移动？</p>
+                    <button class="confirm-button">确认</button>
+                    <button class="cancel-button">取消</button>
+                </div>
+            </div>
+        `;
+        
+        // 添加居中样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .car-dialog {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            }
+            .car-dialog .dialog-content {
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                width: 80%;
+                max-width: 400px;
+                text-align: center;
+            }
+            .car-dialog button {
+                margin: 10px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: normal;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                min-width: 80px;
+            }
+            .car-dialog .roll-dice-button,
+            .car-dialog .confirm-button {
+                background-color: #4CAF50;
+                color: white;
+            }
+            .car-dialog .roll-dice-button:hover,
+            .car-dialog .confirm-button:hover {
+                background-color: #45a049;
+            }
+            .car-dialog .cancel-button {
+                background-color: #f44336;
+                color: white;
+            }
+            .car-dialog .cancel-button:hover {
+                background-color: #da190b;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(dialog);
+
+        // 处理掷骰子按钮
+        const rollDiceButton = dialog.querySelector('.roll-dice-button');
+        const diceResultElement = dialog.querySelector('.dice-result');
+        const confirmSection = dialog.querySelector('.confirm-section');
+        const finalDiceResultElement = dialog.querySelector('.final-dice-result');
+        const confirmButton = dialog.querySelector('.confirm-button');
+        const cancelButton = dialog.querySelector('.cancel-button');
+
+        rollDiceButton.addEventListener('click', () => {
+            // 掷骰子（1-6）
+            const diceRoll = Math.floor(Math.random() * 6) + 1;
+            const finalSteps = diceRoll * 3;
+
+            diceResultElement.textContent = `骰子结果：${diceRoll}，将移动 ${finalSteps} 步`;
+            finalDiceResultElement.textContent = diceRoll;
+
+            // 显示确认按钮（博士和非博士都显示，但是非博士没有取消按钮）
+            confirmSection.style.display = 'block';
+            rollDiceButton.style.display = 'none';
+            
+            // 如果是非博士角色，隐藏取消按钮
+            if (player.role !== '博士') {
+                cancelButton.style.display = 'none';
+                confirmButton.style.margin = '10px auto';
+            }
+        });
+
+        // 处理确认按钮（博士和非博士角色都适用）
+        confirmButton.addEventListener('click', () => {
+            const diceRoll = parseInt(finalDiceResultElement.textContent);
+            this.movePlayer(player, playerIndex, item, itemIndex, diceRoll);
+            document.body.removeChild(dialog);
+        });
+
+        // 处理取消按钮（仅博士角色）
+        cancelButton.addEventListener('click', () => {
+            // 确保行动点是数字类型并返还
+            player.action = Number(player.action) || 0;
+            player.action += 2;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用汽车，行动点已返还，剩余行动点：${player.action}`);
+            elements.gameMessage.textContent = `取消使用汽车，行动点已返还！`;
+            document.body.removeChild(dialog);
+        });
+    }
+
+    // 移动玩家
+    movePlayer(player, playerIndex, item, itemIndex, diceRoll) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 计算移动步数
+        const steps = diceRoll * 3;
+
+        // 移动棋子
+        const oldPosition = gameState.tokenPosition;
+        const oldGrid = gridConfig[oldPosition];
+        if (gameState.reverseDirection) {
+            // 逆转方向移动
+            gameState.tokenPosition = (gameState.tokenPosition - steps + 52) % 52;
+        } else {
+            // 正常方向移动
+            gameState.tokenPosition = (gameState.tokenPosition + steps) % 52;
+        }
+        const newGrid = gridConfig[gameState.tokenPosition];
+        updateTokenPosition();
+
+        // 检查是否离开起点（梅钵堂）
+        if (oldGrid.name === '梅钵堂' && newGrid.name !== '梅钵堂') {
+            gameState.hasLeftStart = true;
+        }
+
+        // 记录移动日志
+        logEvent(`玩家${playerIndex + 1}（${player.role}）使用汽车，掷出${diceRoll}点，移动了${steps}步，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
+
+        // 显示消息
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了汽车，掷出${diceRoll}点，移动了${steps}步到${newGrid.id}.${newGrid.name}！`;
+
+        // 处理行动后逻辑
+        handlePostActionLogic(player, playerIndex);
+
+        // 处理新位置的格子功能
+        setTimeout(() => {
+            handleGridFunction();
+        }, 500);
     }
 }
 
@@ -1933,6 +2119,7 @@ const itemStrategyMap = {
     'camera': CameraItemStrategy,
     'drama_script': DramaScriptItemStrategy,
     'school_cap': SchoolCapItemStrategy,
+    'car': CarItemStrategy,
     'mask': MaskItemStrategy,
     'seven_spice': SevenSpiceItemStrategy,
     'white_haired_monk': WhiteHairedMonkItemStrategy,
@@ -1959,6 +2146,7 @@ const itemNameToTypeMap = {
     '摄像机': 'camera',
     '话剧剧本': 'drama_script',
     '校帽': 'school_cap',
+    '汽车': 'car',
     '能面': 'mask',
     '七味粉': 'seven_spice',
     '《白发小僧》': 'white_haired_monk',
@@ -2617,70 +2805,75 @@ class GridStrategyFactory {
 
 
 // DOM元素
-const elements = {
-    startGame: document.getElementById('start-game'),
-    gameSetup: document.querySelector('.game-setup'),
-    gameBoard: document.querySelector('.game-board'),
-    rollDice: document.getElementById('roll-dice'),
-    resetGame: document.getElementById('reset-game'),
-    undoAction: document.getElementById('undo-action'),
-    killPlayer: document.getElementById('kill-player'),
-    drawCard: document.getElementById('draw-card'),
-    diceResult: document.getElementById('dice-result'),
-    currentPlayerDisplay: document.getElementById('current-player'),
-    roundCount: document.getElementById('round-count'),
-    weekCount: document.getElementById('week-count'),
-    puddleCount: document.getElementById('puddle-count'),
-    gameMessage: document.getElementById('game-message'),
-    token: document.getElementById('token'),
-    directionIndicator: document.getElementById('direction-indicator'),
-    logContent: document.getElementById('log-content'),
-    playerCount: document.getElementById('player-count'),
-    player1Type: document.getElementById('player1-type'),
-    player2Type: document.getElementById('player2-type'),
-    player3Type: document.getElementById('player3-type'),
-    player4Type: document.getElementById('player4-type'),
-    player5Type: document.getElementById('player5-type'),
-    player1Role: document.getElementById('player1-role'),
-    player2Role: document.getElementById('player2-role'),
-    player3Role: document.getElementById('player3-role'),
-    player4Role: document.getElementById('player4-role'),
-    player5Role: document.getElementById('player5-role'),
-    player1TypeDisplay: document.getElementById('player1-type-display'),
-    player2TypeDisplay: document.getElementById('player2-type-display'),
-    player3TypeDisplay: document.getElementById('player3-type-display'),
-    player4TypeDisplay: document.getElementById('player4-type-display'),
-    player5TypeDisplay: document.getElementById('player5-type-display'),
-    player1RoleDisplay: document.getElementById('player1-role-display'),
-    player2RoleDisplay: document.getElementById('player2-role-display'),
-    player3RoleDisplay: document.getElementById('player3-role-display'),
-    player4RoleDisplay: document.getElementById('player4-role-display'),
-    player5RoleDisplay: document.getElementById('player5-role-display'),
-    player1Action: document.getElementById('player1-action'),
-    player2Action: document.getElementById('player2-action'),
-    player3Action: document.getElementById('player3-action'),
-    player4Action: document.getElementById('player4-action'),
-    player5Action: document.getElementById('player5-action'),
-    player1Cards: document.getElementById('player1-cards'),
-    player2Cards: document.getElementById('player2-cards'),
-    player3Cards: document.getElementById('player3-cards'),
-    player4Cards: document.getElementById('player4-cards'),
-    player5Cards: document.getElementById('player5-cards'),
-    player1Favor: document.getElementById('player1-favor'),
-    player2Favor: document.getElementById('player2-favor'),
-    player3Favor: document.getElementById('player3-favor'),
-    player4Favor: document.getElementById('player4-favor'),
-    player5Favor: document.getElementById('player5-favor'),
-    player1Status: document.getElementById('player1-status'),
-    player2Status: document.getElementById('player2-status'),
-    player3Status: document.getElementById('player3-status'),
-    player4Status: document.getElementById('player4-status'),
-    player5Status: document.getElementById('player5-status'),
-    saveGame: document.getElementById('save-game'),
-    loadGame: document.getElementById('load-game'),
-    exportSave: document.getElementById('export-save'),
-    importSave: document.getElementById('import-save')
-};
+let elements = {};
+
+// 初始化DOM元素
+function initElements() {
+    elements = {
+        startGame: document.getElementById('start-game'),
+        gameSetup: document.querySelector('.game-setup'),
+        gameBoard: document.querySelector('.game-board'),
+        rollDice: document.getElementById('roll-dice'),
+        resetGame: document.getElementById('reset-game'),
+        undoAction: document.getElementById('undo-action'),
+        killPlayer: document.getElementById('kill-player'),
+        drawCard: document.getElementById('draw-card'),
+        diceResult: document.getElementById('dice-result'),
+        currentPlayerDisplay: document.getElementById('current-player'),
+        roundCount: document.getElementById('round-count'),
+        weekCount: document.getElementById('week-count'),
+        puddleCount: document.getElementById('puddle-count'),
+        gameMessage: document.getElementById('game-message'),
+        token: document.getElementById('token'),
+        directionIndicator: document.getElementById('direction-indicator'),
+        logContent: document.getElementById('log-content'),
+        playerCount: document.getElementById('player-count'),
+        player1Type: document.getElementById('player1-type'),
+        player2Type: document.getElementById('player2-type'),
+        player3Type: document.getElementById('player3-type'),
+        player4Type: document.getElementById('player4-type'),
+        player5Type: document.getElementById('player5-type'),
+        player1Role: document.getElementById('player1-role'),
+        player2Role: document.getElementById('player2-role'),
+        player3Role: document.getElementById('player3-role'),
+        player4Role: document.getElementById('player4-role'),
+        player5Role: document.getElementById('player5-role'),
+        player1TypeDisplay: document.getElementById('player1-type-display'),
+        player2TypeDisplay: document.getElementById('player2-type-display'),
+        player3TypeDisplay: document.getElementById('player3-type-display'),
+        player4TypeDisplay: document.getElementById('player4-type-display'),
+        player5TypeDisplay: document.getElementById('player5-type-display'),
+        player1RoleDisplay: document.getElementById('player1-role-display'),
+        player2RoleDisplay: document.getElementById('player2-role-display'),
+        player3RoleDisplay: document.getElementById('player3-role-display'),
+        player4RoleDisplay: document.getElementById('player4-role-display'),
+        player5RoleDisplay: document.getElementById('player5-role-display'),
+        player1Action: document.getElementById('player1-action'),
+        player2Action: document.getElementById('player2-action'),
+        player3Action: document.getElementById('player3-action'),
+        player4Action: document.getElementById('player4-action'),
+        player5Action: document.getElementById('player5-action'),
+        player1Cards: document.getElementById('player1-cards'),
+        player2Cards: document.getElementById('player2-cards'),
+        player3Cards: document.getElementById('player3-cards'),
+        player4Cards: document.getElementById('player4-cards'),
+        player5Cards: document.getElementById('player5-cards'),
+        player1Favor: document.getElementById('player1-favor'),
+        player2Favor: document.getElementById('player2-favor'),
+        player3Favor: document.getElementById('player3-favor'),
+        player4Favor: document.getElementById('player4-favor'),
+        player5Favor: document.getElementById('player5-favor'),
+        player1Status: document.getElementById('player1-status'),
+        player2Status: document.getElementById('player2-status'),
+        player3Status: document.getElementById('player3-status'),
+        player4Status: document.getElementById('player4-status'),
+        player5Status: document.getElementById('player5-status'),
+        saveGame: document.getElementById('save-game'),
+        loadGame: document.getElementById('load-game'),
+        exportSave: document.getElementById('export-save'),
+        importSave: document.getElementById('import-save')
+    };
+}
 
 // 保存游戏状态到历史记录
 function saveGameState() {
@@ -3140,6 +3333,9 @@ function useItem(playerIndex, itemIndex) {
         if (player.role === '博士') {
             canUseWithoutAction = true;
         }
+    } else if (item.name === '汽车') {
+        // 汽车道具特殊处理，不消耗初始1点行动点，在道具策略中消耗2点
+        canUseWithoutAction = true;
     }
 
     if (actionPoints <= 0 && !canUseWithoutAction) {
@@ -3230,6 +3426,9 @@ function useItem(playerIndex, itemIndex) {
             if (player.role === '博士') {
                 shouldConsumeAction = false;
             }
+        } else if (item.name === '汽车') {
+            // 汽车道具特殊处理，不消耗初始1点行动点，在道具策略中消耗2点
+            shouldConsumeAction = false;
         }
         if (shouldConsumeAction) {
             player.action = Number(player.action) || 0;
@@ -4728,24 +4927,13 @@ function drawCard() {
     handlePostActionLogic(currentPlayer, gameState.currentPlayer);
 }
 
-// 事件监听器
-elements.startGame.addEventListener('click', initGame);
-elements.rollDice.addEventListener('click', rollDice);
-elements.resetGame.addEventListener('click', async () => {
-    await resetGame();
-});
-elements.undoAction.addEventListener('click', undoAction);
-elements.killPlayer.addEventListener('click', killPlayer);
-elements.drawCard.addEventListener('click', drawCard);
-elements.saveGame.addEventListener('click', saveGameToLocalStorage);
-elements.loadGame.addEventListener('click', loadGameFromLocalStorage);
-elements.exportSave.addEventListener('click', exportSaveToFile);
-elements.importSave.addEventListener('click', importSaveFromFile);
-document.getElementById('random-roles').addEventListener('click', randomRoles);
-document.getElementById('end-turn').addEventListener('click', endTurn);
+// 事件监听器将在window.onload中添加
 
 // 初始化页面
 window.onload = async function () {
+    // 初始化DOM元素
+    initElements();
+    
     // 订阅状态变化观察者
     gameStateManager.subscribe((data) => {
         console.log('状态变化:', data.path, '->', data.value);
@@ -4777,6 +4965,59 @@ window.onload = async function () {
 
     // 添加开始游戏按钮的事件监听器
     document.getElementById('start-game').addEventListener('click', initGame);
+
+    // 添加游戏控制按钮的事件监听器
+    const rollDiceButton = document.getElementById('roll-dice');
+    if (rollDiceButton) {
+        rollDiceButton.addEventListener('click', rollDice);
+    }
+
+    const resetGameButton = document.getElementById('reset-game');
+    if (resetGameButton) {
+        resetGameButton.addEventListener('click', async () => {
+            await resetGame();
+        });
+    }
+
+    const undoActionButton = document.getElementById('undo-action');
+    if (undoActionButton) {
+        undoActionButton.addEventListener('click', undoAction);
+    }
+
+    const killPlayerButton = document.getElementById('kill-player');
+    if (killPlayerButton) {
+        killPlayerButton.addEventListener('click', killPlayer);
+    }
+
+    const drawCardButton = document.getElementById('draw-card');
+    if (drawCardButton) {
+        drawCardButton.addEventListener('click', drawCard);
+    }
+
+    const saveGameButton = document.getElementById('save-game');
+    if (saveGameButton) {
+        saveGameButton.addEventListener('click', saveGameToLocalStorage);
+    }
+
+    const loadGameButton = document.getElementById('load-game');
+    if (loadGameButton) {
+        loadGameButton.addEventListener('click', loadGameFromLocalStorage);
+    }
+
+    const exportSaveButton = document.getElementById('export-save');
+    if (exportSaveButton) {
+        exportSaveButton.addEventListener('click', exportSaveToFile);
+    }
+
+    const importSaveButton = document.getElementById('import-save');
+    if (importSaveButton) {
+        importSaveButton.addEventListener('click', importSaveFromFile);
+    }
+
+    const endTurnButton = document.getElementById('end-turn');
+    if (endTurnButton) {
+        endTurnButton.addEventListener('click', endTurn);
+    }
 
     // 初始化玩家数量显示
     handlePlayerCountChange();
