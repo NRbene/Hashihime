@@ -388,6 +388,13 @@ h2 {
     border: 2px solid #03a9f4;
 }
 
+/* 梅钵堂格子 */
+.grid-meibutsu {
+    background-color: #f44336;
+    color: white;
+    border: 2px solid #d32f2f;
+}
+
 .token {
     position: absolute;
     width: 30px;

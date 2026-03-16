@@ -198,6 +198,13 @@ function parseMapCSV(csvText) {
         if (所在格 === 1) {
             grid.types.push('start');
             grid.types.push('favor');
+            // 梅钵堂格子特殊处理
+            if (地点 === '梅钵堂') {
+                grid.favorEffect = {
+                    type: 'all',
+                    value: 10
+                };
+            }
         }
 
         newGridConfig.push(grid);
@@ -355,6 +362,11 @@ function generateMapGrid() {
             gridElement.classList.add('grid-stagnant');
         } else if (grid.types.includes('水坑') || grid.types.includes('水洼')) {
             gridElement.classList.add('grid-water');
+        }
+        
+        // 梅钵堂格子特殊样式 - 红色
+        if (grid.name === '梅钵堂') {
+            gridElement.classList.add('grid-meibutsu');
         }
         
         mapContainer.appendChild(gridElement);
@@ -1989,17 +2001,14 @@ class FavorGridStrategy extends GridStrategy {
         const favorEffect = grid.favorEffect;
         if (favorEffect.type === 'player') {
             // 掷出此骰子的玩家好感度+10
-            if (player.type === 'A') {
+            if (player.type === 'A' && player.status === 'alive') {
                 updateFavor(player, favorEffect.value);
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}获得了${favorEffect.value}点好感度`);
             } else if (player.role === '薰') {
-                // 薰无法获得好感度，而是恢复行动点
-                // 从grid的道具Effect中获取行动点恢复值，如果没有则使用默认值
-                const actionPoints = grid.道具Effect ? grid.道具Effect.value : Math.floor(favorEffect.value / 10);
-                player.action += actionPoints;
-                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点！`;
-                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（薰）获得了${actionPoints}点行动点`);
+                // 薰既不回复好感，也不回复行动点
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（薰）无法获得好感度和行动点！`;
+                logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（薰）无法获得好感度和行动点`);
             } else {
                 elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度！`;
                 logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（B类型）无法获得好感度`);
@@ -2007,49 +2016,34 @@ class FavorGridStrategy extends GridStrategy {
         } else if (favorEffect.type === 'role') {
             // A类某种角色的所有玩家好感度+10
             let affectedPlayers = 0;
-            let kaoruAffected = false;
             let actionPoints = grid.道具Effect ? grid.道具Effect.value : Math.floor(favorEffect.value / 10);
             gameState.players.forEach((targetPlayer, index) => {
-                if (targetPlayer.role === '薰' && targetPlayer.status === 'alive') {
-                    // 薰无法获得好感度，而是恢复行动点
-                    targetPlayer.action += actionPoints;
-                    kaoruAffected = true;
-                } else if (targetPlayer.type === 'A' && targetPlayer.role === favorEffect.role && targetPlayer.status === 'alive') {
+                if (targetPlayer.type === 'A' && targetPlayer.role === favorEffect.role && targetPlayer.status === 'alive') {
                     updateFavor(targetPlayer, favorEffect.value);
                     affectedPlayers++;
                 }
+                // 薰既不回复好感，也不回复行动点
             });
             if (affectedPlayers > 0) {
                 elements.gameMessage.textContent = `所有${favorEffect.role}角色获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：所有${favorEffect.role}角色获得了${favorEffect.value}点好感度`);
-            } else if (kaoruAffected) {
-                elements.gameMessage.textContent = `薰获得了${actionPoints}点行动点！`;
-                logEvent(`触发效果：薰获得了${actionPoints}点行动点`);
             } else {
                 elements.gameMessage.textContent = `没有${favorEffect.role}角色在场！`;
                 logEvent(`触发效果：没有${favorEffect.role}角色在场`);
             }
         } else if (favorEffect.type === 'all') {
-            // 全员好感度+10
+            // 全员好感度+10（仅对存活的A类角色生效，薰不回复好感和行动点）
             let affectedPlayers = 0;
-            let kaoruAffected = false;
-            let actionPoints = grid.道具Effect ? grid.道具Effect.value : Math.floor(favorEffect.value / 10);
             gameState.players.forEach((targetPlayer, index) => {
-                if (targetPlayer.role === '薰' && targetPlayer.status === 'alive') {
-                    // 薰无法获得好感度，而是恢复行动点
-                    targetPlayer.action += actionPoints;
-                    kaoruAffected = true;
-                } else if (targetPlayer.type === 'A' && targetPlayer.status === 'alive') {
+                if (targetPlayer.type === 'A' && targetPlayer.status === 'alive') {
                     updateFavor(targetPlayer, favorEffect.value);
                     affectedPlayers++;
                 }
+                // 薰既不回复好感，也不回复行动点
             });
             if (affectedPlayers > 0) {
                 elements.gameMessage.textContent = `所有A类型角色获得了${favorEffect.value}点好感度！`;
                 logEvent(`触发效果：所有A类型角色获得了${favorEffect.value}点好感度`);
-            } else if (kaoruAffected) {
-                elements.gameMessage.textContent = `薰获得了${actionPoints}点行动点！`;
-                logEvent(`触发效果：薰获得了${actionPoints}点行动点`);
             } else {
                 elements.gameMessage.textContent = `没有A类型角色在场！`;
                 logEvent(`触发效果：没有A类型角色在场`);
@@ -2323,6 +2317,7 @@ function initGame() {
         state.week = 1;
         state.reverseDirection = false;
         state.stagnantTurn = -1;
+        state.hasLeftStart = false; // 初始化离开起点标志
     });
     
     // 确保棋子位置正确更新
@@ -2966,6 +2961,11 @@ function moveToken(steps) {
         const endPosition = gameState.tokenPosition;
         const endGrid = gridConfig[endPosition];
 
+        // 检查是否离开起点（梅钵堂）
+        if (startGrid.name === '梅钵堂' && endGrid.name !== '梅钵堂') {
+            gameState.hasLeftStart = true;
+        }
+
         // 记录移动日志
         logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，从${startGrid.id}.${startGrid.name}移动到${endGrid.id}.${endGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
     } else {
@@ -3168,9 +3168,25 @@ function handleGridFunction() {
 
     // 使用策略模式处理格子效果
     const strategies = GridStrategyFactory.getStrategies(currentGrid);
-    strategies.forEach(strategy => {
-        strategy.execute(currentGrid, currentPlayer);
-    });
+    
+    // 梅钵堂格子特殊处理：初始出发时不触发效果，仅在出发后踩中时触发
+    if (currentGrid.name === '梅钵堂' && gameState.gameStarted) {
+        // 检查是否是游戏开始后的第一次移动
+        if (!gameState.hasLeftStart) {
+            // 第一次离开起点，设置标志
+            gameState.hasLeftStart = true;
+        } else {
+            // 已经离开过起点，触发效果
+            strategies.forEach(strategy => {
+                strategy.execute(currentGrid, currentPlayer);
+            });
+        }
+    } else {
+        // 其他格子正常处理
+        strategies.forEach(strategy => {
+            strategy.execute(currentGrid, currentPlayer);
+        });
+    }
 
     // 更新UI
     updateUI();
@@ -3364,6 +3380,7 @@ async function resetGame() {
     // 重置周目和移动方向
     gameState.week = 1;
     gameState.reverseDirection = false;
+    gameState.hasLeftStart = false; // 重置离开起点标志
 
     // 重置玩家道具
     for (let i = 0; i < 3; i++) {
