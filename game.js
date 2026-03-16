@@ -365,6 +365,12 @@ function generateMapGrid() {
         // 市营电车站格子特殊样式 - 草绿色
         if (grid.name === '市营电车站') {
             gridElement.classList.add('grid-station');
+        } else if (grid.name === '机械汤') {
+            // 机械汤格子特殊样式 - 灰色
+            gridElement.classList.add('grid-mechanical-bath');
+        } else if (!grid.isSpecial && !grid.types.length) {
+            // 普通格子样式 - 白色
+            gridElement.classList.add('grid-normal');
         }
         
         mapContainer.appendChild(gridElement);
@@ -950,6 +956,8 @@ class MoneyItemStrategy extends ItemStrategy {
         // 检查当前是否在市营电车站
         const currentGrid = gridConfig[gameState.tokenPosition];
         const isAtStation = currentGrid.name === '市营电车站';
+        // 检查当前是否在机械汤格子上
+        const isAtMechanicalBath = currentGrid.name === '机械汤';
         
         // 使用GameDialogService创建交换道具对话框
         GameDialogService.createExchangeDialog(
@@ -1048,13 +1056,40 @@ class MoneyItemStrategy extends ItemStrategy {
                     // 搭乘电车
                     // 显示车站对话框
                     showStationDialog(player, playerIndex, itemIndex);
+                } else if (exchangeType === 'bath') {
+                    // 兑换洗浴券
+                    // 从当前玩家的道具栏中移除钱（一次性道具）
+                    player.items.splice(itemIndex, 1);
+                    player.cards = Math.max(0, player.cards - 1);
+                    
+                    // 添加洗浴券到玩家的道具数组
+                    const bathTicket = items['洗浴券'];
+                    if (bathTicket) {
+                        player.items.push(bathTicket);
+                        player.cards++;
+                        
+                        // 记录日志
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，兑换了洗浴券`);
+                        
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱，兑换了洗浴券！`;
+                        
+                        // 处理行动后逻辑
+                        handlePostActionLogic(player, playerIndex);
+                    } else {
+                        elements.gameMessage.textContent = '洗浴券不存在！';
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱兑换洗浴券，但洗浴券不存在`);
+                        // 恢复行动点
+                        player.action++;
+                    }
                 }
             },
             () => {
                 // 恢复行动点
                 player.action++;
             },
-            isAtStation // 传递是否显示搭乘电车选项
+            isAtStation, // 传递是否显示搭乘电车选项
+            isAtMechanicalBath // 传递是否显示兑换洗浴券选项
         );
         return false; // 异步操作，不继续执行后续逻辑
     }
@@ -1784,7 +1819,7 @@ class GameDialogService {
     }
 
     // 创建交换道具对话框
-    static createExchangeDialog(onExchange, onCancel, showStationOption = false) {
+    static createExchangeDialog(onExchange, onCancel, showStationOption = false, showBathOption = false) {
         // 构建选项HTML
         let optionsHTML = `<div class="exchange-options">
                 <div class="exchange-option" data-type="draw">从牌堆抽取</div>
@@ -1793,6 +1828,11 @@ class GameDialogService {
         // 如果显示搭乘电车选项
         if (showStationOption) {
             optionsHTML += `<div class="exchange-option" data-type="station">搭乘电车</div>`;
+        }
+        
+        // 如果显示兑换洗浴券选项
+        if (showBathOption) {
+            optionsHTML += `<div class="exchange-option" data-type="bath">兑换洗浴券</div>`;
         }
         
         optionsHTML += `</div>`;
@@ -2525,12 +2565,12 @@ function useItem(playerIndex, itemIndex) {
             canUseWithoutAction = true;
         }
     } else if (item.name === '钱') {
-        // 检查当前是否在市营电车站
-        const currentGrid = gridConfig[gameState.tokenPosition];
-        if (currentGrid && currentGrid.name === '市营电车站') {
-            canUseWithoutAction = true;
+            // 检查当前是否在市营电车站或机械汤格子上
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤')) {
+                canUseWithoutAction = true;
+            }
         }
-    }
     
     if (actionPoints <= 0 && !canUseWithoutAction) {
         elements.gameMessage.textContent = `玩家${playerIndex + 1}行动点不足，无法使用道具！`;
@@ -2610,9 +2650,9 @@ function useItem(playerIndex, itemIndex) {
                 shouldConsumeAction = false;
             }
         } else if (item.name === '钱') {
-            // 检查当前是否在市营电车站
+            // 检查当前是否在市营电车站或机械汤格子上
             const currentGrid = gridConfig[gameState.tokenPosition];
-            if (currentGrid && currentGrid.name === '市营电车站') {
+            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤')) {
                 shouldConsumeAction = false;
             }
         }
