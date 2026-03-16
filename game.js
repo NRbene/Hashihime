@@ -1247,6 +1247,40 @@ class MaskItemStrategy extends ItemStrategy {
     }
 }
 
+// 七味粉道具策略
+class SevenSpiceItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 检查场上是否有存活的花泽角色玩家
+        let hasAliveHanazawa = false;
+        gameState.players.forEach((targetPlayer, targetIndex) => {
+            if (targetPlayer.role === '花泽' && targetPlayer.status === 'alive') {
+                // 使花泽角色玩家的好感下降10
+                updateFavor(targetPlayer, -10);
+                hasAliveHanazawa = true;
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用七味粉，使玩家${targetIndex + 1}（花泽）的好感下降10点`);
+            }
+        });
+
+        if (hasAliveHanazawa) {
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了七味粉，使所有存活的花泽角色玩家的好感下降10点！`;
+        } else {
+            // 场上没有存活的花泽角色玩家，好感度降低不生效
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了七味粉，但场上没有存活的花泽角色玩家，好感度降低不生效！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用七味粉，但场上没有存活的花泽角色玩家`);
+        }
+
+        // 处理行动后逻辑
+        handlePostActionLogic(player, playerIndex);
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
 // 道具类型到策略的映射表
 const itemStrategyMap = {
     'move': MoveItemStrategy,
@@ -1266,7 +1300,8 @@ const itemStrategyMap = {
     'camera': CameraItemStrategy,
     'drama_script': DramaScriptItemStrategy,
     'school_cap': SchoolCapItemStrategy,
-    'mask': MaskItemStrategy
+    'mask': MaskItemStrategy,
+    'seven_spice': SevenSpiceItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1280,7 +1315,8 @@ const itemNameToTypeMap = {
     '手电筒': 'reverse_move',
     '钥匙串': 'keychain',
     '银怀表': 'silver_watch',
-    '笔记本': 'notebook'
+    '笔记本': 'notebook',
+    '七味粉': 'seven_spice'
 };
 
 // 游戏对话框服务
