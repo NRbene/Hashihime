@@ -2281,15 +2281,33 @@ class UniversityGridStrategy extends GridStrategy {
         const universityDialog = document.createElement('div');
         universityDialog.className = 'university-dialog';
         
-        // 备用HTML
-        universityDialog.innerHTML = `
-            <div class="dialog-content">
-                <h3>帝国大学</h3>
-                <p>你在帝国大学进行了一次掷骰子，结果是：<strong>${diceRoll}</strong></p>
-                <div id="dice-result-text"></div>
-                <button class="ok-button">确定</button>
-            </div>
-        `;
+        // 从模板加载HTML内容
+        const templatesIframe = document.getElementById('templates-iframe');
+        let template = null;
+        if (templatesIframe && templatesIframe.contentDocument) {
+            template = templatesIframe.contentDocument.getElementById('university-dialog-template');
+        }
+        if (!template) {
+            template = document.getElementById('university-dialog-template');
+        }
+        
+        if (template) {
+            let templateHTML = template.innerHTML;
+            // 替换模板中的变量
+            templateHTML = templateHTML.replace('{{diceRoll}}', diceRoll);
+            templateHTML = templateHTML.replace('{{message}}', '');
+            universityDialog.innerHTML = templateHTML;
+        } else {
+            // 备用HTML
+            universityDialog.innerHTML = `
+                <div class="dialog-content">
+                    <h3>帝国大学</h3>
+                    <p>你在帝国大学进行了一次掷骰子，结果是：<strong>${diceRoll}</strong></p>
+                    <div id="dice-result-text"></div>
+                    <button class="ok-button">确定</button>
+                </div>
+            `;
+        }
         
         document.body.appendChild(universityDialog);
         
@@ -2552,11 +2570,14 @@ function initGame() {
         state.hasLeftStart = false; // 初始化离开起点标志
     });
     
-    // 确保棋子位置正确更新
-    updateTokenPosition();
-    
     // 生成地图格子
     generateMapGrid();
+    
+    // 等待1秒后更新棋子位置，确保地图格子已经完全生成
+    setTimeout(() => {
+        // 确保棋子位置正确更新
+        updateTokenPosition();
+    }, 200);
 
     // 重新初始化道具池和为玩家抽取道具（使用观察者模式）
     gameStateManager.updateState((state) => {
@@ -2911,6 +2932,12 @@ function updateUI() {
 
 // 更新棋子位置
 function updateTokenPosition() {
+    // 检查gridConfig是否为空
+    if (gridConfig.length === 0) {
+        console.warn('地图尚未加载，跳过棋子位置更新');
+        return;
+    }
+    
     const posIndex = gameState.tokenPosition;
     
     // 安全校验
