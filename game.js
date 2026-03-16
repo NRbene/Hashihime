@@ -81,6 +81,8 @@ function parseItemCSV(csvText) {
                     item.type = 'school_cap';
                 } else if (name === '汽车') {
                     item.type = 'car';
+                } else if (name === '眼镜') {
+                    item.type = 'glasses';
                 }
                 break;
             case '手牌':
@@ -148,6 +150,7 @@ function parseMapCSV(csvText) {
         const grid = {
             name: 地点,
             id: 所在格,
+            description: 地点描述,
             isSpecial: 功能分类 !== '无',
             types: [],
             isStagnant: 功能分类.includes('停滞'),
@@ -362,6 +365,7 @@ function generateMapGrid() {
         const gridElement = document.createElement('div');
         gridElement.className = `grid grid-${index}`;
         gridElement.textContent = `${grid.id}. ${grid.name}`;
+        gridElement.dataset.description = grid.description || '';
 
         // 根据格子类型设置样式
         if (grid.types.includes('start')) {
@@ -1626,6 +1630,237 @@ class CarItemStrategy extends ItemStrategy {
     }
 }
 
+// 眼镜道具策略
+class GlassesItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 确保行动点是数字类型
+        player.action = Number(player.action) || 0;
+        
+        // 检查行动点是否足够
+        if (player.action < 1) {
+            elements.gameMessage.textContent = `行动点不足，无法使用眼镜！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用眼镜，但行动点不足`);
+            return false;
+        }
+
+        // 消耗行动点
+        player.action -= 1;
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用眼镜，剩余行动点：${player.action}`);
+
+        // 过滤出符合条件的玩家
+        const availablePlayers = [];
+        gameState.players.forEach((targetPlayer, targetIndex) => {
+            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && (Number(targetPlayer.action) || 0) > 0) {
+                availablePlayers.push({ index: targetIndex, player: targetPlayer });
+            }
+        });
+
+        if (availablePlayers.length === 0) {
+            elements.gameMessage.textContent = `没有符合条件的玩家可以掷骰子！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用眼镜，但没有符合条件的玩家`);
+            return false;
+        }
+
+        // 弹出眼镜道具对话框
+        this.createGlassesDialog(player, playerIndex, item, itemIndex, availablePlayers);
+
+        return false; // 不继续执行后续逻辑
+    }
+
+    // 创建眼镜道具对话框
+    createGlassesDialog(player, playerIndex, item, itemIndex, availablePlayers) {
+        // 创建弹出框
+        const dialog = document.createElement('div');
+        dialog.className = 'glasses-dialog';
+        
+        // 构建对话框内容
+        let dialogContent = `
+            <div class="dialog-content">
+                <h3>使用眼镜</h3>
+                <p>强制其他存活且拥有行动点的角色玩家依次掷骰子</p>
+                <div class="players-list">
+        `;
+        
+        // 添加每个玩家的信息和按钮
+        availablePlayers.forEach(({ index, player: targetPlayer }) => {
+            dialogContent += `
+                <div class="player-item" data-player-index="${index}">
+                    <div class="player-info">
+                        <div>玩家${index + 1}（${targetPlayer.role}）</div>
+                        <div>行动点：<span class="action-points">${Number(targetPlayer.action) || 0}</span></div>
+                    </div>
+                    <button class="roll-dice-button" data-player-index="${index}">掷骰子 (消耗1行动点)</button>
+                    <div class="dice-result" style="margin-top: 5px; display: none;">骰子结果：-</div>
+                </div>
+            `;
+        });
+        
+        dialogContent += `
+                </div>
+                <button class="close-button" style="display: none; margin-top: 20px;">关闭</button>
+            </div>
+        `;
+        
+        dialog.innerHTML = dialogContent;
+        
+        // 添加居中样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .glasses-dialog {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            }
+            .glasses-dialog .dialog-content {
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                width: 80%;
+                max-width: 500px;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+            .glasses-dialog .players-list {
+                margin-top: 20px;
+            }
+            .glasses-dialog .player-item {
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+            .glasses-dialog .player-info {
+                margin-bottom: 10px;
+            }
+            .glasses-dialog button {
+                margin: 5px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: normal;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                min-width: 120px;
+            }
+            .glasses-dialog .roll-dice-button {
+                background-color: #4CAF50;
+                color: white;
+            }
+            .glasses-dialog .roll-dice-button:hover {
+                background-color: #45a049;
+            }
+            .glasses-dialog .close-button {
+                background-color: #2196F3;
+                color: white;
+            }
+            .glasses-dialog .close-button:hover {
+                background-color: #0b7dda;
+            }
+            .glasses-dialog .roll-dice-button:disabled {
+                background-color: #cccccc;
+                cursor: not-allowed;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(dialog);
+
+        // 处理掷骰子按钮
+        const rollDiceButtons = dialog.querySelectorAll('.roll-dice-button');
+        const closeButton = dialog.querySelector('.close-button');
+        let rolledPlayers = 0;
+
+        rollDiceButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetPlayerIndex = parseInt(button.dataset.playerIndex);
+                const targetPlayer = gameState.players[targetPlayerIndex];
+                const playerItem = button.closest('.player-item');
+                const diceResultElement = playerItem.querySelector('.dice-result');
+                const actionPointsElement = playerItem.querySelector('.action-points');
+
+                // 消耗目标玩家的行动点
+                targetPlayer.action = Number(targetPlayer.action) || 0;
+                targetPlayer.action -= 1;
+                actionPointsElement.textContent = targetPlayer.action;
+
+                // 掷骰子（1-6）
+                const diceRoll = Math.floor(Math.random() * 6) + 1;
+                diceResultElement.textContent = `骰子结果：${diceRoll}`;
+                diceResultElement.style.display = 'block';
+
+                // 移动棋子
+                this.moveToken(player, playerIndex, diceRoll);
+
+                // 禁用按钮
+                button.disabled = true;
+                button.textContent = '已掷骰子';
+
+                // 增加已掷骰子的玩家数量
+                rolledPlayers++;
+
+                // 检查是否所有玩家都已掷骰子
+                if (rolledPlayers === availablePlayers.length) {
+                    closeButton.style.display = 'block';
+                }
+            });
+        });
+
+        // 处理关闭按钮
+        closeButton.addEventListener('click', () => {
+            // 从道具列表中移除
+            player.items.splice(itemIndex, 1);
+            player.cards = Math.max(0, player.cards - 1);
+            
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了眼镜，强制其他玩家掷骰子！`;
+            
+            // 处理行动后逻辑
+            handlePostActionLogic(player, playerIndex);
+            
+            // 处理当前位置的格子功能
+            setTimeout(() => {
+                handleGridFunction();
+            }, 500);
+            
+            document.body.removeChild(dialog);
+        });
+    }
+
+    // 移动棋子
+    moveToken(player, playerIndex, diceRoll) {
+        // 移动棋子
+        const oldPosition = gameState.tokenPosition;
+        const oldGrid = gridConfig[oldPosition];
+        if (gameState.reverseDirection) {
+            // 逆转方向移动
+            gameState.tokenPosition = (gameState.tokenPosition - diceRoll + 52) % 52;
+        } else {
+            // 正常方向移动
+            gameState.tokenPosition = (gameState.tokenPosition + diceRoll) % 52;
+        }
+        const newGrid = gridConfig[gameState.tokenPosition];
+        updateTokenPosition();
+
+        // 检查是否离开起点（梅钵堂）
+        if (oldGrid.name === '梅钵堂' && newGrid.name !== '梅钵堂') {
+            gameState.hasLeftStart = true;
+        }
+
+        // 记录移动日志
+        logEvent(`玩家${playerIndex + 1}（${player.role}）使用眼镜，强制其他玩家掷出${diceRoll}点，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
+
+        // 显示消息
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用眼镜，强制其他玩家掷出${diceRoll}点，移动到${newGrid.id}.${newGrid.name}！`;
+    }
+}
+
 // 能面道具策略
 class MaskItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
@@ -2120,6 +2355,7 @@ const itemStrategyMap = {
     'drama_script': DramaScriptItemStrategy,
     'school_cap': SchoolCapItemStrategy,
     'car': CarItemStrategy,
+    'glasses': GlassesItemStrategy,
     'mask': MaskItemStrategy,
     'seven_spice': SevenSpiceItemStrategy,
     'white_haired_monk': WhiteHairedMonkItemStrategy,
@@ -2147,6 +2383,7 @@ const itemNameToTypeMap = {
     '话剧剧本': 'drama_script',
     '校帽': 'school_cap',
     '汽车': 'car',
+    '眼镜': 'glasses',
     '能面': 'mask',
     '七味粉': 'seven_spice',
     '《白发小僧》': 'white_haired_monk',
@@ -3336,6 +3573,9 @@ function useItem(playerIndex, itemIndex) {
     } else if (item.name === '汽车') {
         // 汽车道具特殊处理，不消耗初始1点行动点，在道具策略中消耗2点
         canUseWithoutAction = true;
+    } else if (item.name === '眼镜') {
+        // 眼镜道具特殊处理，不消耗初始1点行动点，在道具策略中消耗1点
+        canUseWithoutAction = true;
     }
 
     if (actionPoints <= 0 && !canUseWithoutAction) {
@@ -3428,6 +3668,9 @@ function useItem(playerIndex, itemIndex) {
             }
         } else if (item.name === '汽车') {
             // 汽车道具特殊处理，不消耗初始1点行动点，在道具策略中消耗2点
+            shouldConsumeAction = false;
+        } else if (item.name === '眼镜') {
+            // 眼镜道具特殊处理，不消耗初始1点行动点，在道具策略中消耗1点
             shouldConsumeAction = false;
         }
         if (shouldConsumeAction) {

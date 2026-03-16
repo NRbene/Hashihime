@@ -408,6 +408,48 @@ h2 {
     color: #333;
 }
 
+/* 所有地图格子的hover效果 */
+.grid {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.grid:hover {
+    transform: scale(1.05);
+    z-index: 10;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+/* 地图格子的工具提示 */
+.grid::after {
+    content: attr(data-description);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 100;
+    max-width: 250px;
+    min-width: 100px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.grid:hover::after {
+    opacity: 1;
+    visibility: visible;
+    margin-bottom: 5px;
+}
+
 /* 机械汤格子 */
 .grid-mechanical-bath {
     background-color: #9E9E9E;
@@ -503,6 +545,7 @@ h2 {
     top: 15px;
     left: 15px;
     transition: all 0.5s ease;
+    z-index: 1000;
 }
 
 .direction-indicator {
