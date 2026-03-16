@@ -472,6 +472,27 @@ h2 {
     line-height: 1.3;
 }
 
+/* 咖啡厅选项样式 */
+.coffee-shop-options {
+    margin: 20px 0;
+}
+
+.coffee-shop-option {
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    background-color: #f9f9f9;
+    text-align: center;
+}
+
+.coffee-shop-option:hover {
+    background-color: #e3f2fd;
+    border-color: #2196F3;
+}
+
 .token {
     position: absolute;
     width: 30px;

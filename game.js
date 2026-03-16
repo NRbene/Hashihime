@@ -961,6 +961,8 @@ class MoneyItemStrategy extends ItemStrategy {
         const isAtStation = currentGrid.name === '市营电车站';
         // 检查当前是否在机械汤格子上
         const isAtMechanicalBath = currentGrid.name === '机械汤';
+        // 检查当前是否在咖啡厅格子上
+        const isAtCoffeeShop = currentGrid.name === '咖啡厅';
         
         // 使用GameDialogService创建交换道具对话框
         GameDialogService.createExchangeDialog(
@@ -1085,6 +1087,14 @@ class MoneyItemStrategy extends ItemStrategy {
                         // 恢复行动点
                         player.action++;
                     }
+                } else if (exchangeType === 'coffee') {
+                    // 点餐
+                    // 从当前玩家的道具栏中移除钱（一次性道具）
+                    player.items.splice(itemIndex, 1);
+                    player.cards = Math.max(0, player.cards - 1);
+                    
+                    // 显示咖啡厅对话框
+                    showCoffeeShopDialog();
                 }
             },
             () => {
@@ -1092,7 +1102,8 @@ class MoneyItemStrategy extends ItemStrategy {
                 player.action++;
             },
             isAtStation, // 传递是否显示搭乘电车选项
-            isAtMechanicalBath // 传递是否显示兑换洗浴券选项
+            isAtMechanicalBath, // 传递是否显示兑换洗浴券选项
+            isAtCoffeeShop // 传递是否显示点餐选项
         );
         return false; // 异步操作，不继续执行后续逻辑
     }
@@ -1829,7 +1840,7 @@ class GameDialogService {
     }
 
     // 创建交换道具对话框
-    static createExchangeDialog(onExchange, onCancel, showStationOption = false, showBathOption = false) {
+    static createExchangeDialog(onExchange, onCancel, showStationOption = false, showBathOption = false, showCoffeeOption = false) {
         // 构建选项HTML
         let optionsHTML = `<div class="exchange-options">
                 <div class="exchange-option" data-type="draw">从牌堆抽取</div>
@@ -1842,7 +1853,12 @@ class GameDialogService {
         
         // 如果显示兑换洗浴券选项
         if (showBathOption) {
-            optionsHTML += `<div class="exchange-option" data-type="bath">兑换洗浴券</div>`;
+            optionsHTML += `<div class="exchange-option" data-type="bath">洗浴</div>`;
+        }
+        
+        // 如果显示点餐选项
+        if (showCoffeeOption) {
+            optionsHTML += `<div class="exchange-option" data-type="coffee">点餐</div>`;
         }
         
         optionsHTML += `</div>`;
@@ -2575,9 +2591,9 @@ function useItem(playerIndex, itemIndex) {
             canUseWithoutAction = true;
         }
     } else if (item.name === '钱') {
-            // 检查当前是否在市营电车站或机械汤格子上
+            // 检查当前是否在市营电车站、机械汤或咖啡厅格子上
             const currentGrid = gridConfig[gameState.tokenPosition];
-            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤')) {
+            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅')) {
                 canUseWithoutAction = true;
             }
         }
@@ -2660,9 +2676,9 @@ function useItem(playerIndex, itemIndex) {
                 shouldConsumeAction = false;
             }
         } else if (item.name === '钱') {
-            // 检查当前是否在市营电车站或机械汤格子上
+            // 检查当前是否在市营电车站、机械汤或咖啡厅格子上
             const currentGrid = gridConfig[gameState.tokenPosition];
-            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤')) {
+            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅')) {
                 shouldConsumeAction = false;
             }
         }
@@ -3039,6 +3055,96 @@ function showWaterwayDialog() {
     const cancelButton = waterwayDialog.querySelector('.cancel-waterway');
     cancelButton.addEventListener('click', () => {
         document.body.removeChild(waterwayDialog);
+    });
+}
+
+// 显示咖啡厅弹窗
+function showCoffeeShopDialog() {
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    // 创建弹出框
+    const coffeeShopDialog = document.createElement('div');
+    coffeeShopDialog.className = 'station-dialog';
+    
+    // 从模板加载HTML内容
+    const templatesIframe = document.getElementById('templates-iframe');
+    let template = null;
+    if (templatesIframe && templatesIframe.contentDocument) {
+        template = templatesIframe.contentDocument.getElementById('coffee-shop-dialog-template');
+    }
+    if (!template) {
+        template = document.getElementById('coffee-shop-dialog-template');
+    }
+    if (template) {
+        coffeeShopDialog.innerHTML = template.innerHTML;
+    } else {
+        // 如果模板不存在，使用默认HTML
+        const currentPlayer = gameState.players[gameState.currentPlayer];
+        const isKawase = currentPlayer.role === '川濑';
+        let optionsHTML = `
+            <div class="coffee-shop-options">
+                <div class="coffee-shop-option" data-item="可尔思必">可尔思必</div>
+                <div class="coffee-shop-option" data-item="咖啡">咖啡</div>`;
+        if (isKawase) {
+            optionsHTML += `<div class="coffee-shop-option" data-item="蛋包饭">蛋包饭</div>`;
+        }
+        optionsHTML += `</div>`;
+        
+        coffeeShopDialog.innerHTML = `
+            <div class="station-dialog-content">
+                <div class="station-dialog-header">
+                    <h3>选择要置换的道具</h3>
+                    <p>使用"钱"道具卡可以置换道具，不消耗行动点</p>
+                </div>
+                ${optionsHTML}
+                <div class="station-dialog-footer">
+                    <button class="cancel-coffee-shop">取消</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.body.appendChild(coffeeShopDialog);
+    
+    // 处理道具选择
+    const optionElements = coffeeShopDialog.querySelectorAll('.coffee-shop-option');
+    optionElements.forEach(optionElement => {
+        optionElement.addEventListener('click', () => {
+            const targetItemName = optionElement.dataset.item;
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            
+            // 检查目标道具是否存在
+            const targetItem = items[targetItemName];
+            if (!targetItem) {
+                elements.gameMessage.textContent = `${targetItemName}不存在！`;
+                document.body.removeChild(coffeeShopDialog);
+                return;
+            }
+            
+            // 添加目标道具到玩家道具栏
+            currentPlayer.items.push(targetItem);
+            currentPlayer.cards++;
+            
+            // 记录日志
+            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）在咖啡厅使用钱置换了${targetItemName}`);
+            
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}在咖啡厅使用钱置换了${targetItemName}！`;
+            
+            // 移除对话框
+            document.body.removeChild(coffeeShopDialog);
+            
+            // 更新UI
+            updateUI();
+            
+            // 处理行动后逻辑
+            handlePostActionLogic(currentPlayer, gameState.currentPlayer);
+        });
+    });
+    
+    // 处理取消按钮
+    const cancelButton = coffeeShopDialog.querySelector('.cancel-coffee-shop');
+    cancelButton.addEventListener('click', () => {
+        document.body.removeChild(coffeeShopDialog);
     });
 }
 
@@ -3517,6 +3623,15 @@ function handleGridFunction() {
             currentWaterway.classList.add('clickable');
             currentWaterway.onclick = function() {
                 showWaterwayDialog();
+            };
+        }
+    } else if (currentGrid.name === '咖啡厅') {
+        // 处理咖啡厅格子 - 可点击
+        const currentCoffeeShop = document.querySelector(`.grid-${gameState.tokenPosition}`);
+        if (currentCoffeeShop) {
+            currentCoffeeShop.classList.add('clickable');
+            currentCoffeeShop.onclick = function() {
+                showCoffeeShopDialog();
             };
         }
     } else {
