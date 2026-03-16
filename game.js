@@ -140,24 +140,17 @@ function parseMapCSV(csvText) {
         };
 
         // 处理功能分类
-        if (功能分类.includes('交易')) {
+        if (功能分类.includes('交易') && grid.name !== '市营电车站') {
             grid.types.push('cards');
-            grid.道具Effect = {
-                type: 'add',
-                value: 1
-            };
         }
 
         if (功能分类.includes('弃置')) {
             grid.types.push('cards');
-            grid.道具Effect = {
-                type: 'remove',
-                value: 1
-            };
+
         }
 
         if (功能分类.includes('新周目')) {
-            grid.types.push('水坑');
+            grid.types.push('水洼');
         }
 
         // 处理好感度效果
@@ -360,13 +353,18 @@ function generateMapGrid() {
             gridElement.classList.add('grid-cards');
         } else if (grid.types.includes('stagnant')) {
             gridElement.classList.add('grid-stagnant');
-        } else if (grid.types.includes('水坑') || grid.types.includes('水洼')) {
+        } else if (grid.types.includes('水洼') ) {
             gridElement.classList.add('grid-water');
         }
         
         // 梅钵堂格子特殊样式 - 红色
         if (grid.name === '梅钵堂') {
             gridElement.classList.add('grid-meibutsu');
+        }
+        
+        // 市营电车站格子特殊样式 - 草绿色
+        if (grid.name === '市营电车站') {
+            gridElement.classList.add('grid-station');
         }
         
         mapContainer.appendChild(gridElement);
@@ -945,6 +943,10 @@ class NotebookItemStrategy extends ItemStrategy {
 // 钱道具策略
 class MoneyItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
+        // 检查当前是否在市营电车站
+        const currentGrid = gridConfig[gameState.tokenPosition];
+        const isAtStation = currentGrid.name === '市营电车站';
+        
         // 使用GameDialogService创建交换道具对话框
         GameDialogService.createExchangeDialog(
             (exchangeType) => {
@@ -1038,12 +1040,21 @@ class MoneyItemStrategy extends ItemStrategy {
                             player.action++;
                         }
                     );
+                } else if (exchangeType === 'station') {
+                    // 搭乘电车
+                    // 从当前玩家的道具栏中移除钱（一次性道具）
+                    player.items.splice(itemIndex, 1);
+                    player.cards = Math.max(0, player.cards - 1);
+                    
+                    // 显示车站对话框
+                    showStationDialog();
                 }
             },
             () => {
                 // 恢复行动点
                 player.action++;
-            }
+            },
+            isAtStation // 传递是否显示搭乘电车选项
         );
         return false; // 异步操作，不继续执行后续逻辑
     }
@@ -1591,7 +1602,7 @@ class RainWaterItemStrategy extends ItemStrategy {
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
 
-        // 进入新周目，参见地图水坑规则，但不算水坑次数
+        // 进入新周目，参见地图水洼规则，但不算水洼次数
         elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了雨水，原地进入新周目！`;
         logEvent(`触发效果：玩家${playerIndex + 1}（${player.role}）使用雨水，原地进入新周目`);
 
@@ -1756,16 +1767,25 @@ class GameDialogService {
     }
 
     // 创建交换道具对话框
-    static createExchangeDialog(onExchange, onCancel) {
+    static createExchangeDialog(onExchange, onCancel, showStationOption = false) {
+        // 构建选项HTML
+        let optionsHTML = `<div class="exchange-options">
+                <div class="exchange-option" data-type="draw">从牌堆抽取</div>
+                <div class="exchange-option" data-type="player">从其他玩家交换</div>`;
+        
+        // 如果显示搭乘电车选项
+        if (showStationOption) {
+            optionsHTML += `<div class="exchange-option" data-type="station">搭乘电车</div>`;
+        }
+        
+        optionsHTML += `</div>`;
+        
         // 创建对话框
         const dialog = this.createDialog(
             'exchange-dialog',
             'exchange-dialog-content',
             '选择交换方式：',
-            `<div class="exchange-options">
-                <div class="exchange-option" data-type="draw">从牌堆抽取</div>
-                <div class="exchange-option" data-type="player">从其他玩家交换</div>
-            </div>`,
+            optionsHTML,
             '取消',
             null,
             onCancel
@@ -2108,12 +2128,12 @@ class StagnantGridStrategy extends GridStrategy {
     }
 }
 
-// 水坑格子策略
+// 水洼格子策略
 class WaterGridStrategy extends GridStrategy {
     execute(grid, player) {
-        // 进入水坑，立刻结束行动，周目+1
-        elements.gameMessage.textContent = `棋子进入水坑，结束行动，周目+1！`;
-        logEvent(`触发效果：棋子进入水坑，结束行动，周目+1`);
+        // 进入水洼，立刻结束行动，周目+1
+        elements.gameMessage.textContent = `棋子进入水洼，结束行动，周目+1！`;
+        logEvent(`触发效果：棋子进入水洼，结束行动，周目+1`);
 
         // 周目+1
         gameState.week++;
@@ -2166,8 +2186,8 @@ class GridStrategyFactory {
             strategies.push(new StagnantGridStrategy());
         }
         
-        // 水坑格子策略
-        if (grid.types && (grid.types.includes('水坑') || grid.types.includes('水洼'))) {
+        // 水洼格子策略
+        if (grid.types && (grid.types.includes('水洼'))) {
             strategies.push(new WaterGridStrategy());
         }
         
@@ -2714,6 +2734,124 @@ function updateTokenPosition() {
     elements.token.style.display = 'block';
     
     console.log(`棋子已移动到: ${currentGridData.name} (索引:${posIndex})`);
+    
+    // 处理市营电车站的可点击状态
+    handleStationClickable();
+}
+
+// 处理市营电车站的可点击状态
+function handleStationClickable() {
+    // 移除所有市营电车站的可点击状态
+    const allStations = document.querySelectorAll('.grid-station');
+    allStations.forEach(station => {
+        station.classList.remove('clickable');
+        station.onclick = null;
+    });
+    
+    // 检查当前格子是否是市营电车站
+    const currentGrid = gridConfig[gameState.tokenPosition];
+    if (currentGrid.name === '市营电车站') {
+        // 检查当前玩家是否有钱道具卡
+        const currentPlayer = gameState.players[gameState.currentPlayer];
+        const hasMoney = currentPlayer.items.some(item => item.name === '钱');
+        
+        if (hasMoney) {
+            // 找到当前市营电车站格子并设置为可点击
+            const currentStation = document.querySelector(`.grid-${gameState.tokenPosition}`);
+            if (currentStation) {
+                currentStation.classList.add('clickable');
+                currentStation.onclick = function() {
+                    showStationDialog();
+                };
+            }
+        }
+    }
+}
+
+// 显示市营电车站弹窗
+function showStationDialog() {
+    // 创建弹出框
+    const stationDialog = document.createElement('div');
+    stationDialog.className = 'station-dialog';
+    
+    // 构建地图HTML
+    let mapHTML = '<div class="station-dialog-content">';
+    mapHTML += '<div class="station-dialog-header">';
+    mapHTML += '<h3>是否搭上电车？</h3>';
+    mapHTML += '<p>使用"钱"道具卡可以传送到其他车站，不消耗行动点</p>';
+    mapHTML += '</div>';
+    mapHTML += '<div class="map-grid-container">';
+    mapHTML += '<div class="map-grid" id="station-map">';
+    
+    // 绘制地图格子
+    gridConfig.forEach((grid, index) => {
+        const isCurrent = index === gameState.tokenPosition;
+        const isStation = grid.name === '市营电车站';
+        const isSelectable = isStation && !isCurrent;
+        const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
+        const dataIndex = isSelectable ? `data-grid-index="${index}"` : '';
+        
+        mapHTML += `<div class="${className}" ${dataIndex}>`;
+        mapHTML += `<div class="grid-id">${grid.id}</div>`;
+        mapHTML += `<div class="grid-name">${grid.name}</div>`;
+        mapHTML += '</div>';
+    });
+    
+    mapHTML += '</div>';
+    mapHTML += '</div>';
+    mapHTML += '<div class="station-dialog-footer">';
+    mapHTML += '<button class="cancel-station">取消</button>';
+    mapHTML += '</div>';
+    mapHTML += '</div>';
+    
+    stationDialog.innerHTML = mapHTML;
+    document.body.appendChild(stationDialog);
+    
+    // 处理格子选择
+    const selectableItems = stationDialog.querySelectorAll('.map-grid-item.selectable');
+    selectableItems.forEach(itemElement => {
+        itemElement.addEventListener('click', () => {
+            const targetGridIndex = parseInt(itemElement.dataset.gridIndex);
+            const targetGrid = gridConfig[targetGridIndex];
+            
+            // 移动棋子
+            const oldPosition = gameState.tokenPosition;
+            const oldGrid = gridConfig[oldPosition];
+            gameState.tokenPosition = targetGridIndex;
+            updateTokenPosition();
+            
+            // 消耗钱道具卡
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            const moneyIndex = currentPlayer.items.findIndex(item => item.name === '钱');
+            if (moneyIndex !== -1) {
+                currentPlayer.items.splice(moneyIndex, 1);
+                currentPlayer.cards = Math.max(0, currentPlayer.cards - 1);
+            }
+            
+            // 记录移动日志
+            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）使用钱道具卡，从${oldGrid.id}.${oldGrid.name}传送到${targetGrid.id}.${targetGrid.name}`);
+            
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}使用了钱道具卡，传送到${targetGrid.id}.${targetGrid.name}！`;
+            
+            // 移除对话框
+            document.body.removeChild(stationDialog);
+            
+            // 处理行动后逻辑
+            handlePostActionLogic(currentPlayer, gameState.currentPlayer);
+            
+            // 处理新位置的格子功能
+            setTimeout(() => {
+                handleGridFunction();
+            }, 500);
+        });
+    });
+    
+    // 处理取消按钮
+    const cancelButton = stationDialog.querySelector('.cancel-station');
+    cancelButton.addEventListener('click', () => {
+        document.body.removeChild(stationDialog);
+    });
 }
 
 // 掷骰子

@@ -395,6 +395,24 @@ h2 {
     border: 2px solid #d32f2f;
 }
 
+/* 市营电车站格子 */
+.grid-station {
+    background-color: #4CAF50;
+    color: white;
+    border: 2px solid #388E3C;
+}
+
+/* 市营电车站格子可点击状态 */
+.grid-station.clickable {
+    cursor: pointer;
+    background-color: #81C784;
+    transition: background-color 0.3s ease;
+}
+
+.grid-station.clickable:hover {
+    background-color: #A5D6A7;
+}
+
 .token {
     position: absolute;
     width: 30px;
@@ -852,5 +870,63 @@ h2 {
     font-size: 16px;
 }
 .cancel-button:hover {
+    background-color: #999;
+}
+
+/* 市营电车站弹窗样式 */
+.station-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.station-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 90%;
+    max-width: 1000px;
+    max-height: 80vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.station-dialog-header {
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+.station-dialog-header h3 {
+    color: #333;
+    margin-bottom: 10px;
+    text-align: center;
+}
+.station-dialog-header p {
+    color: #666;
+    text-align: center;
+    margin-bottom: 0;
+}
+.station-dialog-footer {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+.cancel-station {
+    padding: 10px 20px;
+    background-color: #ccc;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+.cancel-station:hover {
     background-color: #999;
 }
