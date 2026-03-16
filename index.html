@@ -227,6 +227,42 @@
             </div>
         </div>
     </div>
+    
+    <!-- 游戏模板 -->
+    <div id="station-dialog-template" style="display: none;">
+        <div class="station-dialog-content">
+            <div class="station-dialog-header">
+                <h3>是否搭上电车？</h3>
+                <p>使用"钱"道具卡可以传送到其他车站，不消耗行动点</p>
+            </div>
+            <div class="map-grid-container">
+                <div class="map-grid" id="station-map">
+                    <!-- 地图格子将由 JavaScript 动态生成 -->
+                </div>
+            </div>
+            <div class="station-dialog-footer">
+                <button class="cancel-station">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 地图选择对话框模板 -->
+    <div id="map-selection-dialog-template" style="display: none;">
+        <div class="map-selection-content">
+            <div class="map-selection-header">
+                <h3>选择要移动到的{{locationName}}地块：</h3>
+            </div>
+            <div class="map-grid-container">
+                <div class="map-grid" id="selection-map">
+                    <!-- 地图格子将由 JavaScript 动态生成 -->
+                </div>
+            </div>
+            <div class="map-selection-footer">
+                <button class="cancel-map-selection">取消</button>
+            </div>
+        </div>
+    </div>
+    
     <script src="game.js"></script>
 </body>
 </html>

@@ -691,6 +691,10 @@ class CustomMoveItemStrategy extends ItemStrategy {
             return false;
         }
 
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
         // 移动棋子
         const oldPosition = gameState.tokenPosition;
         const oldGrid = gridConfig[oldPosition];
@@ -1042,12 +1046,8 @@ class MoneyItemStrategy extends ItemStrategy {
                     );
                 } else if (exchangeType === 'station') {
                     // 搭乘电车
-                    // 从当前玩家的道具栏中移除钱（一次性道具）
-                    player.items.splice(itemIndex, 1);
-                    player.cards = Math.max(0, player.cards - 1);
-                    
                     // 显示车站对话框
-                    showStationDialog();
+                    showStationDialog(player, playerIndex, itemIndex);
                 }
             },
             () => {
@@ -1154,36 +1154,53 @@ class GoldfishShowerItemStrategy extends ItemStrategy {
         const mapDialog = document.createElement('div');
         mapDialog.className = 'map-selection-dialog';
         
-        // 构建地图HTML
-        let mapHTML = '<div class="map-selection-content">';
-        mapHTML += '<div class="map-selection-header">';
-        mapHTML += `<h3>选择要移动到的${locationName}地块：</h3>`;
-        mapHTML += '</div>';
-        mapHTML += '<div class="map-grid-container">';
-        mapHTML += '<div class="map-grid" id="selection-map">';
+        // 从模板加载HTML内容
+        const template = document.getElementById('map-selection-dialog-template');
+        if (template) {
+            let templateHTML = template.innerHTML;
+            // 替换模板中的变量
+            templateHTML = templateHTML.replace('{{locationName}}', locationName);
+            mapDialog.innerHTML = templateHTML;
+        } else {
+            // 如果模板不存在，使用默认HTML
+            mapDialog.innerHTML = `
+                <div class="map-selection-content">
+                    <div class="map-selection-header">
+                        <h3>选择要移动到的${locationName}地块：</h3>
+                    </div>
+                    <div class="map-grid-container">
+                        <div class="map-grid" id="selection-map">
+                        </div>
+                    </div>
+                    <div class="map-selection-footer">
+                        <button class="cancel-map-selection">取消</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        document.body.appendChild(mapDialog);
         
         // 绘制地图格子
-        gridConfig.forEach((grid, index) => {
-            const isCurrent = index === gameState.tokenPosition;
-            const isSelectable = targetRange.includes(index) && !isCurrent;
-            const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
-            const dataIndex = isSelectable ? `data-grid-index="${index}"` : '';
-            
-            mapHTML += `<div class="${className}" ${dataIndex}>`;
-            mapHTML += `<div class="grid-id">${grid.id}</div>`;
-            mapHTML += `<div class="grid-name">${grid.name}</div>`;
-            mapHTML += '</div>';
-        });
-        
-        mapHTML += '</div>';
-        mapHTML += '</div>';
-        mapHTML += '<div class="map-selection-footer">';
-        mapHTML += '<button class="cancel-map-selection">取消</button>';
-        mapHTML += '</div>';
-        mapHTML += '</div>';
-        
-        mapDialog.innerHTML = mapHTML;
-        document.body.appendChild(mapDialog);
+        const selectionMap = mapDialog.querySelector('#selection-map');
+        if (selectionMap) {
+            gridConfig.forEach((grid, index) => {
+                const isCurrent = index === gameState.tokenPosition;
+                const isSelectable = targetRange.includes(index) && !isCurrent;
+                const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
+                
+                const gridElement = document.createElement('div');
+                gridElement.className = className;
+                if (isSelectable) {
+                    gridElement.dataset.gridIndex = index;
+                }
+                gridElement.innerHTML = `
+                    <div class="grid-id">${grid.id}</div>
+                    <div class="grid-name">${grid.name}</div>
+                `;
+                selectionMap.appendChild(gridElement);
+            });
+        }
         
         // 处理格子选择
         const selectableItems = mapDialog.querySelectorAll('.map-grid-item.selectable');
@@ -2507,6 +2524,12 @@ function useItem(playerIndex, itemIndex) {
         if (player.role === '水上') {
             canUseWithoutAction = true;
         }
+    } else if (item.name === '钱') {
+        // 检查当前是否在市营电车站
+        const currentGrid = gridConfig[gameState.tokenPosition];
+        if (currentGrid && currentGrid.name === '市营电车站') {
+            canUseWithoutAction = true;
+        }
     }
     
     if (actionPoints <= 0 && !canUseWithoutAction) {
@@ -2584,6 +2607,12 @@ function useItem(playerIndex, itemIndex) {
             }
         } else if (item.name === '《阁楼里的两位处女》') {
             if (player.role === '水上') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '钱') {
+            // 检查当前是否在市营电车站
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            if (currentGrid && currentGrid.name === '市营电车站') {
                 shouldConsumeAction = false;
             }
         }
@@ -2769,43 +2798,58 @@ function handleStationClickable() {
 }
 
 // 显示市营电车站弹窗
-function showStationDialog() {
+function showStationDialog(player, playerIndex, itemIndex) {
     // 创建弹出框
     const stationDialog = document.createElement('div');
     stationDialog.className = 'station-dialog';
     
-    // 构建地图HTML
-    let mapHTML = '<div class="station-dialog-content">';
-    mapHTML += '<div class="station-dialog-header">';
-    mapHTML += '<h3>是否搭上电车？</h3>';
-    mapHTML += '<p>使用"钱"道具卡可以传送到其他车站，不消耗行动点</p>';
-    mapHTML += '</div>';
-    mapHTML += '<div class="map-grid-container">';
-    mapHTML += '<div class="map-grid" id="station-map">';
+    // 从模板加载HTML内容
+    const template = document.getElementById('station-dialog-template');
+    if (template) {
+        stationDialog.innerHTML = template.innerHTML;
+    } else {
+        // 如果模板不存在，使用默认HTML
+        stationDialog.innerHTML = `
+            <div class="station-dialog-content">
+                <div class="station-dialog-header">
+                    <h3>是否搭上电车？</h3>
+                    <p>使用"钱"道具卡可以传送到其他车站，不消耗行动点</p>
+                </div>
+                <div class="map-grid-container">
+                    <div class="map-grid" id="station-map">
+                    </div>
+                </div>
+                <div class="station-dialog-footer">
+                    <button class="cancel-station">取消</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.body.appendChild(stationDialog);
     
     // 绘制地图格子
-    gridConfig.forEach((grid, index) => {
-        const isCurrent = index === gameState.tokenPosition;
-        const isStation = grid.name === '市营电车站';
-        const isSelectable = isStation && !isCurrent;
-        const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
-        const dataIndex = isSelectable ? `data-grid-index="${index}"` : '';
-        
-        mapHTML += `<div class="${className}" ${dataIndex}>`;
-        mapHTML += `<div class="grid-id">${grid.id}</div>`;
-        mapHTML += `<div class="grid-name">${grid.name}</div>`;
-        mapHTML += '</div>';
-    });
-    
-    mapHTML += '</div>';
-    mapHTML += '</div>';
-    mapHTML += '<div class="station-dialog-footer">';
-    mapHTML += '<button class="cancel-station">取消</button>';
-    mapHTML += '</div>';
-    mapHTML += '</div>';
-    
-    stationDialog.innerHTML = mapHTML;
-    document.body.appendChild(stationDialog);
+    const stationMap = stationDialog.querySelector('#station-map');
+    if (stationMap) {
+        gridConfig.forEach((grid, index) => {
+            const isCurrent = index === gameState.tokenPosition;
+            const isStation = grid.name === '市营电车站';
+            const isSelectable = isStation && !isCurrent;
+            const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
+            const dataIndex = isSelectable ? `data-grid-index="${index}"` : '';
+            
+            const gridElement = document.createElement('div');
+            gridElement.className = className;
+            if (isSelectable) {
+                gridElement.dataset.gridIndex = index;
+            }
+            gridElement.innerHTML = `
+                <div class="grid-id">${grid.id}</div>
+                <div class="grid-name">${grid.name}</div>
+            `;
+            stationMap.appendChild(gridElement);
+        });
+    }
     
     // 处理格子选择
     const selectableItems = stationDialog.querySelectorAll('.map-grid-item.selectable');
@@ -2821,24 +2865,20 @@ function showStationDialog() {
             updateTokenPosition();
             
             // 消耗钱道具卡
-            const currentPlayer = gameState.players[gameState.currentPlayer];
-            const moneyIndex = currentPlayer.items.findIndex(item => item.name === '钱');
-            if (moneyIndex !== -1) {
-                currentPlayer.items.splice(moneyIndex, 1);
-                currentPlayer.cards = Math.max(0, currentPlayer.cards - 1);
-            }
+            player.items.splice(itemIndex, 1);
+            player.cards = Math.max(0, player.cards - 1);
             
             // 记录移动日志
-            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）使用钱道具卡，从${oldGrid.id}.${oldGrid.name}传送到${targetGrid.id}.${targetGrid.name}`);
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱道具卡，从${oldGrid.id}.${oldGrid.name}传送到${targetGrid.id}.${targetGrid.name}`);
             
             // 显示消息
-            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}使用了钱道具卡，传送到${targetGrid.id}.${targetGrid.name}！`;
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了钱道具卡，传送到${targetGrid.id}.${targetGrid.name}！`;
             
             // 移除对话框
             document.body.removeChild(stationDialog);
             
             // 处理行动后逻辑
-            handlePostActionLogic(currentPlayer, gameState.currentPlayer);
+            handlePostActionLogic(player, playerIndex);
             
             // 处理新位置的格子功能
             setTimeout(() => {
@@ -2850,6 +2890,8 @@ function showStationDialog() {
     // 处理取消按钮
     const cancelButton = stationDialog.querySelector('.cancel-station');
     cancelButton.addEventListener('click', () => {
+        // 恢复行动点
+        player.action++;
         document.body.removeChild(stationDialog);
     });
 }
