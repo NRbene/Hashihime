@@ -725,3 +725,75 @@ h2 {
 .close-win-dialog:hover {
     background-color: #45a049;
 }
+
+/* 《脑髓地狱》道具弹窗样式 */
+.brain-hell-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.brain-hell-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.brain-hell-content h3 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.player-list {
+    margin-bottom: 20px;
+}
+.player-option {
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.player-option:hover {
+    background-color: #f0f0f0;
+}
+.player-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.player-name {
+    font-weight: bold;
+    font-size: 16px;
+}
+.player-favor {
+    color: #666;
+    font-size: 14px;
+}
+.dialog-footer {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+.cancel-button {
+    padding: 10px 20px;
+    background-color: #ccc;
+    color: black;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+.cancel-button:hover {
+    background-color: #999;
+}

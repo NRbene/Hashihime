@@ -1383,6 +1383,105 @@ class TwoVirginsItemStrategy extends ItemStrategy {
     }
 }
 
+// 《脑髓地狱》道具策略
+class BrainHellItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 获取所有存活的A类玩家
+        const alivePlayers = [];
+        gameState.players.forEach((targetPlayer, targetIndex) => {
+            if (targetPlayer.status === 'alive' && targetPlayer.type === 'A') {
+                alivePlayers.push({ index: targetIndex, player: targetPlayer });
+            }
+        });
+
+        if (alivePlayers.length === 0) {
+            // 场上没有存活的A类玩家，好感度降低不生效
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《脑髓地狱》，但场上没有存活的A类玩家，好感度降低不生效！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用《脑髓地狱》，但场上没有存活的A类玩家`);
+            // 处理行动后逻辑
+            handlePostActionLogic(player, playerIndex);
+            return false;
+        }
+
+        // 创建选择玩家的弹窗
+        this.createPlayerSelectionDialog(player, playerIndex, item, itemIndex, alivePlayers);
+
+        return false; // 不继续执行后续逻辑
+    }
+
+    // 创建玩家选择弹窗
+    createPlayerSelectionDialog(player, playerIndex, item, itemIndex, alivePlayers) {
+        // 创建弹窗
+        const dialog = document.createElement('div');
+        dialog.className = 'brain-hell-dialog';
+        
+        // 构建玩家选择界面
+        let dialogContent = '<div class="brain-hell-content">';
+        dialogContent += '<h3>选择要降低好感度的角色：</h3>';
+        dialogContent += '<div class="player-list">';
+        
+        alivePlayers.forEach(({ index, player: targetPlayer }) => {
+            dialogContent += `<div class="player-option" data-player-index="${index}">`;
+            dialogContent += `<div class="player-info">`;
+            dialogContent += `<div class="player-name">玩家${index + 1}（${targetPlayer.role}）</div>`;
+            dialogContent += `<div class="player-favor">当前好感度：${targetPlayer.favor}</div>`;
+            dialogContent += `</div>`;
+            dialogContent += `</div>`;
+        });
+        
+        dialogContent += '</div>';
+        dialogContent += '<div class="dialog-footer">';
+        dialogContent += '<button class="cancel-button">取消</button>';
+        dialogContent += '</div>';
+        dialogContent += '</div>';
+        
+        dialog.innerHTML = dialogContent;
+        document.body.appendChild(dialog);
+        
+        // 处理玩家选择
+        const playerOptions = dialog.querySelectorAll('.player-option');
+        playerOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const targetPlayerIndex = parseInt(option.dataset.playerIndex);
+                const targetPlayer = gameState.players[targetPlayerIndex];
+                
+                // 使目标玩家的好感下降10
+                updateFavor(targetPlayer, -10);
+                
+                // 记录日志
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用《脑髓地狱》，使玩家${targetPlayerIndex + 1}（${targetPlayer.role}）的好感下降10点`);
+                
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《脑髓地狱》，使玩家${targetPlayerIndex + 1}（${targetPlayer.role}）的好感下降10点！`;
+                
+                // 移除对话框
+                document.body.removeChild(dialog);
+                
+                // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
+            });
+        });
+        
+        // 处理取消按钮
+        const cancelButton = dialog.querySelector('.cancel-button');
+        cancelButton.addEventListener('click', () => {
+            // 恢复道具
+            player.items.push(item);
+            player.cards++;
+            // 移除对话框
+            document.body.removeChild(dialog);
+            // 恢复行动点
+            player.action++;
+            // 显示消息
+            elements.gameMessage.textContent = `取消使用《脑髓地狱》！`;
+        });
+    }
+}
+
 // 道具类型到策略的映射表
 const itemStrategyMap = {
     'move': MoveItemStrategy,
@@ -1406,7 +1505,8 @@ const itemStrategyMap = {
     'seven_spice': SevenSpiceItemStrategy,
     'white_haired_monk': WhiteHairedMonkItemStrategy,
     'ghost_tower': GhostTowerItemStrategy,
-    'two_virgins': TwoVirginsItemStrategy
+    'two_virgins': TwoVirginsItemStrategy,
+    'brain_hell': BrainHellItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1424,7 +1524,8 @@ const itemNameToTypeMap = {
     '七味粉': 'seven_spice',
     '《白发小僧》': 'white_haired_monk',
     '《幽灵塔》': 'ghost_tower',
-    '《阁楼里的两位处女》': 'two_virgins'
+    '《阁楼里的两位处女》': 'two_virgins',
+    '《脑髓地狱》': 'brain_hell'
 };
 
 // 游戏对话框服务
