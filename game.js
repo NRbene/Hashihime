@@ -182,6 +182,10 @@ function parseMapCSV(csvText) {
                 case '咖啡厅':
                     grid.favorEffect.type = 'all';
                     break;
+                case '帝国大学':
+                    // 帝国大学的好感度效果由掷骰子结果决定，移除默认好感度效果
+                    grid.favorEffect = null;
+                    break;
             }
         } else {
             grid.favorEffect = null;
@@ -2267,6 +2271,108 @@ class WaterGridStrategy extends GridStrategy {
     }
 }
 
+// 帝国大学格子策略
+class UniversityGridStrategy extends GridStrategy {
+    execute(grid, player) {
+        // 掷骰子（1-6）
+        const diceRoll = Math.floor(Math.random() * 6) + 1;
+        
+        // 创建弹出框
+        const universityDialog = document.createElement('div');
+        universityDialog.className = 'university-dialog';
+        
+        // 备用HTML
+        universityDialog.innerHTML = `
+            <div class="dialog-content">
+                <h3>帝国大学</h3>
+                <p>你在帝国大学进行了一次掷骰子，结果是：<strong>${diceRoll}</strong></p>
+                <div id="dice-result-text"></div>
+                <button class="ok-button">确定</button>
+            </div>
+        `;
+        
+        document.body.appendChild(universityDialog);
+        
+        // 根据点数显示不同的结果
+        const diceResultText = universityDialog.querySelector('#dice-result-text');
+        let message = '';
+        
+        switch (diceRoll) {
+            case 1:
+                message = '在校门口与水上、川濑聊天';
+                // 水上、川濑角色玩家好感+10
+                gameState.players.forEach(targetPlayer => {
+                    if (targetPlayer.status === 'alive' && (targetPlayer.role === '水上' || targetPlayer.role === '川濑')) {
+                        updateFavor(targetPlayer, 10);
+                    }
+                });
+                break;
+            case 2:
+                message = '在教学楼与川濑学习';
+                // 川濑角色玩家好感+10
+                gameState.players.forEach(targetPlayer => {
+                    if (targetPlayer.status === 'alive' && targetPlayer.role === '川濑') {
+                        updateFavor(targetPlayer, 10);
+                    }
+                });
+                break;
+            case 3:
+                message = '在图书馆与水上学习';
+                // 水上角色玩家好感+10
+                gameState.players.forEach(targetPlayer => {
+                    if (targetPlayer.status === 'alive' && targetPlayer.role === '水上') {
+                        updateFavor(targetPlayer, 10);
+                    }
+                });
+                break;
+            case 4:
+                message = '在三四郎池与博士邂逅';
+                // 博士角色玩家好感+10
+                gameState.players.forEach(targetPlayer => {
+                    if (targetPlayer.status === 'alive' && targetPlayer.role === '博士') {
+                        updateFavor(targetPlayer, 10);
+                    }
+                });
+                break;
+            case 5:
+                message = '在研究所与博士、花泽聊天';
+                // 博士、花泽角色玩家好感+10
+                gameState.players.forEach(targetPlayer => {
+                    if (targetPlayer.status === 'alive' && (targetPlayer.role === '博士' || targetPlayer.role === '花泽')) {
+                        updateFavor(targetPlayer, 10);
+                    }
+                });
+                break;
+            case 6:
+                message = '无所事事的一天';
+                // 无效果
+                break;
+        }
+        
+        if (diceResultText) {
+            diceResultText.textContent = message;
+        }
+        
+        // 记录日志
+        logEvent(`触发效果：玩家${gameState.currentPlayer + 1}（${player.role}）在帝国大学掷骰子，结果为${diceRoll}，${message}`);
+        
+        // 处理确定按钮
+        const okButton = universityDialog.querySelector('.ok-button');
+        if (okButton) {
+            okButton.addEventListener('click', () => {
+                // 移除对话框
+                document.body.removeChild(universityDialog);
+                
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}在帝国大学${message}！`;
+                
+                // 更新UI
+                updateUI();
+            });
+        }
+    }
+}
+
 // 地格策略工厂
 class GridStrategyFactory {
     static getStrategies(grid) {
@@ -2290,6 +2396,11 @@ class GridStrategyFactory {
         // 水洼格子策略
         if (grid.types && (grid.types.includes('水洼'))) {
             strategies.push(new WaterGridStrategy());
+        }
+        
+        // 帝国大学格子策略
+        if (grid.name === '帝国大学') {
+            strategies.push(new UniversityGridStrategy());
         }
         
         return strategies;

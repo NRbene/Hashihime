@@ -1010,3 +1010,55 @@ h2 {
 .cancel-station:hover {
     background-color: #999;
 }
+
+/* 帝国大学对话框样式 */
+.university-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.university-dialog .dialog-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+.university-dialog h3 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 20px;
+}
+.university-dialog p {
+    font-size: 16px;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+.university-dialog #dice-result-text {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 30px;
+    color: #2196F3;
+}
+.university-dialog .ok-button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+}
+.university-dialog .ok-button:hover {
+    background-color: #45a049;
+}
