@@ -365,8 +365,8 @@ function generateMapGrid() {
         // 市营电车站格子特殊样式 - 草绿色
         if (grid.name === '市营电车站') {
             gridElement.classList.add('grid-station');
-        } else if (grid.name === '机械汤') {
-            // 机械汤格子特殊样式 - 灰色
+        } else if (grid.name === '机械汤' || grid.name === '水道桥' || grid.name === '咖啡厅' || grid.name === '电影院' || grid.name === '十二阶' || grid.name === '吾妻桥' || grid.name === '三千堂') {
+            // 机械汤、水道桥、咖啡厅、电影院、十二阶、吾妻桥、三千堂格子特殊样式 - 灰色
             gridElement.classList.add('grid-mechanical-bath');
         } else if (!grid.isSpecial && !grid.types.length) {
             // 普通格子样式 - 白色
@@ -2936,6 +2936,88 @@ function showStationDialog(player, playerIndex, itemIndex) {
     });
 }
 
+// 显示水道桥弹窗
+function showWaterwayDialog() {
+    // 创建弹出框
+    const waterwayDialog = document.createElement('div');
+    waterwayDialog.className = 'station-dialog';
+    
+    // 从模板加载HTML内容
+    const template = document.getElementById('waterway-dialog-template');
+    if (template) {
+        waterwayDialog.innerHTML = template.innerHTML;
+    } else {
+        // 如果模板不存在，使用默认HTML
+        waterwayDialog.innerHTML = `
+            <div class="station-dialog-content">
+                <div class="station-dialog-header">
+                    <h3>是否要丢弃道具？</h3>
+                    <p>可以丢弃手里不需要的任意道具卡，不消耗行动点</p>
+                </div>
+                <div class="item-list" id="waterway-item-list">
+                </div>
+                <div class="station-dialog-footer">
+                    <button class="cancel-waterway">取消</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.body.appendChild(waterwayDialog);
+    
+    // 显示玩家拥有的道具
+    const itemList = waterwayDialog.querySelector('#waterway-item-list');
+    if (itemList) {
+        const currentPlayer = gameState.players[gameState.currentPlayer];
+        if (currentPlayer.items.length === 0) {
+            itemList.innerHTML = '<p>你没有任何道具可以丢弃</p>';
+        } else {
+            currentPlayer.items.forEach((item, index) => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'waterway-item';
+                itemElement.dataset.itemIndex = index;
+                itemElement.innerHTML = `
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-description">${item.description}</div>
+                `;
+                itemList.appendChild(itemElement);
+            });
+        }
+    }
+    
+    // 处理道具选择
+    const itemElements = waterwayDialog.querySelectorAll('.waterway-item');
+    itemElements.forEach(itemElement => {
+        itemElement.addEventListener('click', () => {
+            const itemIndex = parseInt(itemElement.dataset.itemIndex);
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            const item = currentPlayer.items[itemIndex];
+            
+            // 从玩家道具栏中移除道具
+            currentPlayer.items.splice(itemIndex, 1);
+            currentPlayer.cards = Math.max(0, currentPlayer.cards - 1);
+            
+            // 记录日志
+            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）在水道桥丢弃了道具${item.name}`);
+            
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}在水道桥丢弃了道具${item.name}！`;
+            
+            // 移除对话框
+            document.body.removeChild(waterwayDialog);
+            
+            // 更新UI
+            updateUI();
+        });
+    });
+    
+    // 处理取消按钮
+    const cancelButton = waterwayDialog.querySelector('.cancel-waterway');
+    cancelButton.addEventListener('click', () => {
+        document.body.removeChild(waterwayDialog);
+    });
+}
+
 // 掷骰子
 function rollDice() {
     if (!gameState.gameStarted) return;
@@ -3384,6 +3466,42 @@ function handleGridFunction() {
     if (currentGrid.types.includes('start')) {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}回到了起点！`;
         logEvent(`触发效果：玩家${gameState.currentPlayer + 1}回到了起点`);
+    }
+
+    // 处理市营电车站格子 - 可点击
+    if (currentGrid.name === '市营电车站') {
+        const currentStation = document.querySelector(`.grid-${gameState.tokenPosition}`);
+        if (currentStation) {
+            currentStation.classList.add('clickable');
+            currentStation.onclick = function() {
+                showStationDialog();
+            };
+        }
+    } else {
+        // 移除其他格子的点击状态
+        const stationGrids = document.querySelectorAll('.grid-station.clickable');
+        stationGrids.forEach(grid => {
+            grid.classList.remove('clickable');
+            grid.onclick = null;
+        });
+    }
+
+    // 处理水道桥格子 - 可点击
+    if (currentGrid.name === '水道桥') {
+        const currentWaterway = document.querySelector(`.grid-${gameState.tokenPosition}`);
+        if (currentWaterway) {
+            currentWaterway.classList.add('clickable');
+            currentWaterway.onclick = function() {
+                showWaterwayDialog();
+            };
+        }
+    } else {
+        // 移除其他格子的点击状态
+        const waterwayGrids = document.querySelectorAll('.grid-mechanical-bath.clickable');
+        waterwayGrids.forEach(grid => {
+            grid.classList.remove('clickable');
+            grid.onclick = null;
+        });
     }
 
     // 使用策略模式处理格子效果
