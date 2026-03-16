@@ -2197,6 +2197,7 @@ const elements = {
     currentPlayerDisplay: document.getElementById('current-player'),
     roundCount: document.getElementById('round-count'),
     weekCount: document.getElementById('week-count'),
+    puddleCount: document.getElementById('puddle-count'),
     gameMessage: document.getElementById('game-message'),
     token: document.getElementById('token'),
     directionIndicator: document.getElementById('direction-indicator'),
@@ -2628,6 +2629,9 @@ function updateUI() {
     
     // 更新周目数显示
     elements.weekCount.textContent = gameState.week;
+
+    // 更新水洼数显示
+    elements.puddleCount.textContent = gameState.puddleCount || 0;
 
     // 更新方向指示器
     updateDirectionIndicator();
@@ -3125,7 +3129,11 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
                 
                 // 设置目标玩家为死亡
                 targetPlayer.status = 'die';
-                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被${item.name}杀死`);
+                // 玩家死亡后丢失所有道具
+                const lostItems = targetPlayer.items.length;
+                targetPlayer.items = [];
+                targetPlayer.cards = 0;
+                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被${item.name}杀死，丢失了${lostItems}个道具`);
 
                 // 显示消息
                 elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被${item.name}杀死！`;
@@ -3608,7 +3616,11 @@ function killPlayer() {
             } else {
                 // 设置目标玩家为死亡
                 targetPlayer.status = 'die';
-                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死`);
+                // 玩家死亡后丢失所有道具
+                const lostItems = targetPlayer.items.length;
+                targetPlayer.items = [];
+                targetPlayer.cards = 0;
+                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死，丢失了${lostItems}个道具`);
 
                 // 显示消息
                 elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被杀死！`;
