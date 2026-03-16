@@ -1281,6 +1281,108 @@ class SevenSpiceItemStrategy extends ItemStrategy {
     }
 }
 
+// 《白发小僧》道具策略
+class WhiteHairedMonkItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 检查场上是否有存活的水上角色玩家
+        let hasAliveMizukami = false;
+        gameState.players.forEach((targetPlayer, targetIndex) => {
+            if (targetPlayer.role === '水上' && targetPlayer.status === 'alive') {
+                // 使水上角色玩家的好感下降10
+                updateFavor(targetPlayer, -10);
+                hasAliveMizukami = true;
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用《白发小僧》，使玩家${targetIndex + 1}（水上）的好感下降10点`);
+            }
+        });
+
+        if (hasAliveMizukami) {
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《白发小僧》，使所有存活的水上角色玩家的好感下降10点！`;
+        } else {
+            // 场上没有存活的水上角色玩家，好感度降低不生效
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《白发小僧》，但场上没有存活的水上角色玩家，好感度降低不生效！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用《白发小僧》，但场上没有存活的水上角色玩家`);
+        }
+
+        // 处理行动后逻辑
+        handlePostActionLogic(player, playerIndex);
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
+// 《幽灵塔》道具策略
+class GhostTowerItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 检查场上是否有存活的川濑角色玩家
+        let hasAliveKawase = false;
+        gameState.players.forEach((targetPlayer, targetIndex) => {
+            if (targetPlayer.role === '川濑' && targetPlayer.status === 'alive') {
+                // 使川濑角色玩家的好感下降10
+                updateFavor(targetPlayer, -10);
+                hasAliveKawase = true;
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用《幽灵塔》，使玩家${targetIndex + 1}（川濑）的好感下降10点`);
+            }
+        });
+
+        if (hasAliveKawase) {
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《幽灵塔》，使所有存活的川濑角色玩家的好感下降10点！`;
+        } else {
+            // 场上没有存活的川濑角色玩家，好感度降低不生效
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《幽灵塔》，但场上没有存活的川濑角色玩家，好感度降低不生效！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用《幽灵塔》，但场上没有存活的川濑角色玩家`);
+        }
+
+        // 处理行动后逻辑
+        handlePostActionLogic(player, playerIndex);
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
+// 《阁楼里的两位处女》道具策略
+class TwoVirginsItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 检查场上是否有存活的博士角色玩家
+        let hasAliveDoctor = false;
+        gameState.players.forEach((targetPlayer, targetIndex) => {
+            if (targetPlayer.role === '博士' && targetPlayer.status === 'alive') {
+                // 使博士角色玩家的好感下降10
+                updateFavor(targetPlayer, -10);
+                hasAliveDoctor = true;
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用《阁楼里的两位处女》，使玩家${targetIndex + 1}（博士）的好感下降10点`);
+            }
+        });
+
+        if (hasAliveDoctor) {
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《阁楼里的两位处女》，使所有存活的博士角色玩家的好感下降10点！`;
+        } else {
+            // 场上没有存活的博士角色玩家，好感度降低不生效
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《阁楼里的两位处女》，但场上没有存活的博士角色玩家，好感度降低不生效！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用《阁楼里的两位处女》，但场上没有存活的博士角色玩家`);
+        }
+
+        // 处理行动后逻辑
+        handlePostActionLogic(player, playerIndex);
+
+        return false; // 不继续执行后续逻辑
+    }
+}
+
 // 道具类型到策略的映射表
 const itemStrategyMap = {
     'move': MoveItemStrategy,
@@ -1301,7 +1403,10 @@ const itemStrategyMap = {
     'drama_script': DramaScriptItemStrategy,
     'school_cap': SchoolCapItemStrategy,
     'mask': MaskItemStrategy,
-    'seven_spice': SevenSpiceItemStrategy
+    'seven_spice': SevenSpiceItemStrategy,
+    'white_haired_monk': WhiteHairedMonkItemStrategy,
+    'ghost_tower': GhostTowerItemStrategy,
+    'two_virgins': TwoVirginsItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1316,7 +1421,10 @@ const itemNameToTypeMap = {
     '钥匙串': 'keychain',
     '银怀表': 'silver_watch',
     '笔记本': 'notebook',
-    '七味粉': 'seven_spice'
+    '七味粉': 'seven_spice',
+    '《白发小僧》': 'white_haired_monk',
+    '《幽灵塔》': 'ghost_tower',
+    '《阁楼里的两位处女》': 'two_virgins'
 };
 
 // 游戏对话框服务
@@ -2124,6 +2232,19 @@ function useItem(playerIndex, itemIndex) {
         if (player.role === '薰') {
             canUseWithoutAction = true;
         }
+    } else if (item.name === '《白发小僧》') {
+        if (player.role === '店主') {
+            //todo 暂时没有店主
+            canUseWithoutAction = true;
+        }
+    } else if (item.name === '《幽灵塔》') {
+        if (player.role === '博士') {
+            canUseWithoutAction = true;
+        }
+    } else if (item.name === '《阁楼里的两位处女》') {
+        if (player.role === '水上') {
+            canUseWithoutAction = true;
+        }
     }
     
     if (actionPoints <= 0 && !canUseWithoutAction) {
@@ -2189,6 +2310,18 @@ function useItem(playerIndex, itemIndex) {
             }
         } else if (item.name === '能面') {
             if (player.role === '薰') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '《白发小僧》') {
+            if (player.role === '店主') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '《幽灵塔》') {
+            if (player.role === '博士') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '《阁楼里的两位处女》') {
+            if (player.role === '水上') {
                 shouldConsumeAction = false;
             }
         }
