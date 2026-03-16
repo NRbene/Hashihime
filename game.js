@@ -67,6 +67,8 @@ function parseItemCSV(csvText) {
                     item.targetGrid = 24; // 电影院是第25个格子，索引为24
                 } else if (name === '提灯') {
                     item.type = 'custom_move';
+                } else if (name === '金鱼花洒') {
+                    item.type = 'goldfish_shower';
                 }
                 break;
             case '手牌':
@@ -1002,6 +1004,114 @@ class ActionItemStrategy extends ItemStrategy {
     }
 }
 
+// 金鱼花洒道具策略
+class GoldfishShowerItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 动态获取冰川宅范围内的格子
+        const glacierRange = [];
+        gridConfig.forEach((grid, index) => {
+            if (grid.name === '冰川宅') {
+                glacierRange.push(index);
+            }
+        });
+        
+        // 创建地图选择对话框
+        this.createMapSelectionDialog(player, playerIndex, item, itemIndex, glacierRange);
+
+        return false; // 不继续执行后续逻辑
+    }
+    
+    // 创建地图选择对话框
+    createMapSelectionDialog(player, playerIndex, item, itemIndex, glacierRange) {
+        // 创建弹出框
+        const mapDialog = document.createElement('div');
+        mapDialog.className = 'map-selection-dialog';
+        
+        // 构建地图HTML
+        let mapHTML = '<div class="map-selection-content">';
+        mapHTML += '<div class="map-selection-header">';
+        mapHTML += '<h3>选择要移动到的冰川宅地块：</h3>';
+        mapHTML += '</div>';
+        mapHTML += '<div class="map-grid-container">';
+        mapHTML += '<div class="map-grid" id="selection-map">';
+        
+        // 绘制地图格子
+        gridConfig.forEach((grid, index) => {
+            const isSelectable = glacierRange.includes(index);
+            const isCurrent = index === gameState.tokenPosition;
+            const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
+            const dataIndex = isSelectable ? `data-grid-index="${index}"` : '';
+            
+            mapHTML += `<div class="${className}" ${dataIndex}>`;
+            mapHTML += `<div class="grid-id">${grid.id}</div>`;
+            mapHTML += `<div class="grid-name">${grid.name}</div>`;
+            mapHTML += '</div>';
+        });
+        
+        mapHTML += '</div>';
+        mapHTML += '</div>';
+        mapHTML += '<div class="map-selection-footer">';
+        mapHTML += '<button class="cancel-map-selection">取消</button>';
+        mapHTML += '</div>';
+        mapHTML += '</div>';
+        
+        mapDialog.innerHTML = mapHTML;
+        document.body.appendChild(mapDialog);
+        
+        // 处理格子选择
+        const selectableItems = mapDialog.querySelectorAll('.map-grid-item.selectable');
+        selectableItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                const targetGridIndex = parseInt(itemElement.dataset.gridIndex);
+                const targetGrid = gridConfig[targetGridIndex];
+                
+                // 移动棋子
+                const oldPosition = gameState.tokenPosition;
+                const oldGrid = gridConfig[oldPosition];
+                gameState.tokenPosition = targetGridIndex;
+                updateTokenPosition();
+                
+                // 记录移动日志
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${targetGrid.id}.${targetGrid.name}`);
+                
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，移动到${targetGrid.id}.${targetGrid.name}！`;
+                
+                // 移除对话框
+                document.body.removeChild(mapDialog);
+                
+                // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
+                
+                // 处理新位置的格子功能
+                setTimeout(() => {
+                    handleGridFunction();
+                }, 500);
+            });
+        });
+        
+        // 处理取消按钮
+        const cancelButton = mapDialog.querySelector('.cancel-map-selection');
+        cancelButton.addEventListener('click', () => {
+            // 恢复道具
+            player.items.push(item);
+            player.cards++;
+            // 移除对话框
+            document.body.removeChild(mapDialog);
+            // 恢复行动点（如果不是博士）
+            if (player.role !== '博士') {
+                player.action++;
+            }
+            // 显示消息
+            elements.gameMessage.textContent = `取消使用${item.name}！`;
+        });
+    }
+}
+
 // 道具类型到策略的映射表
 const itemStrategyMap = {
     'move': MoveItemStrategy,
@@ -1015,7 +1125,8 @@ const itemStrategyMap = {
     'action': ActionItemStrategy,
     'keychain': KeychainItemStrategy,
     'silver_watch': SilverWatchItemStrategy,
-    'notebook': NotebookItemStrategy
+    'notebook': NotebookItemStrategy,
+    'goldfish_shower': GoldfishShowerItemStrategy
 };
 
 // 道具名称到类型的映射表
@@ -1811,6 +1922,10 @@ function useItem(playerIndex, itemIndex) {
         if (player.role === '川濑') {
             canUseWithoutAction = true;
         }
+    } else if (item.name === '金鱼花洒') {
+        if (player.role === '博士') {
+            canUseWithoutAction = true;
+        }
     }
     
     if (actionPoints <= 0 && !canUseWithoutAction) {
@@ -1856,6 +1971,10 @@ function useItem(playerIndex, itemIndex) {
             }
         } else if (item.name === '念珠') {
             if (player.role === '水上' || player.role === '薰') {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '金鱼花洒') {
+            if (player.role === '博士') {
                 shouldConsumeAction = false;
             }
         }
