@@ -103,6 +103,16 @@ function parseItemCSV(csvText) {
                     item.type = 'colspice';
                 }
                 break;
+            case '大复活术':
+                if (name === '雨水') {
+                    item.type = 'rain_water';
+                }
+                break;
+            case '周目变动':
+                if (name === '时光机') {
+                    item.type = 'time_machine';
+                }
+                break;
         }
 
         parsedItems[item.name] = item;
@@ -1725,6 +1735,181 @@ class RainWaterItemStrategy extends ItemStrategy {
     }
 }
 
+// 时光机道具策略
+class TimeMachineItemStrategy extends ItemStrategy {
+    execute(player, playerIndex, item, itemIndex) {
+        // 从道具列表中移除
+        player.items.splice(itemIndex, 1);
+        player.cards = Math.max(0, player.cards - 1);
+
+        // 进入新周目，效果同雨水一样
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了时光机，原地进入新周目！`;
+        logEvent(`触发效果：玩家${playerIndex + 1}（${player.role}）使用时光机，原地进入新周目`);
+
+        // 周目+1
+        gameState.week++;
+
+        // 移动方向逆转
+        gameState.reverseDirection = !gameState.reverseDirection;
+
+        // 重置所有人的行动点为初始行动点
+        gameState.players.forEach((targetPlayer, index) => {
+            targetPlayer.action = characterAttributes[targetPlayer.role].action;
+            // 重置钥匙串效果
+            targetPlayer.hasKeychain = false;
+            // 如果玩家死亡，复活并重置好感度
+            if (targetPlayer.status === 'die') {
+                targetPlayer.status = 'alive';
+                targetPlayer.favor = characterAttributes[targetPlayer.role].initialFavor;
+                logEvent(`玩家${index + 1}（${targetPlayer.role}）被复活，好感度重置为初始值`);
+            }
+            // 将本玩家之外的、存活的玩家的好感度重置为角色初始值
+            if (index !== playerIndex && targetPlayer.status === 'alive') {
+                targetPlayer.favor = characterAttributes[targetPlayer.role].initialFavor;
+                logEvent(`玩家${index + 1}（${targetPlayer.role}）的好感度重置为初始值`);
+            }
+        });
+
+        // 使用者恢复所有行动点
+        player.action = characterAttributes[player.role].action;
+        logEvent(`玩家${playerIndex + 1}（${player.role}）恢复了所有行动点`);
+
+        // 如果使用者手持道具数量未达到道具上限，则从卡池内获取道具卡
+        const maxCards = characterAttributes[player.role].maxCards;
+        while (player.cards < maxCards && gameState.itemPool.length > 0) {
+            const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+            const itemName = gameState.itemPool[randomIndex];
+            const newItem = items[itemName];
+
+            // 从道具池中移除该道具
+            gameState.itemPool.splice(randomIndex, 1);
+
+            // 添加道具到玩家的道具数组
+            player.items.push(newItem);
+            player.cards++;
+
+            logEvent(`玩家${playerIndex + 1}（${player.role}）从卡池获取了道具${newItem.name}`);
+        }
+
+        // 立即更新UI
+        updateUI();
+
+        // 创建地图选择对话框，可让棋子移动至任何位置
+        this.createTimeMachineMapSelectionDialog(player, playerIndex, item, itemIndex);
+
+        return false; // 不继续执行后续逻辑
+    }
+
+    // 创建时光机专用地图选择对话框
+    createTimeMachineMapSelectionDialog(player, playerIndex, item, itemIndex) {
+        // 创建弹出框
+        const mapDialog = document.createElement('div');
+        mapDialog.className = 'map-selection-dialog';
+        
+        // 从模板加载HTML内容
+        const templatesIframe = document.getElementById('templates-iframe');
+        let template = null;
+        if (templatesIframe && templatesIframe.contentDocument) {
+            template = templatesIframe.contentDocument.getElementById('map-selection-dialog-template');
+        }
+        if (!template) {
+            template = document.getElementById('map-selection-dialog-template');
+        }
+        if (template) {
+            let templateHTML = template.innerHTML;
+            // 替换模板中的变量
+            templateHTML = templateHTML.replace('{{locationName}}', '任意位置');
+            mapDialog.innerHTML = templateHTML;
+        }
+        
+        document.body.appendChild(mapDialog);
+        
+        // 绘制地图格子
+        const selectionMap = mapDialog.querySelector('#selection-map');
+        if (selectionMap) {
+            gridConfig.forEach((grid, index) => {
+                const isCurrent = index === gameState.tokenPosition;
+                const isSelectable = !isCurrent;
+                const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
+                
+                const gridElement = document.createElement('div');
+                gridElement.className = className;
+                if (isSelectable) {
+                    gridElement.dataset.gridIndex = index;
+                }
+                gridElement.innerHTML = `
+                    <div class="grid-id">${grid.id}</div>
+                    <div class="grid-name">${grid.name}</div>
+                `;
+                selectionMap.appendChild(gridElement);
+            });
+        }
+        
+        // 处理格子选择
+        const selectableItems = mapDialog.querySelectorAll('.map-grid-item.selectable');
+        selectableItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                const targetGridIndex = parseInt(itemElement.dataset.gridIndex);
+                const targetGrid = gridConfig[targetGridIndex];
+                
+                // 移动棋子
+                const oldPosition = gameState.tokenPosition;
+                const oldGrid = gridConfig[oldPosition];
+                gameState.tokenPosition = targetGridIndex;
+                updateTokenPosition();
+                
+                // 记录移动日志
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用时光机，从${oldGrid.id}.${oldGrid.name}移动到${targetGrid.id}.${targetGrid.name}`);
+                
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了时光机，移动到${targetGrid.id}.${targetGrid.name}！`;
+                
+                // 移除对话框
+                document.body.removeChild(mapDialog);
+                
+                // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
+                
+                // 处理新位置的格子功能
+                setTimeout(() => {
+                    handleGridFunction();
+                }, 500);
+
+                // 结束当前玩家的行动（博士使用时光机后不会自动结束行动）
+                if (player.role !== '博士') {
+                    setTimeout(() => {
+                        endTurn();
+                    }, 1000);
+                }
+            });
+        });
+        
+        // 处理取消按钮
+        const cancelButton = mapDialog.querySelector('.cancel-map-selection');
+        cancelButton.addEventListener('click', () => {
+            // 显示确认对话框
+            if (confirm('确认不移动棋子？')) {
+                // 移除对话框
+                document.body.removeChild(mapDialog);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}放弃了移动棋子！`;
+                // 处理行动后逻辑
+                handlePostActionLogic(player, playerIndex);
+                // 处理当前位置的格子功能
+                setTimeout(() => {
+                    handleGridFunction();
+                }, 500);
+                // 结束当前玩家的行动（博士使用时光机后不会自动结束行动）
+                if (player.role !== '博士') {
+                    setTimeout(() => {
+                        endTurn();
+                    }, 1000);
+                }
+            }
+        });
+    }
+}
+
 // 道具类型到策略的映射表
 const itemStrategyMap = {
     'move': MoveItemStrategy,
@@ -1736,6 +1921,7 @@ const itemStrategyMap = {
     'kill_with_weapon': WeaponItemStrategy,
     'favor': FavorItemStrategy,
     'action': ActionItemStrategy,
+    'time_machine': TimeMachineItemStrategy,
     'keychain': KeychainItemStrategy,
     'silver_watch': SilverWatchItemStrategy,
     'notebook': NotebookItemStrategy,
@@ -2746,6 +2932,11 @@ function useItem(playerIndex, itemIndex) {
             if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅' || currentGrid.name === '电影院')) {
                 canUseWithoutAction = true;
             }
+        } else if (item.name === '时光机') {
+            // 博士不消耗行动点可使用此道具
+            if (player.role === '博士') {
+                canUseWithoutAction = true;
+            }
         }
     
     if (actionPoints <= 0 && !canUseWithoutAction) {
@@ -2829,6 +3020,11 @@ function useItem(playerIndex, itemIndex) {
             // 检查当前是否在市营电车站、机械汤、咖啡厅或电影院格子上
             const currentGrid = gridConfig[gameState.tokenPosition];
             if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅' || currentGrid.name === '电影院')) {
+                shouldConsumeAction = false;
+            }
+        } else if (item.name === '时光机') {
+            // 博士不消耗行动点可使用此道具
+            if (player.role === '博士') {
                 shouldConsumeAction = false;
             }
         }
