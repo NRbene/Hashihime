@@ -683,3 +683,45 @@ h2 {
 .cancel-map-selection:hover {
     background-color: #999;
 }
+
+/* 胜利弹窗样式 */
+.win-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.win-dialog-content {
+    background-color: white;
+    padding: 40px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+.win-dialog-content h2 {
+    color: #4CAF50;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+.win-dialog-content p {
+    font-size: 18px;
+    margin-bottom: 30px;
+}
+.close-win-dialog {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+.close-win-dialog:hover {
+    background-color: #45a049;
+}

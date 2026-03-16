@@ -2762,6 +2762,27 @@ function handleGridFunction() {
     handlePostActionLogic(currentPlayer, gameState.currentPlayer);
 }
 
+// 显示胜利弹窗
+function showWinDialog(winner) {
+    // 创建弹窗
+    const winDialog = document.createElement('div');
+    winDialog.className = 'win-dialog';
+    winDialog.innerHTML = `
+        <div class="win-dialog-content">
+            <h2>游戏已结束</h2>
+            <p>胜利者是：${winner}</p>
+            <button class="close-win-dialog">确定</button>
+        </div>
+    `;
+    document.body.appendChild(winDialog);
+    
+    // 处理关闭按钮
+    const closeButton = winDialog.querySelector('.close-win-dialog');
+    closeButton.addEventListener('click', () => {
+        document.body.removeChild(winDialog);
+    });
+}
+
 // 检查胜利条件
 function checkWinCondition() {
     const playerCount = gameState.players.length;
@@ -2772,6 +2793,8 @@ function checkWinCondition() {
             elements.gameMessage.textContent = `玩家${i + 1}（A类型）好感度达到100，游戏胜利！`;
             logEvent(`游戏胜利：玩家${i + 1}（A类型）好感度达到100`);
             gameState.gameWon = true;
+            // 显示胜利弹窗
+            showWinDialog(`玩家${i + 1}（${player.role}）`);
             return true;
         }
     }
@@ -2790,9 +2813,11 @@ function checkWinCondition() {
     }
 
     if (aliveAPlayers === 0 && aliveBPlayers > 0) {
-        elements.gameMessage.textContent = '所有A玩家已被杀死，B玩家胜利！';
-        logEvent(`游戏胜利：所有A玩家已被杀死，B玩家胜利`);
+        elements.gameMessage.textContent = '所有发小已被杀死，薰胜利！';
+        logEvent(`游戏胜利：所有发小已被杀死，薰胜利`);
         gameState.gameWon = true;
+        // 显示胜利弹窗
+        showWinDialog('薰');
         return true;
     }
 
