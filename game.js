@@ -3134,7 +3134,8 @@ function saveGameState() {
         itemPool: [...gameState.itemPool],
         gameWon: gameState.gameWon,
         week: gameState.week,
-        reverseDirection: gameState.reverseDirection
+        reverseDirection: gameState.reverseDirection,
+        puddleCount: gameState.puddleCount
     };
     gameState.history.push(stateCopy);
     // 限制历史记录长度，只保留最近10个状态
@@ -4962,6 +4963,7 @@ function undoAction() {
         gameState.gameWon = previousState.gameWon;
         gameState.week = previousState.week;
         gameState.reverseDirection = previousState.reverseDirection;
+        gameState.puddleCount = previousState.puddleCount;
 
         // 更新UI
         updateUI();
