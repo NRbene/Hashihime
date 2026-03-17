@@ -4570,20 +4570,60 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
             }
 
             if (hasDefense) {
-                // 移除防御道具
-                targetPlayer.items.splice(defenseIndex, 1);
-                targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                // 检查是否是念珠道具
+                if (defenseItemName === '念珠') {
+                    // 计算需要消耗的行动点
+                    let requiredAction = 0;
+                    if (targetPlayer.role !== '薰' && targetPlayer.role !== '水上') {
+                        requiredAction = 1;
+                    }
+                    
+                    // 检查行动点是否足够
+                    if (targetPlayer.action < requiredAction) {
+                        // 行动点不足，防御不生效，直接死亡
+                        // 移除防御道具
+                        targetPlayer.items.splice(defenseIndex, 1);
+                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                        
+                        // 设置目标玩家为死亡
+                        targetPlayer.status = 'die';
+                        // 玩家死亡后丢失所有道具
+                        const lostItems = targetPlayer.items.length;
+                        targetPlayer.items = [];
+                        targetPlayer.cards = 0;
+                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）行动点不足，念珠防御不生效，被${item.name}杀死，丢失了${lostItems}个道具`);
 
-                // 记录日志
-                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害`);
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）行动点不足，念珠防御不生效，已被${item.name}杀死！`;
+                    } else {
+                        // 行动点足够，防御生效
+                        // 移除防御道具
+                        targetPlayer.items.splice(defenseIndex, 1);
+                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
 
-                // 显示消息
-                elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害！`;
+                        // 记录日志
+                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御了杀害`);
 
-                // 如果使用念珠防御，且使用者不是薰或者水上，且行动点>=1，则扣除1行动点
-                if (defenseItemName === '念珠' && targetPlayer.role !== '薰' && targetPlayer.role !== '水上' && targetPlayer.action >= 1) {
-                    targetPlayer.action--;
-                    logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御杀害，扣除1点行动点`);
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御了杀害！`;
+
+                        // 消耗行动点
+                        if (requiredAction > 0) {
+                            targetPlayer.action -= requiredAction;
+                            logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御杀害，扣除${requiredAction}点行动点`);
+                        }
+                    }
+                } else {
+                    // 其他防御道具正常处理
+                    // 移除防御道具
+                    targetPlayer.items.splice(defenseIndex, 1);
+                    targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+
+                    // 记录日志
+                    logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害`);
+
+                    // 显示消息
+                    elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害！`;
                 }
             } else {
                 // 检查是否是特殊角色使用武器（不消耗行动点）
@@ -5206,20 +5246,60 @@ function killPlayer() {
             }
 
             if (hasDefense) {
-                // 移除防御道具
-                targetPlayer.items.splice(defenseIndex, 1);
-                targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                // 检查是否是念珠道具
+                if (defenseItemName === '念珠') {
+                    // 计算需要消耗的行动点
+                    let requiredAction = 0;
+                    if (targetPlayer.role !== '薰' && targetPlayer.role !== '水上') {
+                        requiredAction = 1;
+                    }
+                    
+                    // 检查行动点是否足够
+                    if (targetPlayer.action < requiredAction) {
+                        // 行动点不足，防御不生效，直接死亡
+                        // 移除防御道具
+                        targetPlayer.items.splice(defenseIndex, 1);
+                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                        
+                        // 设置目标玩家为死亡
+                        targetPlayer.status = 'die';
+                        // 玩家死亡后丢失所有道具
+                        const lostItems = targetPlayer.items.length;
+                        targetPlayer.items = [];
+                        targetPlayer.cards = 0;
+                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）行动点不足，念珠防御不生效，被杀死，丢失了${lostItems}个道具`);
 
-                // 记录日志
-                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害`);
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）行动点不足，念珠防御不生效，已被杀死！`;
+                    } else {
+                        // 行动点足够，防御生效
+                        // 移除防御道具
+                        targetPlayer.items.splice(defenseIndex, 1);
+                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
 
-                // 显示消息
-                elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害！`;
+                        // 记录日志
+                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御了杀害`);
 
-                // 如果使用念珠防御，且使用者不是薰或者水上，且行动点>=1，则扣除1行动点
-                if (defenseItemName === '念珠' && targetPlayer.role !== '薰' && targetPlayer.role !== '水上' && targetPlayer.action >= 1) {
-                    targetPlayer.action--;
-                    logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御杀害，扣除1点行动点`);
+                        // 显示消息
+                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御了杀害！`;
+
+                        // 消耗行动点
+                        if (requiredAction > 0) {
+                            targetPlayer.action -= requiredAction;
+                            logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用念珠抵御杀害，扣除${requiredAction}点行动点`);
+                        }
+                    }
+                } else {
+                    // 其他防御道具正常处理
+                    // 移除防御道具
+                    targetPlayer.items.splice(defenseIndex, 1);
+                    targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+
+                    // 记录日志
+                    logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害`);
+
+                    // 显示消息
+                    elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）使用${defenseItemName}抵御了杀害！`;
                 }
             } else {
                 // 设置目标玩家为死亡
