@@ -5329,6 +5329,49 @@ function drawCard() {
 
 // 事件监听器将在window.onload中添加
 
+// 加载游戏日志
+async function loadEditLog() {
+    try {
+        const response = await fetch('editLog.csv');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const csvText = await response.text();
+        
+        // 解析CSV数据
+        const lines = csvText.trim().split('\n');
+        const logBody = document.getElementById('edit-log-body');
+        logBody.innerHTML = '';
+        
+        // 跳过表头行
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',');
+            if (values.length >= 2) {
+                const updateContent = values[0];
+                const updateDate = values[1];
+                
+                // 创建表格行
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${updateContent}</td>
+                    <td>${updateDate}</td>
+                `;
+                logBody.appendChild(row);
+            }
+        }
+    } catch (error) {
+        console.log('加载游戏日志失败:', error);
+        // 显示默认日志
+        const logBody = document.getElementById('edit-log-body');
+        logBody.innerHTML = `
+            <tr>
+                <td>游戏日志文件未找到</td>
+                <td>-</td>
+            </tr>
+        `;
+    }
+}
+
 // 初始化页面
 window.onload = async function () {
     // 初始化DOM元素
@@ -5427,6 +5470,9 @@ window.onload = async function () {
 
     // 初始化玩家数量显示
     handlePlayerCountChange();
+
+    // 加载游戏日志
+    await loadEditLog();
 
     // 尝试自动加载道具
     updateItemLoadStatus('加载中...');

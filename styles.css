@@ -673,6 +673,53 @@ h2 {
     font-weight: bold;
 }
 
+/* 游戏日志样式 */
+.game-log-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+}
+
+.game-log-section h3 {
+    margin-bottom: 15px;
+    color: #555;
+}
+
+.log-table-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#edit-log-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#edit-log-table th,
+#edit-log-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+#edit-log-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+#edit-log-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+#edit-log-table tr:hover {
+    background-color: #f5f5f5;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .player-info {
@@ -687,6 +734,10 @@ h2 {
     
     .player-setup {
         flex-direction: column;
+    }
+    
+    .log-table-container {
+        max-height: 200px;
     }
 }
 
