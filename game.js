@@ -12,9 +12,9 @@ function parseItemCSV(csvText) {
     const newItemPool = [];
 
     for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split('\t');
+        const values = lines[i].split(',');
 
-        // 新的CSV格式：涉及好感度	涉及行动点	其他功能	序号	道具名	数量	道具描述
+        // 新的CSV格式：涉及好感度,涉及行动点,其他功能,序号,道具名,数量,道具描述
         const 涉及好感度 = values[0];
         const 涉及行动点 = values[1];
         const 其他功能 = values[2];
@@ -139,7 +139,7 @@ function parseMapCSV(csvText) {
     const newGridConfig = [];
 
     for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split('\t');
+        const values = lines[i].split(',');
         const 涉及好感度 = values[0];
         const 功能分类 = values[1];
         const 所在格 = parseInt(values[2]);
@@ -5224,6 +5224,12 @@ window.onload = async function () {
     // 添加开始游戏按钮的事件监听器
     document.getElementById('start-game').addEventListener('click', initGame);
 
+    // 添加下载道具模板按钮的事件监听器
+    document.getElementById('download-item-template').addEventListener('click', downloadItemTemplate);
+
+    // 添加下载地图模板按钮的事件监听器
+    document.getElementById('download-map-template').addEventListener('click', downloadMapTemplate);
+
     // 添加游戏控制按钮的事件监听器
     const rollDiceButton = document.getElementById('roll-dice');
     if (rollDiceButton) {
@@ -5323,4 +5329,22 @@ function initLogTabs() {
             document.getElementById(tabId + '-content').classList.add('active');
         });
     });
+}
+
+// 下载道具模板
+function downloadItemTemplate() {
+    // 创建一个a标签
+    const link = document.createElement('a');
+    link.href = 'item.csv';
+    link.download = 'item.csv';
+    link.click();
+}
+
+// 下载地图模板
+function downloadMapTemplate() {
+    // 创建一个a标签
+    const link = document.createElement('a');
+    link.href = 'map.csv';
+    link.download = 'map.csv';
+    link.click();
 }
