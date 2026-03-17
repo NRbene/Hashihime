@@ -3789,6 +3789,12 @@ function updateUI() {
     // 更新道具显示
     updateItemsDisplay();
 
+    // 更新杀人按钮状态
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    if (elements.killPlayer) {
+        elements.killPlayer.disabled = currentPlayer.role !== '花泽' && currentPlayer.role !== '薰';
+    }
+
     // 更新棋子位置
     updateTokenPosition();
 }
@@ -4999,6 +5005,13 @@ function killPlayer() {
     if (currentPlayer.status !== 'alive') {
         elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}已死亡，无法执行杀人操作！`;
         logEvent(`玩家${gameState.currentPlayer + 1}已死亡，无法执行杀人操作`);
+        return;
+    }
+
+    // 检查角色是否为花泽或薰
+    if (currentPlayer.role !== '花泽' && currentPlayer.role !== '薰') {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）无法执行杀人操作，只有花泽和薰可以杀人！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）尝试杀人，但只有花泽和薰可以杀人`);
         return;
     }
 
