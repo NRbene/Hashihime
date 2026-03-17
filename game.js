@@ -3784,6 +3784,23 @@ function updateUI() {
         } else {
             playerElement.classList.remove('current-player');
         }
+
+        // 更新钥匙串图标
+        const playerNameElement = playerElement.querySelector('h3');
+        // 移除现有的钥匙图标
+        const existingKeyIcon = playerNameElement.querySelector('.key-icon');
+        if (existingKeyIcon) {
+            playerNameElement.removeChild(existingKeyIcon);
+        }
+        // 如果钥匙串生效，添加钥匙图标
+        if (player.hasKeychain) {
+            const keyIcon = document.createElement('span');
+            keyIcon.className = 'key-icon';
+            keyIcon.innerHTML = '🔑';
+            keyIcon.style.color = 'green';
+            keyIcon.style.marginLeft = '5px';
+            playerNameElement.appendChild(keyIcon);
+        }
     }
 
     // 更新道具显示
