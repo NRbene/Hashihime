@@ -1678,6 +1678,9 @@ class GlassesItemStrategy extends ItemStrategy {
             <div class="dialog-content">
                 <h3>使用眼镜</h3>
                 <p>强制其他存活且拥有行动点的角色玩家依次掷骰子</p>
+                <div class="total-result" style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">
+                    <strong>骰子点数总和：</strong><span class="total-dice">0</span>
+                </div>
                 <div class="players-list">
         `;
         
@@ -1739,6 +1742,10 @@ class GlassesItemStrategy extends ItemStrategy {
             .glasses-dialog .player-info {
                 margin-bottom: 10px;
             }
+            .glasses-dialog .total-result {
+                font-size: 16px;
+                background-color: #f9f9f9;
+            }
             .glasses-dialog button {
                 margin: 5px;
                 padding: 8px 16px;
@@ -1775,7 +1782,10 @@ class GlassesItemStrategy extends ItemStrategy {
         // 处理掷骰子按钮
         const rollDiceButtons = dialog.querySelectorAll('.roll-dice-button');
         const closeButton = dialog.querySelector('.close-button');
+        const totalDiceElement = dialog.querySelector('.total-dice');
         let rolledPlayers = 0;
+        let totalDice = 0;
+        const diceResults = {}; // 存储每个玩家的骰子结果
 
         rollDiceButtons.forEach(button => {
             button.addEventListener('click', () => {
@@ -1795,8 +1805,10 @@ class GlassesItemStrategy extends ItemStrategy {
                 diceResultElement.textContent = `骰子结果：${diceRoll}`;
                 diceResultElement.style.display = 'block';
 
-                // 移动棋子
-                this.moveToken(player, playerIndex, diceRoll);
+                // 存储骰子结果并更新总和
+                diceResults[targetPlayerIndex] = diceRoll;
+                totalDice += diceRoll;
+                totalDiceElement.textContent = totalDice;
 
                 // 禁用按钮
                 button.disabled = true;
@@ -1807,7 +1819,13 @@ class GlassesItemStrategy extends ItemStrategy {
 
                 // 检查是否所有玩家都已掷骰子
                 if (rolledPlayers === availablePlayers.length) {
-                    closeButton.style.display = 'block';
+                    // 所有玩家都已掷骰子，计算总和并移动棋子
+                    this.moveToken(player, playerIndex, totalDice);
+                    
+                    // 1秒后显示关闭按钮
+                    setTimeout(() => {
+                        closeButton.style.display = 'block';
+                    }, 1000);
                 }
             });
         });
@@ -1854,10 +1872,10 @@ class GlassesItemStrategy extends ItemStrategy {
         }
 
         // 记录移动日志
-        logEvent(`玩家${playerIndex + 1}（${player.role}）使用眼镜，强制其他玩家掷出${diceRoll}点，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
+        logEvent(`玩家${playerIndex + 1}（${player.role}）使用眼镜，强制其他玩家掷出总和${diceRoll}点，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
 
         // 显示消息
-        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用眼镜，强制其他玩家掷出${diceRoll}点，移动到${newGrid.id}.${newGrid.name}！`;
+        elements.gameMessage.textContent = `玩家${playerIndex + 1}使用眼镜，强制其他玩家掷出总和${diceRoll}点，移动到${newGrid.id}.${newGrid.name}！`;
     }
 }
 
