@@ -503,7 +503,7 @@ function updateItemPoolDisplay() {
 
     // 计算道具总数
     const currentItemCount = Object.values(itemCount).reduce((sum, count) => sum + count, 0);
-    const initialItemCount = itemPool.length + currentItemCount; // 初始道具数量 = 当前道具池数量 + 已被抽取的道具数量
+    const initialItemCount = itemPool.length; // 初始道具数量 = 原始道具池长度
 
     // 创建道具池头部，包含总数展示和搜索框
     const itemPoolHeader = document.createElement('div');
@@ -2083,7 +2083,7 @@ class BrainHellItemStrategy extends ItemStrategy {
             dialogContent += `<div class="player-option" data-player-index="${index}">`;
             dialogContent += `<div class="player-info">`;
             dialogContent += `<div class="player-name">玩家${index + 1}（${targetPlayer.role}）</div>`;
-            dialogContent += `<div class="player-favor">当前好感度：${targetPlayer.favor}</div>`;
+            dialogContent += `<div class="player-favor">当前好感度：${targetPlayer.role === '薰' ? '???' : targetPlayer.favor}</div>`;
             dialogContent += `</div>`;
             dialogContent += `</div>`;
         });
@@ -3762,7 +3762,7 @@ function updateUI() {
         elements[`player${i + 1}Action`].textContent = currentAction;
 
         elements[`player${i + 1}Cards`].textContent = player.cards;
-        elements[`player${i + 1}Favor`].textContent = player.favor;
+        elements[`player${i + 1}Favor`].textContent = player.role === '薰' ? '???' : player.favor;
         elements[`player${i + 1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
 
         // 更新当前玩家样式
