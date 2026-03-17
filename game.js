@@ -607,7 +607,7 @@ class GameStateManager {
             ],
             currentPlayer: 0,
             tokenPosition: 0,
-            round: 1,
+            round: 0,
             gameStarted: false,
             itemPool: [],
             gameWon: false,
@@ -4960,18 +4960,28 @@ function endTurn() {
 function nextPlayer() {
     const playerCount = gameState.players.length;
 
-    // 找到下一个存活的玩家
-    let nextPlayerIndex = (gameState.currentPlayer + 1) % playerCount;
-    while (gameState.players[nextPlayerIndex].status !== 'alive') {
-        elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
-        logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
-        nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
+    // 找到下一个存活的玩家，根据reverseDirection决定方向
+    let nextPlayerIndex;
+    if (gameState.reverseDirection) {
+        // 逆转方向：上一个玩家
+        nextPlayerIndex = (gameState.currentPlayer - 1 + playerCount) % playerCount;
+        while (gameState.players[nextPlayerIndex].status !== 'alive') {
+            elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
+            logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
+            nextPlayerIndex = (nextPlayerIndex - 1 + playerCount) % playerCount;
+        }
+    } else {
+        // 正常方向：下一个玩家
+        nextPlayerIndex = (gameState.currentPlayer + 1) % playerCount;
+        while (gameState.players[nextPlayerIndex].status !== 'alive') {
+            elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
+            logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
+            nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
+        }
     }
 
-    // 检查是否进入新回合
-    if (nextPlayerIndex === 0) {
-        gameStateManager.setState('round', gameState.round + 1);
-    }
+    // 每个玩家行动一次后，回合数+1
+    gameStateManager.setState('round', gameState.round + 1);
 
     gameStateManager.setState('currentPlayer', nextPlayerIndex);
     const currentPlayer = gameState.players[gameState.currentPlayer];
@@ -5063,7 +5073,7 @@ async function resetGame() {
     gameState.gameWon = false;
 
     // 重置回合数
-    gameState.round = 1;
+    gameState.round = 0;
 
     // 重置棋子位置
     gameState.tokenPosition = 0;
