@@ -235,6 +235,12 @@ function loadItemsFromCSV(csvText) {
         items = result.items;
         itemPool = result.itemPool;
 
+        // 检查是否至少载入了30个道具
+        if (Object.keys(items).length === 0 || itemPool.length < 30) {
+            console.error('加载道具失败: 至少需要载入30个道具');
+            return false;
+        }
+
         // 更新游戏状态中的道具池
         gameState.itemPool = [...itemPool];
 
@@ -1021,6 +1027,9 @@ class MoneyItemStrategy extends ItemStrategy {
 
                         // 处理行动后逻辑
                         handlePostActionLogic(player, playerIndex);
+
+                        // 监控道具池状态
+                        monitorItemPool();
                     } else {
                         elements.gameMessage.textContent = '道具池已空，无法抽取道具！';
                         logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱从牌堆抽取道具，但道具池已空`);
@@ -5227,6 +5236,9 @@ function drawCard() {
 
     // 处理行动后逻辑
     handlePostActionLogic(currentPlayer, gameState.currentPlayer);
+
+    // 监控道具池状态
+    monitorItemPool();
 }
 
 // 事件监听器将在window.onload中添加
@@ -5349,6 +5361,9 @@ window.onload = async function () {
     if (!loadedRoles) {
         console.log('角色配置加载失败，请确保role.csv文件存在且格式正确');
     }
+
+    // 初始化道具池监控
+    monitorItemPool();
 };
 
 // 初始化日志栏tab切换
@@ -5391,4 +5406,24 @@ function downloadMapTemplate() {
     link.href = 'map.csv';
     link.download = 'map.csv';
     link.click();
+}
+
+// 刷新道具池
+function refreshItemPool() {
+    if (gameState.itemPool.length === 0) {
+        // 重新补充道具池
+        gameState.itemPool = [...itemPool];
+        logEvent(`道具池已空，自动刷新道具池`);
+        elements.gameMessage.textContent = `道具池已空，已自动刷新道具池！`;
+        // 更新道具池显示
+        updateItemPoolDisplay();
+    }
+}
+
+// 监听道具池状态
+function monitorItemPool() {
+    // 检查道具池是否为空
+    if (gameState.itemPool.length === 0) {
+        refreshItemPool();
+    }
 }
