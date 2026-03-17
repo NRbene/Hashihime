@@ -3083,21 +3083,13 @@ function initElements() {
         directionIndicator: document.getElementById('direction-indicator'),
         logContent: document.getElementById('log-content'),
         playerCount: document.getElementById('player-count'),
-        player1Type: document.getElementById('player1-type'),
-        player2Type: document.getElementById('player2-type'),
-        player3Type: document.getElementById('player3-type'),
-        player4Type: document.getElementById('player4-type'),
-        player5Type: document.getElementById('player5-type'),
+
         player1Role: document.getElementById('player1-role'),
         player2Role: document.getElementById('player2-role'),
         player3Role: document.getElementById('player3-role'),
         player4Role: document.getElementById('player4-role'),
         player5Role: document.getElementById('player5-role'),
-        player1TypeDisplay: document.getElementById('player1-type-display'),
-        player2TypeDisplay: document.getElementById('player2-type-display'),
-        player3TypeDisplay: document.getElementById('player3-type-display'),
-        player4TypeDisplay: document.getElementById('player4-type-display'),
-        player5TypeDisplay: document.getElementById('player5-type-display'),
+
         player1RoleDisplay: document.getElementById('player1-role-display'),
         player2RoleDisplay: document.getElementById('player2-role-display'),
         player3RoleDisplay: document.getElementById('player3-role-display'),
@@ -3759,7 +3751,6 @@ function updateUI() {
     const playerCount = gameState.players.length;
     for (let i = 0; i < playerCount; i++) {
         const player = gameState.players[i];
-        elements[`player${i + 1}TypeDisplay`].textContent = player.type;
         elements[`player${i + 1}RoleDisplay`].textContent = player.role;
         // elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
         // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
@@ -4914,30 +4905,36 @@ function randomRoles() {
     for (let i = 1; i <= playerCount; i++) {
         const role = roles[(i - 1) % roles.length];
         const playerRoleSelect = document.getElementById(`player${i}-role`);
-        const playerTypeSelect = document.getElementById(`player${i}-type`);
 
-        if (playerRoleSelect && playerTypeSelect) {
+        if (playerRoleSelect) {
             playerRoleSelect.value = role;
-            // 根据角色类型自动设置玩家类型
-            playerTypeSelect.value = characterAttributes[role].type;
         }
     }
 }
 
 // 处理玩家数量变化
 function handlePlayerCountChange() {
-    const playerCount = parseInt(document.getElementById('player-count').value) || 3;
+    let playerCount = parseInt(document.getElementById('player-count').value) || 3;
+    
+    // 确保playerCount在3-5之间
+    if (playerCount < 3) {
+        playerCount = 3;
+        document.getElementById('player-count').value = 3;
+    } else if (playerCount > 5) {
+        playerCount = 5;
+        document.getElementById('player-count').value = 5;
+    }
 
     // 显示或隐藏玩家设置
-    for (let i = 3; i <= 5; i++) {
-        const playerInput = document.querySelector(`.player-input:nth-child(${i + 1})`);
+    for (let i = 1; i <= 5; i++) {
+        const playerInput = document.querySelector(`.player-input:nth-child(${i})`);
         if (playerInput) {
             playerInput.style.display = i <= playerCount ? 'block' : 'none';
         }
     }
 
     // 显示或隐藏玩家信息
-    for (let i = 3; i <= 5; i++) {
+    for (let i = 1; i <= 5; i++) {
         const playerInfo = document.querySelector(`.player.player${i}`);
         if (playerInfo) {
             playerInfo.style.display = i <= playerCount ? 'block' : 'none';
