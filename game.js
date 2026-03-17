@@ -673,6 +673,9 @@ class MoveItemStrategy extends ItemStrategy {
         const newGrid = gridConfig[item.targetGrid];
         updateTokenPosition();
 
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+
         // 处理好感度和行动点
         if (player.role !== '薰') {
             // 非薰玩家：只增加好感度，不恢复行动点
@@ -725,14 +728,17 @@ class CustomMoveItemStrategy extends ItemStrategy {
         steps = parseInt(steps);
         if (isNaN(steps) || steps < 1 || steps > 6) {
             alert('输入无效，请输入1-6之间的数字！');
-            // 恢复行动点
-            player.action++;
+            // 处理道具取消
+            handleItemCancel(player, playerIndex, item);
             return false;
         }
 
         // 从道具列表中移除
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
+
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 移动棋子
         const oldPosition = gameState.tokenPosition;
@@ -775,10 +781,13 @@ class ReverseMoveItemStrategy extends ItemStrategy {
         steps = parseInt(steps);
         if (isNaN(steps) || steps < 1 || steps > 6) {
             alert('输入无效，请输入1-6之间的数字！');
-            // 恢复行动点
-            player.action++;
+            // 处理道具取消
+            handleItemCancel(player, playerIndex, item);
             return false;
         }
+
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 移动棋子（反向移动）
         const oldPosition = gameState.tokenPosition;
@@ -825,8 +834,8 @@ class StealItemStrategy extends ItemStrategy {
         if (availablePlayers.length === 0) {
             elements.gameMessage.textContent = '没有可抢夺的目标！';
             logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用${item.name}，但没有可抢夺的目标`);
-            // 恢复行动点
-            player.action++;
+            // 处理道具取消
+            handleItemCancel(player, playerIndex, item);
             return false;
         }
 
@@ -836,6 +845,9 @@ class StealItemStrategy extends ItemStrategy {
             (itemElement) => {
                 const targetPlayerIndex = parseInt(itemElement.dataset.targetPlayer);
                 const targetItemIndex = parseInt(itemElement.dataset.itemIndex);
+
+                // 记录行动点消耗
+                logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
                 // 抢夺道具
                 const targetPlayer = gameState.players[targetPlayerIndex];
@@ -863,8 +875,8 @@ class StealItemStrategy extends ItemStrategy {
                 handlePostActionLogic(player, playerIndex);
             },
             () => {
-                // 恢复行动点
-                player.action++;
+                // 处理道具取消
+                handleItemCancel(player, playerIndex, item);
             }
         );
         return false; // 异步操作，不继续执行后续逻辑
@@ -877,6 +889,9 @@ class ColspiceItemStrategy extends ItemStrategy {
         // 从道具列表中移除
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
+
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 增加好感度或恢复行动点
         if (player.role !== '薰') {
@@ -907,6 +922,9 @@ class KeychainItemStrategy extends ItemStrategy {
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
 
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+
         // 设置钥匙串效果
         player.hasKeychain = true;
 
@@ -933,6 +951,9 @@ class SilverWatchItemStrategy extends ItemStrategy {
             1, // 扣除1点行动点
             (targetPlayer) => targetPlayer.action >= 1, // 条件：行动点>=1
             (targetPlayerIndex, targetPlayer) => {
+                // 记录行动点消耗
+                logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+
                 // 从道具列表中移除
                 player.items.splice(itemIndex, 1);
                 player.cards = Math.max(0, player.cards - 1);
@@ -964,6 +985,9 @@ class NotebookItemStrategy extends ItemStrategy {
             2, // 扣除2点行动点
             (targetPlayer) => targetPlayer.action >= 1, // 条件：行动点>=1
             (targetPlayerIndex, targetPlayer) => {
+                // 记录行动点消耗
+                logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+
                 // 从道具列表中移除
                 player.items.splice(itemIndex, 1);
                 player.cards = Math.max(0, player.cards - 1);
@@ -999,6 +1023,9 @@ class MoneyItemStrategy extends ItemStrategy {
         // 使用GameDialogService创建交换道具对话框
         GameDialogService.createExchangeDialog(
             (exchangeType) => {
+                // 记录行动点消耗
+                logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+
                 if (exchangeType === 'draw') {
                     // 从牌堆抽取
                     if (gameState.itemPool.length > 0) {
@@ -1034,8 +1061,8 @@ class MoneyItemStrategy extends ItemStrategy {
                     } else {
                         elements.gameMessage.textContent = '道具池已空，无法抽取道具！';
                         logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱从牌堆抽取道具，但道具池已空`);
-                        // 恢复行动点
-                        player.action++;
+                        // 处理道具取消
+                        handleItemCancel(player, playerIndex, item);
                     }
                 } else if (exchangeType === 'player') {
                     // 从其他玩家交换
@@ -1050,8 +1077,8 @@ class MoneyItemStrategy extends ItemStrategy {
                     if (availablePlayers.length === 0) {
                         elements.gameMessage.textContent = '没有可交换的目标！';
                         logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱从其他玩家交换道具，但没有可交换的目标`);
-                        // 恢复行动点
-                        player.action++;
+                        // 处理道具取消
+                        handleItemCancel(player, playerIndex, item);
                         return;
                     }
 
@@ -1088,8 +1115,8 @@ class MoneyItemStrategy extends ItemStrategy {
                             handlePostActionLogic(player, playerIndex);
                         },
                         () => {
-                            // 恢复行动点
-                            player.action++;
+                            // 处理道具取消
+                            handleItemCancel(player, playerIndex, item);
                         }
                     );
                 } else if (exchangeType === 'station') {
@@ -1119,8 +1146,8 @@ class MoneyItemStrategy extends ItemStrategy {
                     } else {
                         elements.gameMessage.textContent = '洗浴券不存在！';
                         logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱兑换洗浴券，但洗浴券不存在`);
-                        // 恢复行动点
-                        player.action++;
+                        // 处理道具取消
+                        handleItemCancel(player, playerIndex, item);
                     }
                 } else if (exchangeType === 'coffee') {
                     // 点餐
@@ -1153,14 +1180,14 @@ class MoneyItemStrategy extends ItemStrategy {
                     } else {
                         elements.gameMessage.textContent = '电影票不存在！';
                         logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱兑换电影票，但电影票不存在`);
-                        // 恢复行动点
-                        player.action++;
+                        // 处理道具取消
+                        handleItemCancel(player, playerIndex, item);
                     }
                 }
             },
             () => {
-                // 恢复行动点
-                player.action++;
+                // 处理道具取消
+                handleItemCancel(player, playerIndex, item);
             },
             isAtStation, // 传递是否显示搭乘电车选项
             isAtMechanicalBath, // 传递是否显示兑换洗浴券选项
@@ -1176,6 +1203,9 @@ class MoneyItemStrategy extends ItemStrategy {
 // 武器道具策略
 class WeaponItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+        
         // 处理武器类道具
         handleWeaponItem(player, playerIndex, itemIndex, item);
         return false; // 不继续执行后续逻辑
@@ -1188,6 +1218,9 @@ class FavorItemStrategy extends ItemStrategy {
         // 从道具列表中移除
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
+
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 处理好感度和行动点
         if (player.role !== '薰') {
@@ -1223,6 +1256,9 @@ class ActionItemStrategy extends ItemStrategy {
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
 
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+
         // 恢复行动点（全体人员都可以恢复）
         if (item.action > 0) {
             player.action += item.action;
@@ -1244,6 +1280,9 @@ class GoldfishShowerItemStrategy extends ItemStrategy {
         // 从道具列表中移除
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
+
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 动态获取冰川宅范围内的格子
         const targetRange = [];
@@ -1356,10 +1395,14 @@ class GoldfishShowerItemStrategy extends ItemStrategy {
                 shouldRestoreAction = false;
             }
             if (shouldRestoreAction) {
-                player.action++;
+                // 处理道具取消
+                handleItemCancel(player, playerIndex, item);
+            } else {
+                // 记录取消使用道具的日志（特殊角色）
+                logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用${item.name}（特殊：不消耗行动点）`);
+                // 显示消息
+                elements.gameMessage.textContent = `玩家取消了道具使用，行动点不变！`;
             }
-            // 显示消息
-            elements.gameMessage.textContent = `取消使用${item.name}！`;
         });
     }
 }
@@ -1370,6 +1413,9 @@ class SalmonCanItemStrategy extends ItemStrategy {
         // 从道具列表中移除
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
+
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 动态获取花泽家范围内的格子
         const targetRange = [];
@@ -1394,6 +1440,9 @@ class CameraItemStrategy extends ItemStrategy {
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
 
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+
         // 动态获取大泉家范围内的格子
         const targetRange = [];
         gridConfig.forEach((grid, index) => {
@@ -1417,6 +1466,9 @@ class DramaScriptItemStrategy extends ItemStrategy {
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
 
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+
         // 动态获取池田宅范围内的格子
         const targetRange = [];
         gridConfig.forEach((grid, index) => {
@@ -1439,6 +1491,9 @@ class SchoolCapItemStrategy extends ItemStrategy {
         // 从道具列表中移除
         player.items.splice(itemIndex, 1);
         player.cards = Math.max(0, player.cards - 1);
+
+        // 记录行动点消耗
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 动态获取帝国大学范围内的格子
         const targetRange = [];
@@ -1591,8 +1646,10 @@ class CarItemStrategy extends ItemStrategy {
             // 确保行动点是数字类型并返还
             player.action = Number(player.action) || 0;
             player.action += 2;
-            logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用汽车，行动点已返还，剩余行动点：${player.action}`);
-            elements.gameMessage.textContent = `取消使用汽车，行动点已返还！`;
+            // 记录取消使用道具的日志
+            logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用汽车，行动点不变`);
+            // 显示消息
+            elements.gameMessage.textContent = `玩家取消了道具使用，行动点不变！`;
             document.body.removeChild(dialog);
         });
     }
@@ -1668,6 +1725,8 @@ class GlassesItemStrategy extends ItemStrategy {
         if (availablePlayers.length === 0) {
             elements.gameMessage.textContent = `没有符合条件的玩家可以掷骰子！`;
             logEvent(`玩家${playerIndex + 1}（${player.role}）使用眼镜，但没有符合条件的玩家`);
+            // 处理道具取消
+            handleItemCancel(player, playerIndex, item);
             return false;
         }
 
@@ -2139,10 +2198,8 @@ class BrainHellItemStrategy extends ItemStrategy {
             player.cards++;
             // 移除对话框
             document.body.removeChild(dialog);
-            // 恢复行动点
-            player.action++;
-            // 显示消息
-            elements.gameMessage.textContent = `取消使用《脑髓地狱》！`;
+            // 处理道具取消
+            handleItemCancel(player, playerIndex, item);
         });
     }
 }
@@ -3747,9 +3804,6 @@ function useItem(playerIndex, itemIndex) {
         if (shouldConsumeAction) {
             player.action = Number(player.action) || 0;
             player.action--;
-            logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
-        } else {
-            logEvent(`玩家${playerIndex + 1}（${player.role}）使用道具（特殊：不消耗行动点）`);
         }
 
         // 使用策略模式处理道具效果
@@ -4036,8 +4090,8 @@ function showStationDialog(player, playerIndex, itemIndex) {
     // 处理取消按钮
     const cancelButton = stationDialog.querySelector('.cancel-station');
     cancelButton.addEventListener('click', () => {
-        // 恢复行动点
-        player.action++;
+        // 处理道具取消
+        handleItemCancel(player, playerIndex, { name: '钱' });
         document.body.removeChild(stationDialog);
     });
 }
@@ -4248,6 +4302,16 @@ function logEvent(message) {
     elements.logContent.scrollTop = elements.logContent.scrollHeight;
 }
 
+// 处理道具取消使用
+function handleItemCancel(player, playerIndex, item) {
+    // 恢复行动点
+    player.action++;
+    // 记录取消使用道具的日志
+    logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用${item.name}，行动点不变`);
+    // 显示消息
+    elements.gameMessage.textContent = `玩家取消了道具使用，行动点不变！`;
+}
+
 // 处理好感度变更
 function updateFavor(player, change) {
     // 假设好感度上限为100，下限为0
@@ -4324,8 +4388,8 @@ function createActionDeductionDialog(player, playerIndex, item, itemIndex, actio
     const cancelButton = targetDialog.querySelector('.cancel-target');
     cancelButton.addEventListener('click', () => {
         document.body.removeChild(targetDialog);
-        // 恢复行动点
-        player.action++;
+        // 处理道具取消
+        handleItemCancel(player, playerIndex, item);
     });
 
     return false; // 异步操作，不继续执行后续逻辑
