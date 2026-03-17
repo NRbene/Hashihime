@@ -110,6 +110,8 @@ function parseItemCSV(csvText) {
             case '大复活术':
                 if (name === '雨水') {
                     item.type = 'rain_water';
+                } else if (name === '时光机') {
+                    item.type = 'time_machine';
                 }
                 break;
             case '周目变动':
@@ -607,7 +609,7 @@ class GameStateManager {
             ],
             currentPlayer: 0,
             tokenPosition: 0,
-            round: 0,
+            round: 1,
             gameStarted: false,
             itemPool: [],
             gameWon: false,
@@ -1205,7 +1207,7 @@ class WeaponItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
         // 记录行动点消耗
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
-        
+
         // 处理武器类道具
         handleWeaponItem(player, playerIndex, itemIndex, item);
         return false; // 不继续执行后续逻辑
@@ -1502,7 +1504,7 @@ class SchoolCapItemStrategy extends ItemStrategy {
                 targetRange.push(index);
             }
         });
-        
+
         // 创建地图选择对话框
         const goldfishStrategy = new GoldfishShowerItemStrategy();
         goldfishStrategy.createMapSelectionDialog(player, playerIndex, item, itemIndex, targetRange, '帝国大学');
@@ -1516,7 +1518,7 @@ class CarItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
         // 确保行动点是数字类型
         player.action = Number(player.action) || 0;
-        
+
         // 检查行动点是否足够
         if (player.action < 2) {
             elements.gameMessage.textContent = `行动点不足，无法使用汽车！`;
@@ -1552,7 +1554,7 @@ class CarItemStrategy extends ItemStrategy {
                 </div>
             </div>
         `;
-        
+
         // 添加居中样式
         const style = document.createElement('style');
         style.textContent = `
@@ -1604,7 +1606,7 @@ class CarItemStrategy extends ItemStrategy {
             }
         `;
         document.head.appendChild(style);
-        
+
         document.body.appendChild(dialog);
 
         // 处理掷骰子按钮
@@ -1626,7 +1628,7 @@ class CarItemStrategy extends ItemStrategy {
             // 显示确认按钮（博士和非博士都显示，但是非博士没有取消按钮）
             confirmSection.style.display = 'block';
             rollDiceButton.style.display = 'none';
-            
+
             // 如果是非博士角色，隐藏取消按钮
             if (player.role !== '博士') {
                 cancelButton.style.display = 'none';
@@ -1702,7 +1704,7 @@ class GlassesItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
         // 确保行动点是数字类型
         player.action = Number(player.action) || 0;
-        
+
         // 检查行动点是否足够
         if (player.action < 1) {
             elements.gameMessage.textContent = `行动点不足，无法使用眼镜！`;
@@ -1741,7 +1743,7 @@ class GlassesItemStrategy extends ItemStrategy {
         // 创建弹出框
         const dialog = document.createElement('div');
         dialog.className = 'glasses-dialog';
-        
+
         // 构建对话框内容
         let dialogContent = `
             <div class="dialog-content">
@@ -1752,7 +1754,7 @@ class GlassesItemStrategy extends ItemStrategy {
                 </div>
                 <div class="players-list">
         `;
-        
+
         // 添加每个玩家的信息和按钮
         availablePlayers.forEach(({ index, player: targetPlayer }) => {
             dialogContent += `
@@ -1766,15 +1768,15 @@ class GlassesItemStrategy extends ItemStrategy {
                 </div>
             `;
         });
-        
+
         dialogContent += `
                 </div>
                 <button class="close-button" style="display: none; margin-top: 20px;">关闭</button>
             </div>
         `;
-        
+
         dialog.innerHTML = dialogContent;
-        
+
         // 添加居中样式
         const style = document.createElement('style');
         style.textContent = `
@@ -1845,7 +1847,7 @@ class GlassesItemStrategy extends ItemStrategy {
             }
         `;
         document.head.appendChild(style);
-        
+
         document.body.appendChild(dialog);
 
         // 处理掷骰子按钮
@@ -1890,7 +1892,7 @@ class GlassesItemStrategy extends ItemStrategy {
                 if (rolledPlayers === availablePlayers.length) {
                     // 所有玩家都已掷骰子，计算总和并移动棋子
                     this.moveToken(player, playerIndex, totalDice);
-                    
+
                     // 1秒后显示关闭按钮
                     setTimeout(() => {
                         closeButton.style.display = 'block';
@@ -1904,18 +1906,18 @@ class GlassesItemStrategy extends ItemStrategy {
             // 从道具列表中移除
             player.items.splice(itemIndex, 1);
             player.cards = Math.max(0, player.cards - 1);
-            
+
             // 显示消息
             elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了眼镜，强制其他玩家掷骰子！`;
-            
+
             // 处理行动后逻辑
             handlePostActionLogic(player, playerIndex);
-            
+
             // 处理当前位置的格子功能
             setTimeout(() => {
                 handleGridFunction();
             }, 500);
-            
+
             document.body.removeChild(dialog);
         });
     }
@@ -3215,7 +3217,7 @@ function saveGameToLocalStorage() {
         alert('游戏尚未开始，无法存档！');
         return;
     }
-    
+
     // 深拷贝游戏状态，避免引用问题
     const stateCopy = {
         players: JSON.parse(JSON.stringify(gameState.players)),
@@ -3232,7 +3234,7 @@ function saveGameToLocalStorage() {
         puddleCount: gameState.puddleCount || 0,
         logs: [...gameState.logs] // 保存日志
     };
-    
+
     try {
         localStorage.setItem('gameSave', JSON.stringify(stateCopy));
         elements.gameMessage.textContent = '游戏存档成功！';
@@ -3250,7 +3252,7 @@ function exportSaveToFile() {
         alert('游戏尚未开始，无法导出存档！');
         return;
     }
-    
+
     // 深拷贝游戏状态，避免引用问题
     const stateCopy = {
         players: JSON.parse(JSON.stringify(gameState.players)),
@@ -3268,14 +3270,14 @@ function exportSaveToFile() {
         logs: [...gameState.logs], // 导出日志
         timestamp: new Date().toISOString()
     };
-    
+
     try {
         // 创建JSON字符串
         const jsonString = JSON.stringify(stateCopy, null, 2);
-        
+
         // 创建Blob对象
         const blob = new Blob([jsonString], { type: 'application/json' });
-        
+
         // 创建下载链接
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -3285,7 +3287,7 @@ function exportSaveToFile() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         elements.gameMessage.textContent = '存档导出成功！';
         logEvent('游戏存档导出成功');
     } catch (error) {
@@ -3303,15 +3305,15 @@ function loadGameFromLocalStorage() {
             alert('没有找到存档！');
             return;
         }
-        
+
         const parsedState = JSON.parse(savedState);
-        
+
         // 检查存档是否有效
         if (!parsedState.players || !Array.isArray(parsedState.players)) {
             alert('存档格式错误！');
             return;
         }
-        
+
         // 使用观察者模式更新游戏状态
         gameStateManager.updateState((state) => {
             state.players = parsedState.players;
@@ -3328,22 +3330,22 @@ function loadGameFromLocalStorage() {
             state.puddleCount = parsedState.puddleCount || 0;
             state.logs = parsedState.logs || []; // 加载日志
         });
-        
+
         // 生成地图格子
         generateMapGrid();
-        
+
         // 更新棋子位置
         updateTokenPosition();
-        
+
         // 更新itemPool变量，使其与gameState.itemPool一致
         itemPool = [...gameState.itemPool];
-        
+
         // 更新道具池显示
         updateItemPoolDisplay();
-        
+
         // 更新UI
         updateUI();
-        
+
         // 重新显示日志
         if (gameState.logs && gameState.logs.length > 0) {
             // 清空当前日志显示
@@ -3356,7 +3358,7 @@ function loadGameFromLocalStorage() {
             });
             elements.logContent.scrollTop = elements.logContent.scrollHeight;
         }
-        
+
         elements.gameMessage.textContent = '游戏读档成功！';
         logEvent('游戏读档成功');
     } catch (error) {
@@ -3372,22 +3374,22 @@ function importSaveFromFile() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
-    
-    input.onchange = function(e) {
+
+    input.onchange = function (e) {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             try {
                 const parsedState = JSON.parse(e.target.result);
-                
+
                 // 检查存档是否有效
                 if (!parsedState.players || !Array.isArray(parsedState.players)) {
                     alert('存档格式错误！');
                     return;
                 }
-                
+
                 // 使用观察者模式更新游戏状态
                 gameStateManager.updateState((state) => {
                     state.players = parsedState.players;
@@ -3404,22 +3406,22 @@ function importSaveFromFile() {
                     state.puddleCount = parsedState.puddleCount || 0;
                     state.logs = parsedState.logs || []; // 加载日志
                 });
-                
+
                 // 生成地图格子
                 generateMapGrid();
-                
+
                 // 更新棋子位置
                 updateTokenPosition();
-                
+
                 // 更新itemPool变量，使其与gameState.itemPool一致
                 itemPool = [...gameState.itemPool];
-                
+
                 // 更新道具池显示
                 updateItemPoolDisplay();
-                
+
                 // 更新UI
                 updateUI();
-                
+
                 // 重新显示日志
                 if (gameState.logs && gameState.logs.length > 0) {
                     // 清空当前日志显示
@@ -3432,7 +3434,7 @@ function importSaveFromFile() {
                     });
                     elements.logContent.scrollTop = elements.logContent.scrollHeight;
                 }
-                
+
                 elements.gameMessage.textContent = '游戏读档成功！';
                 logEvent('游戏读档成功');
             } catch (error) {
@@ -3443,7 +3445,7 @@ function importSaveFromFile() {
         };
         reader.readAsText(file);
     };
-    
+
     input.click();
 }
 
@@ -4298,10 +4300,10 @@ function logEvent(message) {
         timestamp: new Date().toISOString(),
         message: message
     };
-    
+
     // 存储到游戏状态中
     gameState.logs.push(logObject);
-    
+
     // 在UI上显示
     const logEntry = document.createElement('p');
     logEntry.textContent = message;
@@ -4522,7 +4524,7 @@ function moveToken(steps, isFromDice = true) {
 
         // 记录移动日志
         logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})${isFromDice ? '掷出' : '移动'}${steps}点，从${startGrid.id}.${startGrid.name}移动到${endGrid.id}.${endGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
-        
+
         // 检查是否离开停滞格子
         if (startGrid.isStagnant && !endGrid.isStagnant) {
             // 如果使用非骰子方式离开停滞格子，清除停滞状态
@@ -4655,14 +4657,14 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
                     if (targetPlayer.role !== '薰' && targetPlayer.role !== '水上') {
                         requiredAction = 1;
                     }
-                    
+
                     // 检查行动点是否足够
                     if (targetPlayer.action < requiredAction) {
                         // 行动点不足，防御不生效，直接死亡
                         // 移除防御道具
                         targetPlayer.items.splice(defenseIndex, 1);
                         targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
-                        
+
                         // 设置目标玩家为死亡
                         targetPlayer.status = 'die';
                         // 玩家死亡后丢失所有道具
@@ -4933,7 +4935,7 @@ function checkWinCondition() {
 function endTurn() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
     logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）结束行动`);
-    
+
     // 检查是否在停滞格子上
     const currentGrid = gridConfig[gameState.tokenPosition];
     if (currentGrid.isStagnant) {
@@ -4951,7 +4953,7 @@ function endTurn() {
         // 如果不在停滞格子上，清除停滞状态
         gameState.stagnantTurn = -1;
     }
-    
+
     nextPlayer();
 }
 
@@ -4960,28 +4962,18 @@ function endTurn() {
 function nextPlayer() {
     const playerCount = gameState.players.length;
 
-    // 找到下一个存活的玩家，根据reverseDirection决定方向
-    let nextPlayerIndex;
-    if (gameState.reverseDirection) {
-        // 逆转方向：上一个玩家
-        nextPlayerIndex = (gameState.currentPlayer - 1 + playerCount) % playerCount;
-        while (gameState.players[nextPlayerIndex].status !== 'alive') {
-            elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
-            logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
-            nextPlayerIndex = (nextPlayerIndex - 1 + playerCount) % playerCount;
-        }
-    } else {
-        // 正常方向：下一个玩家
-        nextPlayerIndex = (gameState.currentPlayer + 1) % playerCount;
-        while (gameState.players[nextPlayerIndex].status !== 'alive') {
-            elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
-            logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
-            nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
-        }
+    // 找到下一个存活的玩家
+    let nextPlayerIndex = (gameState.currentPlayer + 1) % playerCount;
+    while (gameState.players[nextPlayerIndex].status !== 'alive') {
+        elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
+        logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
+        nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
     }
 
-    // 每个玩家行动一次后，回合数+1
-    gameStateManager.setState('round', gameState.round + 1);
+    // 检查是否进入新回合
+    if (nextPlayerIndex === 0) {
+        gameStateManager.setState('round', gameState.round + 1);
+    }
 
     gameStateManager.setState('currentPlayer', nextPlayerIndex);
     const currentPlayer = gameState.players[gameState.currentPlayer];
@@ -5073,7 +5065,7 @@ async function resetGame() {
     gameState.gameWon = false;
 
     // 重置回合数
-    gameState.round = 0;
+    gameState.round = 1;
 
     // 重置棋子位置
     gameState.tokenPosition = 0;
@@ -5185,7 +5177,7 @@ function randomRoles() {
 // 处理玩家数量变化
 function handlePlayerCountChange() {
     let playerCount = parseInt(document.getElementById('player-count').value) || 3;
-    
+
     // 确保playerCount在3-5之间
     if (playerCount < 3) {
         playerCount = 3;
@@ -5352,14 +5344,14 @@ function killPlayer() {
                     if (targetPlayer.role !== '薰' && targetPlayer.role !== '水上') {
                         requiredAction = 1;
                     }
-                    
+
                     // 检查行动点是否足够
                     if (targetPlayer.action < requiredAction) {
                         // 行动点不足，防御不生效，直接死亡
                         // 移除防御道具
                         targetPlayer.items.splice(defenseIndex, 1);
                         targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
-                        
+
                         // 设置目标玩家为死亡
                         targetPlayer.status = 'die';
                         // 玩家死亡后丢失所有道具
@@ -5486,7 +5478,7 @@ function drawCard() {
     gameState.itemPool.splice(randomIndex, 1);
 
     // 添加道具到玩家的道具数组，并标记为当前回合获得的道具
-    const itemWithTurn = {...item, obtainedTurn: gameState.round, obtainedBy: 'draw'};
+    const itemWithTurn = { ...item, obtainedTurn: gameState.round, obtainedBy: 'draw' };
     currentPlayer.items.push(itemWithTurn);
     currentPlayer.cards++;
 
@@ -5517,19 +5509,19 @@ async function loadEditLog() {
             throw new Error('Network response was not ok');
         }
         const csvText = await response.text();
-        
+
         // 解析CSV数据
         const lines = csvText.trim().split('\n');
         const logBody = document.getElementById('edit-log-body');
         logBody.innerHTML = '';
-        
+
         // 跳过表头行
         for (let i = 1; i < lines.length; i++) {
             const values = lines[i].split(',');
             if (values.length >= 2) {
                 const updateContent = values[0];
                 const updateDate = values[1];
-                
+
                 // 创建表格行
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -5556,7 +5548,7 @@ async function loadEditLog() {
 window.onload = async function () {
     // 初始化DOM元素
     initElements();
-    
+
     // 订阅状态变化观察者
     gameStateManager.subscribe((data) => {
         console.log('状态变化:', data.path, '->', data.value);
@@ -5743,7 +5735,7 @@ function monitorItemPool() {
 // 显示行动开始弹窗
 function showActionStartDialog() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
-    
+
     // 创建弹窗
     const dialog = document.createElement('div');
     dialog.className = 'action-start-dialog';
@@ -5759,11 +5751,11 @@ function showActionStartDialog() {
         align-items: center;
         z-index: 10000;
     `;
-    
+
     // 检查是否受停滞格子影响
     const currentGrid = gridConfig[gameState.tokenPosition];
     const isStagnant = currentGrid.isStagnant && gameState.stagnantTurn !== -1;
-    
+
     // 弹窗内容
     const dialogContent = document.createElement('div');
     dialogContent.style.cssText = `
@@ -5773,22 +5765,22 @@ function showActionStartDialog() {
         text-align: center;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     `;
-    
+
     dialogContent.innerHTML = `
         <h3>玩家${gameState.currentPlayer + 1}行动开始</h3>
         <p>角色：${currentPlayer.role}</p>
         ${isStagnant ? '<p style="color: red;">当前处于停滞状态，无法移动</p>' : '<p>是否进行一次不消耗行动点的掷骰子？</p>'}
         <div style="margin-top: 20px;">
-            ${isStagnant ? 
-                '<button id="action-start-cannot-move" style="padding: 10px 20px; margin: 5px; background-color: #ccc; color: white; border: none; border-radius: 4px; cursor: pointer;">不可移动</button>' : 
-                '<button id="action-start-roll-dice" style="padding: 10px 20px; margin: 5px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">掷骰子</button>'
-            }
+            ${isStagnant ?
+            '<button id="action-start-cannot-move" style="padding: 10px 20px; margin: 5px; background-color: #ccc; color: white; border: none; border-radius: 4px; cursor: pointer;">不可移动</button>' :
+            '<button id="action-start-roll-dice" style="padding: 10px 20px; margin: 5px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">掷骰子</button>'
+        }
         </div>
     `;
-    
+
     dialog.appendChild(dialogContent);
     document.body.appendChild(dialog);
-    
+
     // 处理按钮点击
     if (isStagnant) {
         // 不可移动按钮
@@ -5800,16 +5792,16 @@ function showActionStartDialog() {
         document.getElementById('action-start-roll-dice').addEventListener('click', () => {
             // 进行一次不消耗行动点的掷骰子
             const diceRoll = Math.floor(Math.random() * 6) + 1;
-            
+
             // 保存当前行动点
             const currentActionPoints = currentPlayer.action;
-            
+
             // 执行移动
             moveToken(diceRoll);
-            
+
             // 恢复行动点
             currentPlayer.action = currentActionPoints;
-            
+
             // 关闭弹窗
             document.body.removeChild(dialog);
         });
