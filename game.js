@@ -3563,6 +3563,13 @@ function useItem(playerIndex, itemIndex) {
         return;
     }
 
+    // 检查道具是否是当前回合抽牌获得的
+    if (item.obtainedBy === 'draw' && item.obtainedTurn === gameState.round) {
+        elements.gameMessage.textContent = `该道具是当前回合抽牌获得的，需要到下一回合才能使用！`;
+        logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用当前回合抽牌获得的道具${item.name}，但需要到下一回合才能使用`);
+        return;
+    }
+
     // 检查行动点（特殊角色使用特定武器或道具不消耗行动点，所以即使行动点为0也可以使用）
     const actionPoints = Number(player.action) || 0;
     let canUseWithoutAction = false;
@@ -5026,10 +5033,21 @@ async function resetGame() {
 function initDraggableLog() {
     const logElement = document.querySelector('.game-log');
     const logHeader = document.querySelector('.game-log-header');
+    const logToggle = document.querySelector('.log-toggle');
+    const logContent = document.querySelector('.log-content-container');
 
     let isDragging = false;
     let offsetX = 0;
     let offsetY = 0;
+
+    // 折叠/展开功能
+    logToggle.addEventListener('click', function (e) {
+        e.stopPropagation(); // 阻止事件冒泡，避免触发拖动
+        const isCollapsed = logContent.style.display === 'none';
+        logContent.style.display = isCollapsed ? 'block' : 'none';
+        logToggle.classList.toggle('collapsed');
+        logElement.classList.toggle('collapsed', !isCollapsed);
+    });
 
     logHeader.addEventListener('mousedown', function (e) {
         isDragging = true;
@@ -5386,8 +5404,9 @@ function drawCard() {
     // 从道具池中移除该道具
     gameState.itemPool.splice(randomIndex, 1);
 
-    // 添加道具到玩家的道具数组
-    currentPlayer.items.push(item);
+    // 添加道具到玩家的道具数组，并标记为当前回合获得的道具
+    const itemWithTurn = {...item, obtainedTurn: gameState.round, obtainedBy: 'draw'};
+    currentPlayer.items.push(itemWithTurn);
     currentPlayer.cards++;
 
     // 更新道具池显示
