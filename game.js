@@ -613,7 +613,8 @@ class GameStateManager {
             gameWon: false,
             history: [],
             week: 1,
-            reverseDirection: false
+            reverseDirection: false,
+            logs: [] // 日志存储
         };
         this.observable = new Observable();
     }
@@ -3171,7 +3172,8 @@ function saveGameToLocalStorage() {
         reverseDirection: gameState.reverseDirection,
         stagnantTurn: gameState.stagnantTurn || -1,
         hasLeftStart: gameState.hasLeftStart || false,
-        puddleCount: gameState.puddleCount || 0
+        puddleCount: gameState.puddleCount || 0,
+        logs: [...gameState.logs] // 保存日志
     };
     
     try {
@@ -3206,6 +3208,7 @@ function exportSaveToFile() {
         stagnantTurn: gameState.stagnantTurn || -1,
         hasLeftStart: gameState.hasLeftStart || false,
         puddleCount: gameState.puddleCount || 0,
+        logs: [...gameState.logs], // 导出日志
         timestamp: new Date().toISOString()
     };
     
@@ -3266,6 +3269,7 @@ function loadGameFromLocalStorage() {
             state.stagnantTurn = parsedState.stagnantTurn || -1;
             state.hasLeftStart = parsedState.hasLeftStart || false;
             state.puddleCount = parsedState.puddleCount || 0;
+            state.logs = parsedState.logs || []; // 加载日志
         });
         
         // 生成地图格子
@@ -3282,6 +3286,19 @@ function loadGameFromLocalStorage() {
         
         // 更新UI
         updateUI();
+        
+        // 重新显示日志
+        if (gameState.logs && gameState.logs.length > 0) {
+            // 清空当前日志显示
+            elements.logContent.innerHTML = '';
+            // 重新显示所有日志
+            gameState.logs.forEach(log => {
+                const logEntry = document.createElement('p');
+                logEntry.textContent = log.message;
+                elements.logContent.appendChild(logEntry);
+            });
+            elements.logContent.scrollTop = elements.logContent.scrollHeight;
+        }
         
         elements.gameMessage.textContent = '游戏读档成功！';
         logEvent('游戏读档成功');
@@ -3328,6 +3345,7 @@ function importSaveFromFile() {
                     state.stagnantTurn = parsedState.stagnantTurn || -1;
                     state.hasLeftStart = parsedState.hasLeftStart || false;
                     state.puddleCount = parsedState.puddleCount || 0;
+                    state.logs = parsedState.logs || []; // 加载日志
                 });
                 
                 // 生成地图格子
@@ -3344,6 +3362,19 @@ function importSaveFromFile() {
                 
                 // 更新UI
                 updateUI();
+                
+                // 重新显示日志
+                if (gameState.logs && gameState.logs.length > 0) {
+                    // 清空当前日志显示
+                    elements.logContent.innerHTML = '';
+                    // 重新显示所有日志
+                    gameState.logs.forEach(log => {
+                        const logEntry = document.createElement('p');
+                        logEntry.textContent = log.message;
+                        elements.logContent.appendChild(logEntry);
+                    });
+                    elements.logContent.scrollTop = elements.logContent.scrollHeight;
+                }
                 
                 elements.gameMessage.textContent = '游戏读档成功！';
                 logEvent('游戏读档成功');
@@ -4194,6 +4225,16 @@ function rollDice() {
 
 // 记录日志
 function logEvent(message) {
+    // 创建日志对象
+    const logObject = {
+        timestamp: new Date().toISOString(),
+        message: message
+    };
+    
+    // 存储到游戏状态中
+    gameState.logs.push(logObject);
+    
+    // 在UI上显示
     const logEntry = document.createElement('p');
     logEntry.textContent = message;
     elements.logContent.appendChild(logEntry);
@@ -4916,6 +4957,7 @@ async function resetGame() {
     gameState.week = 1;
     gameState.reverseDirection = false;
     gameState.hasLeftStart = false; // 重置离开起点标志
+    gameState.logs = []; // 清空日志
 
     // 重置玩家道具
     for (let i = 0; i < 3; i++) {
