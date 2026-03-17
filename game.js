@@ -3478,6 +3478,9 @@ function initGame() {
 
     // 显示游戏开始消息
     elements.gameMessage.textContent = startMessage;
+
+    // 显示第一个玩家的行动开始弹窗
+    showActionStartDialog();
 }
 
 // 更新道具显示
@@ -4842,6 +4845,9 @@ function nextPlayer() {
 
     // 更新UI
     updateUI();
+
+    // 显示行动开始弹窗
+    showActionStartDialog();
 }
 
 // 重置游戏
@@ -5425,5 +5431,80 @@ function monitorItemPool() {
     // 检查道具池是否为空
     if (gameState.itemPool.length === 0) {
         refreshItemPool();
+    }
+}
+
+// 显示行动开始弹窗
+function showActionStartDialog() {
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    
+    // 创建弹窗
+    const dialog = document.createElement('div');
+    dialog.className = 'action-start-dialog';
+    dialog.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    `;
+    
+    // 检查是否受停滞回合影响
+    const isStagnant = gameState.stagnantTurn === gameState.currentPlayer;
+    
+    // 弹窗内容
+    const dialogContent = document.createElement('div');
+    dialogContent.style.cssText = `
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    `;
+    
+    dialogContent.innerHTML = `
+        <h3>玩家${gameState.currentPlayer + 1}行动开始</h3>
+        <p>角色：${currentPlayer.role}</p>
+        ${isStagnant ? '<p style="color: red;">当前处于停滞状态，无法移动</p>' : '<p>是否进行一次不消耗行动点的掷骰子？</p>'}
+        <div style="margin-top: 20px;">
+            ${isStagnant ? 
+                '<button id="action-start-cannot-move" style="padding: 10px 20px; margin: 5px; background-color: #ccc; color: white; border: none; border-radius: 4px; cursor: pointer;">不可移动</button>' : 
+                '<button id="action-start-roll-dice" style="padding: 10px 20px; margin: 5px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">掷骰子</button>'
+            }
+        </div>
+    `;
+    
+    dialog.appendChild(dialogContent);
+    document.body.appendChild(dialog);
+    
+    // 处理按钮点击
+    if (isStagnant) {
+        // 不可移动按钮
+        document.getElementById('action-start-cannot-move').addEventListener('click', () => {
+            document.body.removeChild(dialog);
+        });
+    } else {
+        // 掷骰子按钮
+        document.getElementById('action-start-roll-dice').addEventListener('click', () => {
+            // 进行一次不消耗行动点的掷骰子
+            const diceRoll = Math.floor(Math.random() * 6) + 1;
+            
+            // 保存当前行动点
+            const currentActionPoints = currentPlayer.action;
+            
+            // 执行移动
+            moveToken(diceRoll);
+            
+            // 恢复行动点
+            currentPlayer.action = currentActionPoints;
+            
+            // 关闭弹窗
+            document.body.removeChild(dialog);
+        });
     }
 }
