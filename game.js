@@ -2867,10 +2867,8 @@ class ItemGridStrategy extends GridStrategy {
 // 停滞格子策略
 class StagnantGridStrategy extends GridStrategy {
     execute(grid, player) {
-        // 停滞格子逻辑
-        gameState.stagnantTurn = gameState.currentPlayer;
-        elements.gameMessage.textContent = `棋子停留在停滞格子上，${gameState.currentPlayer + 1}玩家本回合无法移动！`;
-        logEvent(`触发效果：棋子停留在停滞格子上，${gameState.currentPlayer + 1}玩家本回合无法移动`);
+        // 停滞格子逻辑 - 只在结束回合时生效，这里不做任何操作
+        // 结束回合时会在endTurn函数中处理停滞效果
     }
 }
 
@@ -4355,30 +4353,30 @@ function handlePostActionLogic(player, playerIndex) {
         // 禁用掷骰子按钮
         elements.rollDice.disabled = true;
     } else {
-        // 检查是否在停滞格子上
+        // 检查是否在停滞格子上，并且停滞状态已设置
         const currentGrid = gridConfig[gameState.tokenPosition];
-        if (!currentGrid.isStagnant) {
-            // 不在停滞格子上，重新启用掷骰子按钮
+        if (!currentGrid.isStagnant || gameState.stagnantTurn === -1) {
+            // 不在停滞格子上，或停滞状态未设置（同一回合内刚移动到停滞格子），重新启用掷骰子按钮
             elements.rollDice.disabled = false;
             elements.gameMessage.textContent = `玩家${playerIndex + 1}还有${player.action}点行动点，可以继续操作。`;
         } else {
-            // 在停滞格子上，保持掷骰子按钮禁用
+            // 在停滞格子上，且停滞状态已设置（下一个玩家的停滞效果），保持掷骰子按钮禁用
             elements.rollDice.disabled = true;
         }
     }
 }
 
 // 移动棋子
-function moveToken(steps) {
+function moveToken(steps, isFromDice = true) {
     const currentPlayer = gameState.players[gameState.currentPlayer];
     const startPosition = gameState.tokenPosition;
     const startGrid = gridConfig[startPosition];
 
-    // 检查是否触发停滞效果
+    // 检查是否触发停滞效果（仅对骰子移动有效）
     let canMove = true;
     let isStagnant = false;
-    if (startGrid.isStagnant && gameState.stagnantTurn === gameState.currentPlayer) {
-        elements.gameMessage.textContent = `棋子停留在停滞格子上，无法移动！`;
+    if (isFromDice && startGrid.isStagnant && gameState.stagnantTurn !== -1) {
+        elements.gameMessage.textContent = `棋子停留在停滞格子上，无法使用骰子离开！`;
         canMove = false;
         isStagnant = true;
     }
@@ -4404,7 +4402,22 @@ function moveToken(steps) {
         }
 
         // 记录移动日志
-        logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，从${startGrid.id}.${startGrid.name}移动到${endGrid.id}.${endGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
+        logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})${isFromDice ? '掷出' : '移动'}${steps}点，从${startGrid.id}.${startGrid.name}移动到${endGrid.id}.${endGrid.name}${gameState.reverseDirection ? '（逆转方向）' : ''}`);
+        
+        // 检查是否离开停滞格子
+        if (startGrid.isStagnant && !endGrid.isStagnant) {
+            // 如果使用非骰子方式离开停滞格子，清除停滞状态
+            if (!isFromDice) {
+                gameState.stagnantTurn = -1;
+                logEvent(`棋子通过非骰子方式离开停滞格子，停滞效果解除`);
+            }
+            // 如果使用骰子方式离开停滞格子，也清除停滞状态
+            // 因为停滞效果只在结束回合时生效，所以当前玩家可以在同一回合内离开停滞格子
+            else {
+                gameState.stagnantTurn = -1;
+                logEvent(`棋子通过骰子方式离开停滞格子，停滞效果解除`);
+            }
+        }
     } else {
         // 记录停滞日志
         logEvent(`玩家${gameState.currentPlayer + 1}(${currentPlayer.role})掷出${steps}点，但因停滞效果无法移动`);
@@ -4761,6 +4774,25 @@ function checkWinCondition() {
 function endTurn() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
     logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）结束行动`);
+    
+    // 检查是否在停滞格子上
+    const currentGrid = gridConfig[gameState.tokenPosition];
+    if (currentGrid.isStagnant) {
+        // 只有当停滞状态未设置时，才标记下一个玩家需要受到停滞影响
+        // 这样每个停滞格子最多只会限制1个玩家的行动
+        if (gameState.stagnantTurn === -1) {
+            gameState.stagnantTurn = gameState.currentPlayer;
+            logEvent(`棋子停留在停滞格子上，下一个玩家不可使用骰子离开`);
+        } else {
+            // 如果停滞状态已经设置，清除它，这样下一个玩家可以正常行动
+            gameState.stagnantTurn = -1;
+            logEvent(`棋子停留在停滞格子上，但停滞效果已解除，下一个玩家可以正常行动`);
+        }
+    } else {
+        // 如果不在停滞格子上，清除停滞状态
+        gameState.stagnantTurn = -1;
+    }
+    
     nextPlayer();
 }
 
@@ -4830,8 +4862,14 @@ function nextPlayer() {
     elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
     elements.roundCount.textContent = gameState.round;
 
-    // 清除停滞状态
-    gameState.stagnantTurn = -1;
+    // 检查当前格子是否为停滞格子
+    const currentGrid = gridConfig[gameState.tokenPosition];
+    if (currentGrid.isStagnant) {
+        // 保持停滞状态，直到玩家结束回合或离开停滞格子
+    } else {
+        // 如果不在停滞格子上，清除停滞状态
+        gameState.stagnantTurn = -1;
+    }
 
     // 组合消息
     let message = `轮到玩家${gameState.currentPlayer + 1}行动。`;
@@ -5454,8 +5492,9 @@ function showActionStartDialog() {
         z-index: 10000;
     `;
     
-    // 检查是否受停滞回合影响
-    const isStagnant = gameState.stagnantTurn === gameState.currentPlayer;
+    // 检查是否受停滞格子影响
+    const currentGrid = gridConfig[gameState.tokenPosition];
+    const isStagnant = currentGrid.isStagnant && gameState.stagnantTurn !== -1;
     
     // 弹窗内容
     const dialogContent = document.createElement('div');
