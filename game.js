@@ -4255,6 +4255,13 @@ function rollDice() {
         return;
     }
 
+    // 检查是否处于停滞状态
+    if (gameState.stagnantTurn !== -1) {
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}处于停滞状态，无法掷骰子！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}处于停滞状态，无法掷骰子`);
+        return;
+    }
+
     // 检查行动点
     const actionPoints = Number(currentPlayer.action) || 0;
     if (actionPoints <= 0) {
