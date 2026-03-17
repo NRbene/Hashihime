@@ -3267,6 +3267,12 @@ function loadGameFromLocalStorage() {
         // 更新棋子位置
         updateTokenPosition();
         
+        // 更新itemPool变量，使其与gameState.itemPool一致
+        itemPool = [...gameState.itemPool];
+        
+        // 更新道具池显示
+        updateItemPoolDisplay();
+        
         // 更新UI
         updateUI();
         
@@ -3322,6 +3328,12 @@ function importSaveFromFile() {
                 
                 // 更新棋子位置
                 updateTokenPosition();
+                
+                // 更新itemPool变量，使其与gameState.itemPool一致
+                itemPool = [...gameState.itemPool];
+                
+                // 更新道具池显示
+                updateItemPoolDisplay();
                 
                 // 更新UI
                 updateUI();
