@@ -3748,13 +3748,121 @@ function updateItemsDisplay() {
             player.fantasySkills.forEach((skill, index) => {
                 const skillElement = document.createElement('div');
                 skillElement.className = 'fantasy-skill';
+                if (skill.used) {
+                    skillElement.classList.add('used');
+                }
                 skillElement.textContent = skill.name;
                 skillElement.title = skill.description;
+
+                // 只有当前玩家且存活时且游戏未胜利时可以使用幻象技
+                if (i === gameState.currentPlayer && player.status === 'alive' && !gameState.gameWon && !skill.used) {
+                    skillElement.style.cursor = 'pointer';
+                    skillElement.addEventListener('click', () => useFantasySkillByIndex(i, index));
+                } else {
+                    skillElement.classList.add('used');
+                }
 
                 skillsContainer.appendChild(skillElement);
             });
         }
     }
+}
+
+
+
+// 通过索引使用幻象技
+function useFantasySkillByIndex(playerIndex, skillIndex) {
+    const player = gameState.players[playerIndex];
+    const skill = player.fantasySkills[skillIndex];
+    
+    // 检查是否是店主
+    if (player.role !== '店主') {
+        elements.gameMessage.textContent = '只有店主可以使用幻象技！';
+        logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用幻象技，但只有店主可以使用`);
+        return;
+    }
+    
+    // 检查技能是否已使用
+    if (skill.used) {
+        elements.gameMessage.textContent = '该幻象技已经使用过了！';
+        logEvent(`玩家${playerIndex + 1}（店主）尝试使用已使用的幻象技${skill.name}`);
+        return;
+    }
+    
+    // 保存游戏状态到历史记录，以便可以撤回操作
+    saveGameState();
+    
+    // 标记幻象技为已使用
+    player.fantasySkills[skillIndex] = {
+        ...skill,
+        used: true
+    };
+    
+    // 处理幻象技效果
+    handleFantasySkillEffect(skill, player, playerIndex);
+    
+    // 更新UI
+    updateItemsDisplay();
+}
+
+// 处理幻象技效果
+function handleFantasySkillEffect(skill, player, playerIndex) {
+    switch (skill.name) {
+        case '测试':
+            // 店主行动点+10
+            player.action += 10;
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，获得了10点行动点`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}，获得了10点行动点！`;
+            break;
+        case '晴彦':
+            // 强制最多三名存活角色各丢弃一张道具卡（由你指定）
+            // 实现逻辑
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            break;
+        case '蛙男':
+            // 全程不得成为其他角色强制你丢弃道具卡或损耗行动点的对象
+            // 实现逻辑
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            break;
+        case '大蛇丸':
+            // 从最多两名存活玩家手中各夺取一张道具卡（由你指定）
+            // 实现逻辑
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            break;
+        case '帕诺拉马岛':
+            // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
+            // 实现逻辑
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            break;
+        case '电光艇':
+            // 指定棋子步数并x2
+            // 实现逻辑
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            break;
+        case '河童':
+            // 跳过任一自己以外角色的一回合
+            // 实现逻辑
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            break;
+        case '关东大地震':
+            // 除你自己以外全员行动值及手牌归零且好感度全部降低到30点
+            // 实现逻辑
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            break;
+        default:
+            logEvent(`玩家${playerIndex + 1}（店主）使用了未知幻象技${skill.name}`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+    }
+    
+    // 更新UI，确保行动点等信息得到及时更新
+    updateUI();
 }
 
 // 使用道具
@@ -5855,6 +5963,8 @@ window.onload = async function () {
     
     // 添加下载幻象技模板按钮的事件监听器
     document.getElementById('download-fantasy-skill-template').addEventListener('click', downloadFantasySkillTemplate);
+    
+
 
     // 添加游戏控制按钮的事件监听器
     const rollDiceButton = document.getElementById('roll-dice');
