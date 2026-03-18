@@ -2340,7 +2340,8 @@ class TimeMachineItemStrategy extends ItemStrategy {
         if (selectionMap) {
             gridConfig.forEach((grid, index) => {
                 const isCurrent = index === gameState.tokenPosition;
-                const isSelectable = !isCurrent;
+                const isWater = grid.types.includes('水洼');
+                const isSelectable = !isCurrent && !isWater;
                 const className = `map-grid-item grid-${index} ${isSelectable ? 'selectable' : 'unselectable'} ${isCurrent ? 'current' : ''}`;
 
                 const gridElement = document.createElement('div');
@@ -2860,16 +2861,19 @@ class FavorGridStrategy extends GridStrategy {
         } else if (favorEffect.type === 'all') {
             // 全员好感度+10（仅对存活的A类角色生效，薰不回复好感和行动点）
             let affectedPlayers = 0;
+            const affectedRoles = [];
             gameState.players.forEach((targetPlayer, index) => {
                 if (targetPlayer.type === 'A' && targetPlayer.status === 'alive') {
                     updateFavor(targetPlayer, favorEffect.value);
                     affectedPlayers++;
+                    affectedRoles.push(targetPlayer.role);
                 }
                 // 薰既不回复好感，也不回复行动点
             });
             if (affectedPlayers > 0) {
-                elements.gameMessage.textContent = `所有A类型角色获得了${favorEffect.value}点好感度！`;
-                logEvent(`触发效果：所有A类型角色获得了${favorEffect.value}点好感度`);
+                const rolesString = affectedRoles.join('、');
+                elements.gameMessage.textContent = `${rolesString}获得了${favorEffect.value}点好感度！`;
+                logEvent(`触发效果：${rolesString}获得了${favorEffect.value}点好感度`);
             } else {
                 elements.gameMessage.textContent = `没有A类型角色在场！`;
                 logEvent(`触发效果：没有A类型角色在场`);
