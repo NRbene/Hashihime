@@ -5519,6 +5519,42 @@ function drawCard() {
 
 // 事件监听器将在window.onload中添加
 
+// 解析CSV数据的辅助函数
+function parseCSV(csvText) {
+    const lines = [];
+    let currentLine = [];
+    let currentField = '';
+    let inQuotes = false;
+    let i = 0;
+
+    while (i < csvText.length) {
+        const char = csvText[i];
+
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            currentLine.push(currentField);
+            currentField = '';
+        } else if (char === '\n' && !inQuotes) {
+            currentLine.push(currentField);
+            lines.push(currentLine);
+            currentLine = [];
+            currentField = '';
+        } else {
+            currentField += char;
+        }
+        i++;
+    }
+
+    // 添加最后一行
+    if (currentField || currentLine.length > 0) {
+        currentLine.push(currentField);
+        lines.push(currentLine);
+    }
+
+    return lines;
+}
+
 // 加载游戏日志
 async function loadEditLog() {
     try {
@@ -5529,13 +5565,13 @@ async function loadEditLog() {
         const csvText = await response.text();
 
         // 解析CSV数据
-        const lines = csvText.trim().split('\n');
+        const lines = parseCSV(csvText);
         const logBody = document.getElementById('edit-log-body');
         logBody.innerHTML = '';
 
         // 跳过表头行
         for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(',');
+            const values = lines[i];
             if (values.length >= 2) {
                 const updateContent = values[0];
                 const updateDate = values[1];
