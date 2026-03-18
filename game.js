@@ -4958,6 +4958,9 @@ function endTurn() {
         gameState.stagnantTurn = -1;
     }
 
+    // 每个玩家行动结束后，回合数+1
+    gameStateManager.setState('round', gameState.round + 1);
+
     nextPlayer();
 }
 
@@ -4967,19 +4970,30 @@ function nextPlayer() {
     const playerCount = gameState.players.length;
 
     // 找到下一个存活的玩家
-    let nextPlayerIndex = (gameState.currentPlayer + 1) % playerCount;
-    while (gameState.players[nextPlayerIndex].status !== 'alive') {
-        elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
-        logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
-        nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
+    let nextPlayerIndex;
+    if (gameState.reverseDirection) {
+        // 逆向顺序
+        nextPlayerIndex = (gameState.currentPlayer - 1 + playerCount) % playerCount;
+        while (gameState.players[nextPlayerIndex].status !== 'alive') {
+            elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
+            logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
+            nextPlayerIndex = (nextPlayerIndex - 1 + playerCount) % playerCount;
+        }
+    } else {
+        // 顺向顺序
+        nextPlayerIndex = (gameState.currentPlayer + 1) % playerCount;
+        while (gameState.players[nextPlayerIndex].status !== 'alive') {
+            elements.gameMessage.textContent = `玩家${nextPlayerIndex + 1}已死亡，无法执行操作。`;
+            logEvent(`玩家${nextPlayerIndex + 1}已死亡，无法执行操作`);
+            nextPlayerIndex = (nextPlayerIndex + 1) % playerCount;
+        }
     }
 
-    // 检查是否进入新回合
-    if (nextPlayerIndex === 0) {
-        gameStateManager.setState('round', gameState.round + 1);
-    }
+
 
     gameStateManager.setState('currentPlayer', nextPlayerIndex);
+    // 更新UI显示
+    updateUI();
     const currentPlayer = gameState.players[gameState.currentPlayer];
     const maxCards = characterAttributes[currentPlayer.role].maxCards;
 
