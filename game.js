@@ -918,10 +918,10 @@ class ReverseMoveItemStrategy extends ItemStrategy {
 // 抢夺道具策略（玉森的原稿）
 class StealItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
-        // 过滤出除川濑外的其他存活玩家
+        // 过滤出除川濑外的其他存活玩家，且不包括有蛙男技能的玩家
         const availablePlayers = [];
         gameState.players.forEach((targetPlayer, targetIndex) => {
-            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.role !== '川濑' && targetPlayer.items.length > 0) {
+            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.role !== '川濑' && targetPlayer.items.length > 0 && !targetPlayer.hasFrogManSkill) {
                 availablePlayers.push(targetIndex);
             }
         });
@@ -1809,10 +1809,10 @@ class GlassesItemStrategy extends ItemStrategy {
         player.action -= 1;
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用眼镜，剩余行动点：${player.action}`);
 
-        // 过滤出符合条件的玩家
+        // 过滤出符合条件的玩家，不包括有蛙男技能的玩家
         const availablePlayers = [];
         gameState.players.forEach((targetPlayer, targetIndex) => {
-            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && (Number(targetPlayer.action) || 0) > 0) {
+            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && (Number(targetPlayer.action) || 0) > 0 && !targetPlayer.hasFrogManSkill) {
                 availablePlayers.push({ index: targetIndex, player: targetPlayer });
             }
         });
@@ -3808,7 +3808,14 @@ function initGame() {
                     // 添加技能到玩家的幻象技数组
                     player.fantasySkills.push(skill);
 
-                    logEvent(`玩家${i + 1}（店主）游戏开始，获得幻象技${skill.name}`);
+                    // 如果是蛙男技能，自动生效
+                    if (skill.name === '蛙男') {
+                        player.hasFrogManSkill = true;
+                        player.fantasySkills[player.fantasySkills.length - 1].used = true;
+                        logEvent(`玩家${i + 1}（店主）的幻象技${skill.name}生效，全程不会成为其他角色强制丢弃道具或损耗行动点的对象`);
+                    } else {
+                        logEvent(`玩家${i + 1}（店主）游戏开始，获得幻象技${skill.name}`);
+                    }
                 }
             }
         }
@@ -3915,6 +3922,13 @@ function useFantasySkillByIndex(playerIndex, skillIndex) {
         return;
     }
     
+    // 检查是否是被动技能（如蛙男）
+    if (skill.name === '蛙男') {
+        elements.gameMessage.textContent = '蛙男是被动幻象技，游戏开始时自动生效！';
+        logEvent(`玩家${playerIndex + 1}（店主）尝试使用被动幻象技${skill.name}`);
+        return;
+    }
+    
     // 保存游戏状态到历史记录，以便可以撤回操作
     saveGameState();
     
@@ -3990,9 +4004,10 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
             break;
         case '蛙男':
             // 全程不得成为其他角色强制你丢弃道具卡或损耗行动点的对象
-            // 实现逻辑
-            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            // 被动技能，标记为已生效
+            player.hasFrogManSkill = true;
+            logEvent(`玩家${playerIndex + 1}（店主）的幻象技${skill.name}生效，全程不会成为其他角色强制丢弃道具或损耗行动点的对象`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）的幻象技${skill.name}生效！`;
             break;
         case '大蛇丸':
             // 从最多两名存活玩家手中各夺取一张道具卡（由你指定）
@@ -4769,7 +4784,8 @@ function createActionDeductionDialog(player, playerIndex, item, itemIndex, actio
     // 生成可选择的玩家列表
     const availablePlayers = [];
     for (let i = 0; i < gameState.players.length; i++) {
-        if (i !== playerIndex && gameState.players[i].status === 'alive' && conditionFn(gameState.players[i])) {
+        const targetPlayer = gameState.players[i];
+        if (i !== playerIndex && targetPlayer.status === 'alive' && conditionFn(targetPlayer) && !targetPlayer.hasFrogManSkill) {
             availablePlayers.push(i);
         }
     }
