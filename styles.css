@@ -25,14 +25,21 @@ body {
     position: absolute;
     top: 20px;
     right: 20px;
-    width: 350px;
+    width: 380px;
     min-height: 40px;
-    max-height: 500px;
+    max-height: 600px;
     background-color: #f9f9f9;
     border: 1px solid #ddd;
     border-radius: 8px;
     overflow: hidden;
-    transition: max-height 0.3s ease;
+    transition: max-height 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+.game-log:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .game-log.collapsed {
@@ -48,6 +55,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    height: 40px;
 }
 
 .log-toggle {
@@ -56,6 +64,11 @@ body {
     font-size: 12px;
     font-weight: bold;
     transition: transform 0.3s ease;
+    color: #666;
+}
+
+.log-toggle:hover {
+    color: #333;
 }
 
 .log-toggle.collapsed {
@@ -64,6 +77,7 @@ body {
 
 .log-tabs {
     display: flex;
+    flex: 1;
 }
 
 .log-tab {
@@ -71,8 +85,10 @@ body {
     padding: 10px;
     text-align: center;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: all 0.3s ease;
     border-right: 1px solid #ddd;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .log-tab:last-child {
@@ -89,16 +105,17 @@ body {
 }
 
 .log-content-container {
-    height: calc(100% - 40px);
+    flex: 1;
     overflow-y: auto;
+    box-sizing: border-box;
+    z-index: 1;
 }
 
 .log-content {
-    padding: 10px;
+    padding: 15px;
     font-size: 14px;
     line-height: 1.4;
     display: none;
-    max-height: 350px;
     overflow-y: auto;
 }
 
@@ -107,13 +124,48 @@ body {
 }
 
 .log-content p {
-    margin-bottom: 5px;
-    padding: 5px;
+    margin-bottom: 8px;
+    padding: 8px;
     border-bottom: 1px solid #eee;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.log-content p:hover {
+    background-color: #f5f5f5;
 }
 
 .log-content p:nth-child(odd) {
     background-color: #f0f0f0;
+}
+
+.log-resizer {
+    height: 4px;
+    background-color: #ddd;
+    cursor: ns-resize;
+    position: relative;
+    transition: background-color 0.3s ease;
+    z-index: 10;
+}
+
+.log-resizer:hover {
+    background-color: #2196F3;
+}
+
+.log-resizer::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 2px;
+    background-color: #999;
+    border-radius: 1px;
+}
+
+.log-resizer:hover::after {
+    background-color: white;
 }
 
 h1 {

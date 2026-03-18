@@ -5126,10 +5126,13 @@ function initDraggableLog() {
     const logHeader = document.querySelector('.game-log-header');
     const logToggle = document.querySelector('.log-toggle');
     const logContent = document.querySelector('.log-content-container');
+    const logResizer = document.querySelector('.log-resizer');
 
     let isDragging = false;
+    let isResizing = false;
     let offsetX = 0;
     let offsetY = 0;
+    let startHeight = 0;
 
     // 折叠/展开功能
     logToggle.addEventListener('click', function (e) {
@@ -5140,12 +5143,27 @@ function initDraggableLog() {
         logElement.classList.toggle('collapsed', !isCollapsed);
     });
 
+    // 移动功能
     logHeader.addEventListener('mousedown', function (e) {
         isDragging = true;
+        isResizing = false;
         offsetX = e.clientX - logElement.getBoundingClientRect().left;
         offsetY = e.clientY - logElement.getBoundingClientRect().top;
         logElement.style.zIndex = '1000';
     });
+
+    // 调整高度功能
+    if (logResizer) {
+        logResizer.addEventListener('mousedown', function (e) {
+            e.stopPropagation(); // 阻止事件冒泡，避免触发拖动
+            isResizing = true;
+            isDragging = false;
+            startHeight = logElement.offsetHeight;
+            offsetY = e.clientY;
+            logElement.style.zIndex = '1000';
+            document.body.style.cursor = 'ns-resize';
+        });
+    }
 
     document.addEventListener('mousemove', function (e) {
         if (isDragging) {
@@ -5161,12 +5179,29 @@ function initDraggableLog() {
 
             logElement.style.left = newX + 'px';
             logElement.style.top = newY + 'px';
+        } else if (isResizing) {
+            const gameContainer = document.querySelector('.game-container');
+            const containerRect = gameContainer.getBoundingClientRect();
+            
+            let deltaY = e.clientY - offsetY;
+            let newHeight = startHeight + deltaY;
+            
+            // 限制最小和最大高度
+            const minHeight = 40; // 折叠状态的高度
+            const maxHeight = containerRect.height - logElement.getBoundingClientRect().top + containerRect.top - 20;
+            
+            newHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+            
+            logElement.style.height = newHeight + 'px';
+            logElement.style.maxHeight = 'none'; // 取消最大高度限制
         }
     });
 
     document.addEventListener('mouseup', function () {
         isDragging = false;
+        isResizing = false;
         logElement.style.zIndex = '100';
+        document.body.style.cursor = '';
     });
 }
 
