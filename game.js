@@ -2779,6 +2779,95 @@ class GameDialogService {
         return dialog;
     }
 
+    // 创建丢弃道具对话框（晴彦幻象技）
+    static createDropItemDialog(availablePlayers, onConfirm, onCancel) {
+        // 构建选择界面
+        let playerOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            playerOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+            if (targetPlayer.items.length === 0) {
+                playerOptions += `<div class="no-items">无道具</div>`;
+            } else {
+                targetPlayer.items.forEach((targetItem, itemIndex) => {
+                    playerOptions += `<div class="drop-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}" data-selected="false">${targetItem.name} - ${targetItem.description}</div>`;
+                });
+            }
+        });
+
+        // 创建对话框
+        const dialog = this.createDialog(
+            'drop-dialog',
+            'drop-dialog-content',
+            '选择要丢弃的道具（最多选择3个玩家的道具，每个玩家最多选择1个）：',
+            `<div class="drop-options">${playerOptions}</div><div class="selected-count">已选择：0/3</div><button class="confirm-button" data-action="confirm" disabled>确认</button>`,
+            '取消',
+            null,
+            onCancel
+        );
+
+        // 处理道具选择
+        const dropItems = dialog.querySelectorAll('.drop-item');
+        const selectedCountElement = dialog.querySelector('.selected-count');
+        const confirmButton = dialog.querySelector('.confirm-button');
+        const selectedItems = new Map(); // 存储每个玩家选择的道具
+
+        dropItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                const targetPlayer = parseInt(itemElement.dataset.targetPlayer);
+                const targetItem = parseInt(itemElement.dataset.itemIndex);
+                const isSelected = itemElement.dataset.selected === 'true';
+
+                if (isSelected) {
+                    // 取消选择
+                    itemElement.dataset.selected = 'false';
+                    itemElement.classList.remove('selected');
+                    selectedItems.delete(targetPlayer);
+                } else {
+                    // 检查是否已经选择了3个不同的玩家
+                    if (selectedItems.size >= 3) {
+                        alert('最多只能选择3个玩家的道具！');
+                        return;
+                    }
+
+                    // 检查该玩家是否已经选择了道具
+                    if (selectedItems.has(targetPlayer)) {
+                        // 取消该玩家之前的选择
+                        const previousItem = dialog.querySelector(`.drop-item[data-target-player="${targetPlayer}"][data-selected="true"]`);
+                        if (previousItem) {
+                            previousItem.dataset.selected = 'false';
+                            previousItem.classList.remove('selected');
+                        }
+                    }
+
+                    // 选择新道具
+                    itemElement.dataset.selected = 'true';
+                    itemElement.classList.add('selected');
+                    selectedItems.set(targetPlayer, targetItem);
+                }
+
+                // 更新选择计数
+                selectedCountElement.textContent = `已选择：${selectedItems.size}/3`;
+                
+                // 启用/禁用确认按钮
+                confirmButton.disabled = selectedItems.size === 0;
+            });
+        });
+
+        // 处理确认按钮
+        confirmButton.addEventListener('click', () => {
+            if (selectedItems.size > 0) {
+                onConfirm(selectedItems);
+                this.closeDialog(dialog);
+            }
+        });
+
+        // 添加样式
+        this.addDialogStyle('drop-dialog');
+
+        return dialog;
+    }
+
     // 添加对话框样式
     static addDialogStyle(dialogClass) {
         // 检查是否已经添加了样式
@@ -2817,7 +2906,44 @@ class GameDialogService {
                 background-color: #ccc;
                 border: none;
                 border-radius: 5px;
+            }
+            .${dialogClass} .confirm-button {
+                margin-top: 10px;
+                margin-right: 10px;
+                padding: 10px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
                 cursor: pointer;
+            }
+            .${dialogClass} .confirm-button:disabled {
+                background-color: #cccccc;
+                cursor: not-allowed;
+            }
+            .${dialogClass} .drop-item {
+                padding: 8px;
+                margin: 5px 0;
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            .${dialogClass} .drop-item:hover {
+                background-color: #f0f0f0;
+            }
+            .${dialogClass} .drop-item.selected {
+                background-color: #e3f2fd;
+                border-color: #2196F3;
+            }
+            .${dialogClass} .no-items {
+                padding: 8px;
+                margin: 5px 0;
+                color: #999;
+                font-style: italic;
+            }
+            .${dialogClass} .selected-count {
+                margin-top: 15px;
+                font-weight: bold;
             }
         `;
 
@@ -3754,8 +3880,8 @@ function updateItemsDisplay() {
                 skillElement.textContent = skill.name;
                 skillElement.title = skill.description;
 
-                // 只有当前玩家且存活时且游戏未胜利时可以使用幻象技
-                if (i === gameState.currentPlayer && player.status === 'alive' && !gameState.gameWon && !skill.used) {
+                // 只要是店主且存活且游戏未胜利且技能未使用，就可以使用幻象技（无论是否是当前回合）
+                if (player.role === '店主' && player.status === 'alive' && !gameState.gameWon && !skill.used) {
                     skillElement.style.cursor = 'pointer';
                     skillElement.addEventListener('click', () => useFantasySkillByIndex(i, index));
                 } else {
@@ -3799,14 +3925,14 @@ function useFantasySkillByIndex(playerIndex, skillIndex) {
     };
     
     // 处理幻象技效果
-    handleFantasySkillEffect(skill, player, playerIndex);
+    handleFantasySkillEffect(skill, player, playerIndex, skillIndex);
     
     // 更新UI
     updateItemsDisplay();
 }
 
 // 处理幻象技效果
-function handleFantasySkillEffect(skill, player, playerIndex) {
+function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
     switch (skill.name) {
         case '测试':
             // 店主行动点+10
@@ -3816,9 +3942,51 @@ function handleFantasySkillEffect(skill, player, playerIndex) {
             break;
         case '晴彦':
             // 强制最多三名存活角色各丢弃一张道具卡（由你指定）
-            // 实现逻辑
             logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            
+            // 过滤出其他存活玩家
+            const availablePlayers = [];
+            gameState.players.forEach((targetPlayer, targetIndex) => {
+                if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
+                    availablePlayers.push(targetIndex);
+                }
+            });
+            
+            if (availablePlayers.length === 0) {
+                elements.gameMessage.textContent = '没有可丢弃道具的目标！';
+                logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，但没有可丢弃道具的目标`);
+                break;
+            }
+            
+            // 创建丢弃道具对话框
+            GameDialogService.createDropItemDialog(
+                availablePlayers,
+                (selectedItems) => {
+                    // 处理丢弃道具
+                    selectedItems.forEach((itemIndex, targetPlayerIndex) => {
+                        const targetPlayer = gameState.players[targetPlayerIndex];
+                        const droppedItem = targetPlayer.items[itemIndex];
+                        
+                        // 从目标玩家手中移除道具
+                        targetPlayer.items.splice(itemIndex, 1);
+                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                        
+                        // 记录日志
+                        logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，强制玩家${targetPlayerIndex + 1}（${targetPlayer.role}）丢弃了道具${droppedItem.name}`);
+                    });
+                    
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}，强制${selectedItems.size}名玩家各丢弃了一张道具！`;
+                    
+                    // 更新UI
+                    updateUI();
+                },
+                () => {
+                    // 取消使用幻象技，需要恢复技能状态
+                    player.fantasySkills[skillIndex].used = false;
+                    logEvent(`玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}`);
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}！`;
+                }
+            );
             break;
         case '蛙男':
             // 全程不得成为其他角色强制你丢弃道具卡或损耗行动点的对象
