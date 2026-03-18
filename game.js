@@ -2,6 +2,9 @@
 let items = {};
 let itemPool = [];
 
+// 幻象技配置（从CSV文件中加载）
+let fantasySkills = {};
+
 // 地图格子配置（从CSV文件中加载）
 let gridConfig = [];
 
@@ -133,6 +136,35 @@ function parseItemCSV(csvText) {
     }
 
     return { items: parsedItems, itemPool: newItemPool };
+}
+
+// 解析幻象技CSV数据
+function parseFantasySkillCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    const parsedSkills = {};
+
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+
+        // CSV格式：序号,技能名称,技能描述,消耗行动点,效果类型
+        const id = parseInt(values[0]);
+        const name = values[1];
+        const description = values[2];
+        const actionCost = parseInt(values[3]);
+        const effectType = values[4];
+
+        const skill = {
+            id: id,
+            name: name,
+            description: description,
+            actionCost: actionCost,
+            effectType: effectType
+        };
+
+        parsedSkills[skill.name] = skill;
+    }
+
+    return parsedSkills;
 }
 
 // 解析地图CSV数据
@@ -283,6 +315,46 @@ function loadItemsFromFile() {
     reader.readAsText(file, 'UTF-8');
 }
 
+// 加载幻象技CSV数据
+function loadFantasySkillsFromCSV(csvText) {
+    try {
+        const parsedSkills = parseFantasySkillCSV(csvText);
+        fantasySkills = parsedSkills;
+
+        console.log('幻象技加载成功:', fantasySkills);
+        return true;
+    } catch (error) {
+        console.error('加载幻象技失败:', error);
+        return false;
+    }
+}
+
+// 从文件读取幻象技CSV数据
+function loadFantasySkillsFromFile() {
+    const fileInput = document.getElementById('fantasy-skill-csv');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert('请先选择幻象技CSV文件！');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const csvText = e.target.result;
+        const success = loadFantasySkillsFromCSV(csvText);
+        if (success) {
+            updateFantasySkillLoadStatus('已加载');
+        } else {
+            alert('幻象技加载失败，请检查CSV文件格式！');
+        }
+    };
+    reader.onerror = function () {
+        alert('读取文件失败！');
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
 // 解析角色CSV数据
 function parseRoleCSV(csvText) {
     const lines = csvText.trim().split('\n');
@@ -355,6 +427,27 @@ async function autoLoadItemsFromCSV() {
         return false;
     } catch (error) {
         console.log('自动加载道具失败，需要手动选择:', error);
+        return false;
+    }
+}
+
+// 尝试自动读取幻象技CSV文件
+async function autoLoadFantasySkillsFromCSV() {
+    try {
+        const response = await fetch('fantasySkill.csv');
+        if (!response.ok) {
+            return false;
+        }
+        const csvText = await response.text();
+        const success = loadFantasySkillsFromCSV(csvText);
+        if (success) {
+            updateFantasySkillLoadStatus('已加载');
+            console.log('自动加载幻象技成功');
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.log('自动加载幻象技失败，需要手动选择:', error);
         return false;
     }
 }
@@ -486,6 +579,14 @@ function updateMapLoadStatus(status) {
 // 更新道具加载状态显示
 function updateItemLoadStatus(status) {
     const statusElement = document.getElementById('item-load-status');
+    if (statusElement) {
+        statusElement.textContent = status;
+    }
+}
+
+// 更新幻象技加载状态显示
+function updateFantasySkillLoadStatus(status) {
+    const statusElement = document.getElementById('fantasy-skill-load-status');
     if (statusElement) {
         statusElement.textContent = status;
     }
@@ -679,8 +780,8 @@ class MoveItemStrategy extends ItemStrategy {
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 处理好感度和行动点
-        if (player.role !== '薰') {
-            // 非薰玩家：只增加好感度，不恢复行动点
+        if (player.role !== '薰' && player.role !== '店主') {
+            // 非薰和非店主玩家：只增加好感度，不恢复行动点
             if (item.favor > 0) {
                 updateFavor(player, item.favor);
                 // 记录日志
@@ -694,18 +795,18 @@ class MoveItemStrategy extends ItemStrategy {
                 elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，移动到${newGrid.id}.${newGrid.name}！`;
             }
         } else {
-            // 薰玩家：只恢复行动点，不增加好感度
+            // 薰和店主玩家：只恢复行动点，不增加好感度
             if (item.action > 0) {
                 player.action += item.action;
                 // 记录日志
-                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，获得了${item.action}点行动点`);
                 // 显示消息
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点，移动到${newGrid.id}.${newGrid.name}！`;
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）使用了${item.name}，获得了${item.action}点行动点，移动到${newGrid.id}.${newGrid.name}！`;
             } else {
                 // 记录移动日志
-                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
                 // 显示消息
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，移动到${newGrid.id}.${newGrid.name}！`;
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）使用了${item.name}，移动到${newGrid.id}.${newGrid.name}！`;
             }
         }
 
@@ -885,7 +986,7 @@ class StealItemStrategy extends ItemStrategy {
     }
 }
 
-// 大瓶可尔思必道具策略
+// 大瓶可尔必思道具策略
 class ColspiceItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
         // 从道具列表中移除
@@ -896,19 +997,19 @@ class ColspiceItemStrategy extends ItemStrategy {
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 增加好感度或恢复行动点
-        if (player.role !== '薰') {
+        if (player.role !== '薰' && player.role !== '店主') {
             updateFavor(player, item.favor);
             // 记录日志
             logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，增加了${item.favor}点好感度`);
             // 显示消息
             elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，增加了${item.favor}点好感度！`;
         } else {
-            // 薰无法获得好感度，而是恢复行动点
+            // 薰和店主无法获得好感度，而是恢复行动点
             player.action += item.action;
             // 记录日志
-            logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，获得了${item.action}点行动点`);
             // 显示消息
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点！`;
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）使用了${item.name}，获得了${item.action}点行动点！`;
         }
 
         // 处理行动后逻辑
@@ -1225,8 +1326,8 @@ class FavorItemStrategy extends ItemStrategy {
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 处理好感度和行动点
-        if (player.role !== '薰') {
-            // 非薰玩家：只增加好感度，不恢复行动点
+        if (player.role !== '薰' && player.role !== '店主') {
+            // 非薰和非店主玩家：只增加好感度，不恢复行动点
             if (item.favor > 0) {
                 updateFavor(player, item.favor);
                 // 记录日志
@@ -1235,13 +1336,13 @@ class FavorItemStrategy extends ItemStrategy {
                 elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，增加了${item.favor}点好感度！`;
             }
         } else {
-            // 薰玩家：只恢复行动点，不增加好感度
+            // 薰和店主玩家：只恢复行动点，不增加好感度
             if (item.action > 0) {
                 player.action += item.action;
                 // 记录日志
-                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，获得了${item.action}点行动点`);
                 // 显示消息
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点！`;
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）使用了${item.name}，获得了${item.action}点行动点！`;
             }
         }
 
@@ -3697,7 +3798,6 @@ function useItem(playerIndex, itemIndex) {
         }
     } else if (item.name === '《白发小僧》') {
         if (player.role === '店主') {
-            //todo 暂时没有店主
             canUseWithoutAction = true;
         }
     } else if (item.name === '《幽灵塔》') {
@@ -5243,7 +5343,7 @@ function initDraggableLog() {
 // 随机分配角色
 function randomRoles() {
     const playerCount = parseInt(document.getElementById('player-count').value) || 3;
-    const roles = ['水上', '川濑', '花泽', '博士', '薰'];
+    const roles = ['水上', '川濑', '花泽', '博士', '薰', '店主'];
 
     // 打乱角色顺序
     for (let i = roles.length - 1; i > 0; i--) {
@@ -5711,6 +5811,18 @@ window.onload = async function () {
     // 添加下载地图模板按钮的事件监听器
     document.getElementById('download-map-template').addEventListener('click', downloadMapTemplate);
 
+    // 添加下载幻象技模板按钮的事件监听器
+    const downloadFantasySkillTemplateButton = document.getElementById('download-fantasy-skill-template');
+    if (downloadFantasySkillTemplateButton) {
+        downloadFantasySkillTemplateButton.addEventListener('click', downloadFantasySkillTemplate);
+    }
+
+    // 添加加载幻象技按钮的事件监听器
+    const loadFantasySkillsButton = document.getElementById('load-fantasy-skills');
+    if (loadFantasySkillsButton) {
+        loadFantasySkillsButton.addEventListener('click', loadFantasySkillsFromFile);
+    }
+
     // 添加游戏控制按钮的事件监听器
     const rollDiceButton = document.getElementById('roll-dice');
     if (rollDiceButton) {
@@ -5784,6 +5896,13 @@ window.onload = async function () {
         updateMapLoadStatus('未加载，请选择文件');
     }
 
+    // 尝试自动加载幻象技
+    updateFantasySkillLoadStatus('加载中...');
+    const loadedFantasySkills = await autoLoadFantasySkillsFromCSV();
+    if (!loadedFantasySkills) {
+        updateFantasySkillLoadStatus('未加载，请选择文件');
+    }
+
     // 尝试自动加载角色配置
     const loadedRoles = await autoLoadRolesFromCSV();
     if (!loadedRoles) {
@@ -5833,6 +5952,15 @@ function downloadMapTemplate() {
     const link = document.createElement('a');
     link.href = 'map.csv';
     link.download = 'map.csv';
+    link.click();
+}
+
+// 下载幻象技模板
+function downloadFantasySkillTemplate() {
+    // 创建一个a标签
+    const link = document.createElement('a');
+    link.href = 'fantasySkill.csv';
+    link.download = 'fantasySkill.csv';
     link.click();
 }
 
