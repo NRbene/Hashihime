@@ -145,23 +145,15 @@ function parseFantasySkillCSV(csvText) {
 
     for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',');
-
-        // CSV格式：序号,技能名称,技能描述,消耗行动点,效果类型
-        const id = parseInt(values[0]);
-        const name = values[1];
-        const description = values[2];
-        const actionCost = parseInt(values[3]);
-        const effectType = values[4];
+        const name = values[0];
+        const description = values[1];
 
         const skill = {
-            id: id,
             name: name,
-            description: description,
-            actionCost: actionCost,
-            effectType: effectType
+            description: description
         };
 
-        parsedSkills[skill.name] = skill;
+        parsedSkills[name] = skill;
     }
 
     return parsedSkills;
@@ -289,6 +281,19 @@ function loadItemsFromCSV(csvText) {
     }
 }
 
+// 加载幻象技CSV数据
+function loadFantasySkillsFromCSV(csvText) {
+    try {
+        const parsedSkills = parseFantasySkillCSV(csvText);
+        fantasySkills = parsedSkills;
+        console.log('幻象技加载成功:', fantasySkills);
+        return true;
+    } catch (error) {
+        console.error('加载幻象技失败:', error);
+        return false;
+    }
+}
+
 // 从文件读取CSV数据
 function loadItemsFromFile() {
     const fileInput = document.getElementById('item-csv');
@@ -313,20 +318,6 @@ function loadItemsFromFile() {
         alert('读取文件失败！');
     };
     reader.readAsText(file, 'UTF-8');
-}
-
-// 加载幻象技CSV数据
-function loadFantasySkillsFromCSV(csvText) {
-    try {
-        const parsedSkills = parseFantasySkillCSV(csvText);
-        fantasySkills = parsedSkills;
-
-        console.log('幻象技加载成功:', fantasySkills);
-        return true;
-    } catch (error) {
-        console.error('加载幻象技失败:', error);
-        return false;
-    }
 }
 
 // 从文件读取幻象技CSV数据
@@ -3300,7 +3291,8 @@ function initElements() {
         saveGame: document.getElementById('save-game'),
         loadGame: document.getElementById('load-game'),
         exportSave: document.getElementById('export-save'),
-        importSave: document.getElementById('import-save')
+        importSave: document.getElementById('import-save'),
+        loadFantasySkills: document.getElementById('load-fantasy-skills')
     };
 }
 
@@ -5789,11 +5781,15 @@ window.onload = async function () {
 
     // 添加加载道具按钮的事件监听器
     document.getElementById('load-items').addEventListener('click', loadItemsFromFile);
-
-    // 添加加载地图按钮的事件监听器
+    
     const mapLoadButton = document.getElementById('load-map');
     if (mapLoadButton) {
         mapLoadButton.addEventListener('click', loadMapFromFile);
+    }
+    
+    const fantasySkillsLoadButton = document.getElementById('load-fantasy-skills');
+    if (fantasySkillsLoadButton) {
+        fantasySkillsLoadButton.addEventListener('click', loadFantasySkillsFromFile);
     }
 
     // 添加玩家数量变化事件监听器
@@ -5810,18 +5806,9 @@ window.onload = async function () {
 
     // 添加下载地图模板按钮的事件监听器
     document.getElementById('download-map-template').addEventListener('click', downloadMapTemplate);
-
+    
     // 添加下载幻象技模板按钮的事件监听器
-    const downloadFantasySkillTemplateButton = document.getElementById('download-fantasy-skill-template');
-    if (downloadFantasySkillTemplateButton) {
-        downloadFantasySkillTemplateButton.addEventListener('click', downloadFantasySkillTemplate);
-    }
-
-    // 添加加载幻象技按钮的事件监听器
-    const loadFantasySkillsButton = document.getElementById('load-fantasy-skills');
-    if (loadFantasySkillsButton) {
-        loadFantasySkillsButton.addEventListener('click', loadFantasySkillsFromFile);
-    }
+    document.getElementById('download-fantasy-skill-template').addEventListener('click', downloadFantasySkillTemplate);
 
     // 添加游戏控制按钮的事件监听器
     const rollDiceButton = document.getElementById('roll-dice');
@@ -5896,17 +5883,16 @@ window.onload = async function () {
         updateMapLoadStatus('未加载，请选择文件');
     }
 
-    // 尝试自动加载幻象技
-    updateFantasySkillLoadStatus('加载中...');
-    const loadedFantasySkills = await autoLoadFantasySkillsFromCSV();
-    if (!loadedFantasySkills) {
-        updateFantasySkillLoadStatus('未加载，请选择文件');
-    }
-
     // 尝试自动加载角色配置
     const loadedRoles = await autoLoadRolesFromCSV();
     if (!loadedRoles) {
         console.log('角色配置加载失败，请确保role.csv文件存在且格式正确');
+    }
+    
+    // 尝试自动加载幻象技
+    const loadedFantasySkills = await autoLoadFantasySkillsFromCSV();
+    if (!loadedFantasySkills) {
+        updateFantasySkillLoadStatus('未加载，请选择文件');
     }
 
     // 初始化道具池监控
