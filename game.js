@@ -5217,7 +5217,7 @@ function handlePlayerCountChange() {
     for (let i = 1; i <= 5; i++) {
         const playerInfo = document.querySelector(`.player.player${i}`);
         if (playerInfo) {
-            playerInfo.style.display = i <= playerCount ? 'block' : 'none';
+            playerInfo.style.display = i <= playerCount ? '' : 'none';
         }
     }
 }
