@@ -3186,6 +3186,16 @@ function initElements() {
         player3Status: document.getElementById('player3-status'),
         player4Status: document.getElementById('player4-status'),
         player5Status: document.getElementById('player5-status'),
+        player1Name: document.getElementById('player1-name'),
+        player2Name: document.getElementById('player2-name'),
+        player3Name: document.getElementById('player3-name'),
+        player4Name: document.getElementById('player4-name'),
+        player5Name: document.getElementById('player5-name'),
+        player1NameDisplay: document.getElementById('player1-name-display'),
+        player2NameDisplay: document.getElementById('player2-name-display'),
+        player3NameDisplay: document.getElementById('player3-name-display'),
+        player4NameDisplay: document.getElementById('player4-name-display'),
+        player5NameDisplay: document.getElementById('player5-name-display'),
         saveGame: document.getElementById('save-game'),
         loadGame: document.getElementById('load-game'),
         exportSave: document.getElementById('export-save'),
@@ -3479,11 +3489,14 @@ function initGame() {
     // 获取玩家数量
     const playerCount = parseInt(document.getElementById('player-count').value) || 3;
 
-    // 获取玩家角色设置
+    // 获取玩家角色设置和中之人名称
     const playerRoles = [];
+    const playerNames = [];
     for (let i = 1; i <= playerCount; i++) {
         const role = document.getElementById(`player${i}-role`).value;
+        const name = document.getElementById(`player${i}-name`).value || '匿名';
         playerRoles.push(role);
+        playerNames.push(name);
     }
 
     // 设置玩家属性和重置游戏状态（使用观察者模式）
@@ -3491,9 +3504,11 @@ function initGame() {
         state.players = [];
         for (let i = 0; i < playerCount; i++) {
             const role = playerRoles[i];
+            const name = playerNames[i];
             state.players.push({
                 type: characterAttributes[role].type,
                 role: role,
+                name: name,
                 cards: 0,
                 items: [],
                 favor: characterAttributes[role].initialFavor,
@@ -3873,6 +3888,7 @@ function updateUI() {
     for (let i = 0; i < playerCount; i++) {
         const player = gameState.players[i];
         elements[`player${i + 1}RoleDisplay`].textContent = player.role;
+        elements[`player${i + 1}NameDisplay`].textContent = `(${player.name})`;
         // elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
         // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
         const currentAction = (player.action !== undefined && player.action !== null)

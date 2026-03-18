@@ -39,54 +39,89 @@
             </div>
             <div class="player-setup">
                 <div class="player-input">
-                    <label>玩家1 角色：</label>
-                    <select id="player1-role">
-                        <option value="水上">水上</option>
-                        <option value="川濑">川濑</option>
-                        <option value="花泽">花泽</option>
-                        <option value="博士">博士</option>
-                        <option value="薰">薰</option>
-                    </select>
+                    <h4>玩家1</h4>
+                    <div class="input-group">
+                        <label>角色：</label>
+                        <select id="player1-role">
+                            <option value="水上">水上</option>
+                            <option value="川濑">川濑</option>
+                            <option value="花泽">花泽</option>
+                            <option value="博士">博士</option>
+                            <option value="薰">薰</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>中之人：</label>
+                        <input type="text" id="player1-name" value="匿名">
+                    </div>
                 </div>
                 <div class="player-input">
-                    <label>玩家2 角色：</label>
-                    <select id="player2-role">
-                        <option value="水上">水上</option>
-                        <option value="川濑">川濑</option>
-                        <option value="花泽">花泽</option>
-                        <option value="博士">博士</option>
-                        <option value="薰">薰</option>
-                    </select>
+                    <h4>玩家2</h4>
+                    <div class="input-group">
+                        <label>角色：</label>
+                        <select id="player2-role">
+                            <option value="水上">水上</option>
+                            <option value="川濑">川濑</option>
+                            <option value="花泽">花泽</option>
+                            <option value="博士">博士</option>
+                            <option value="薰">薰</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>中之人：</label>
+                        <input type="text" id="player2-name" value="匿名">
+                    </div>
                 </div>
                 <div class="player-input">
-                    <label>玩家3 角色：</label>
-                    <select id="player3-role">
-                        <option value="水上">水上</option>
-                        <option value="川濑">川濑</option>
-                        <option value="花泽">花泽</option>
-                        <option value="博士">博士</option>
-                        <option value="薰">薰</option>
-                    </select>
+                    <h4>玩家3</h4>
+                    <div class="input-group">
+                        <label>角色：</label>
+                        <select id="player3-role">
+                            <option value="水上">水上</option>
+                            <option value="川濑">川濑</option>
+                            <option value="花泽">花泽</option>
+                            <option value="博士">博士</option>
+                            <option value="薰">薰</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>中之人：</label>
+                        <input type="text" id="player3-name" value="匿名">
+                    </div>
                 </div>
                 <div class="player-input" style="display: none;">
-                    <label>玩家4 角色：</label>
-                    <select id="player4-role">
-                        <option value="水上">水上</option>
-                        <option value="川濑">川濑</option>
-                        <option value="花泽">花泽</option>
-                        <option value="博士">博士</option>
-                        <option value="薰">薰</option>
-                    </select>
+                    <h4>玩家4</h4>
+                    <div class="input-group">
+                        <label>角色：</label>
+                        <select id="player4-role">
+                            <option value="水上">水上</option>
+                            <option value="川濑">川濑</option>
+                            <option value="花泽">花泽</option>
+                            <option value="博士">博士</option>
+                            <option value="薰">薰</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>中之人：</label>
+                        <input type="text" id="player4-name" value="匿名">
+                    </div>
                 </div>
                 <div class="player-input" style="display: none;">
-                    <label>玩家5 角色：</label>
-                    <select id="player5-role">
-                        <option value="水上">水上</option>
-                        <option value="川濑">川濑</option>
-                        <option value="花泽">花泽</option>
-                        <option value="博士">博士</option>
-                        <option value="薰">薰</option>
-                    </select>
+                    <h4>玩家5</h4>
+                    <div class="input-group">
+                        <label>角色：</label>
+                        <select id="player5-role">
+                            <option value="水上">水上</option>
+                            <option value="川濑">川濑</option>
+                            <option value="花泽">花泽</option>
+                            <option value="博士">博士</option>
+                            <option value="薰">薰</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>中之人：</label>
+                        <input type="text" id="player5-name" value="匿名">
+                    </div>
                 </div>
             </div>
             <div class="setup-buttons">
@@ -151,7 +186,7 @@
                 <div class="player-info">
                     <div class="player player1">
                         <div class="player-badge">1</div>
-                        <h3>玩家1</h3>
+                        <h3>玩家1 <span class="player-name-display" id="player1-name-display">(匿名)</span></h3>
                         <p>角色: <span id="player1-role-display">水上</span></p>
                         <p>行动点: <span id="player1-action">3</span></p>
                         <p>手牌: <span id="player1-cards">0</span></p>
@@ -164,7 +199,7 @@
                     </div>
                     <div class="player player2">
                         <div class="player-badge">2</div>
-                        <h3>玩家2</h3>
+                        <h3>玩家2 <span class="player-name-display" id="player2-name-display">(匿名)</span></h3>
                         <p>角色: <span id="player2-role-display">水上</span></p>
                         <p>行动点: <span id="player2-action">3</span></p>
                         <p>手牌: <span id="player2-cards">0</span></p>
@@ -177,7 +212,7 @@
                     </div>
                     <div class="player player3">
                         <div class="player-badge">3</div>
-                        <h3>玩家3</h3>
+                        <h3>玩家3 <span class="player-name-display" id="player3-name-display">(匿名)</span></h3>
                         <p>角色: <span id="player3-role-display">水上</span></p>
                         <p>行动点: <span id="player3-action">3</span></p>
                         <p>手牌: <span id="player3-cards">0</span></p>
@@ -190,7 +225,7 @@
                     </div>
                     <div class="player player4" style="display: none;">
                         <div class="player-badge">4</div>
-                        <h3>玩家4</h3>
+                        <h3>玩家4 <span class="player-name-display" id="player4-name-display">(匿名)</span></h3>
                         <p>角色: <span id="player4-role-display">水上</span></p>
                         <p>行动点: <span id="player4-action">3</span></p>
                         <p>手牌: <span id="player4-cards">0</span></p>
@@ -203,7 +238,7 @@
                     </div>
                     <div class="player player5" style="display: none;">
                         <div class="player-badge">5</div>
-                        <h3>玩家5</h3>
+                        <h3>玩家5 <span class="player-name-display" id="player5-name-display">(匿名)</span></h3>
                         <p>角色: <span id="player5-role-display">水上</span></p>
                         <p>行动点: <span id="player5-action">3</span></p>
                         <p>手牌: <span id="player5-cards">0</span></p>
