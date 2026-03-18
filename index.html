@@ -89,23 +89,32 @@
                 </div>
             </div>
             <div class="setup-buttons">
-                <div class="file-upload">
-                    <button id="download-item-template">下载道具模板</button>
-                    <label for="item-csv">选择道具CSV文件:</label>
-                    <input type="file" id="item-csv" accept=".csv">
-                    <button id="load-items">加载道具</button>
-                    
-                    <div id="item-load-status" style="color: #666; font-size: 14px; margin-top: 5px;">准备中</div>
+                <div class="upload-section">
+                    <div class="file-upload">
+                        <h4>道具配置</h4>
+                        <div class="file-actions">
+                            <button id="download-item-template">下载模板</button>
+                            <label for="item-csv">选择文件:</label>
+                            <input type="file" id="item-csv" accept=".csv">
+                            <button id="load-items">加载</button>
+                        </div>
+                        <div id="item-load-status">准备中</div>
+                    </div>
+                    <div class="file-upload">
+                        <h4>地图配置</h4>
+                        <div class="file-actions">
+                            <button id="download-map-template">下载模板</button>
+                            <label for="map-csv">选择文件:</label>
+                            <input type="file" id="map-csv" accept=".csv">
+                            <button id="load-map">加载</button>
+                        </div>
+                        <div id="map-load-status">准备中</div>
+                    </div>
                 </div>
-                <div class="file-upload">
-                    <button id="download-map-template">下载地图模板</button>
-                    <label for="map-csv">选择地图CSV文件:</label>
-                    <input type="file" id="map-csv" accept=".csv">
-                    <button id="load-map">加载地图</button>
-                    <div id="map-load-status" style="color: #666; font-size: 14px; margin-top: 5px;">准备中</div>
+                <div class="button-section">
+                    <button id="random-roles">随机分配角色</button>
+                    <button id="start-game">开始游戏</button>
                 </div>
-                <button id="random-roles">随机分配角色</button>
-                <button id="start-game">开始游戏</button>
             </div>
             
             <!-- 更新日志 -->
