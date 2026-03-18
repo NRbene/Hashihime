@@ -2868,6 +2868,101 @@ class GameDialogService {
         return dialog;
     }
 
+    // 创建夺取道具对话框（大蛇丸幻象技）
+    static createStealItemDialog(availablePlayers, maxStealCount, onConfirm, onCancel) {
+        // 构建选择界面
+        let playerOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            playerOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+            if (targetPlayer.items.length === 0) {
+                playerOptions += `<div class="no-items">无道具</div>`;
+            } else {
+                targetPlayer.items.forEach((targetItem, itemIndex) => {
+                    playerOptions += `<div class="steal-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}" data-selected="false">${targetItem.name} - ${targetItem.description}</div>`;
+                });
+            }
+        });
+
+        // 创建对话框
+        const dialog = this.createDialog(
+            'steal-dialog',
+            'steal-dialog-content',
+            `选择要夺取的道具（最多选择${Math.min(2, maxStealCount)}个玩家的道具，每个玩家最多选择1个）：`,
+            `<div class="steal-options">${playerOptions}</div><div class="selected-count">已选择：0/${Math.min(2, maxStealCount)}</div><button class="confirm-button" data-action="confirm" disabled>确认</button>`,
+            '取消',
+            null,
+            onCancel
+        );
+
+        // 处理道具选择
+        const stealItems = dialog.querySelectorAll('.steal-item');
+        const selectedCountElement = dialog.querySelector('.selected-count');
+        const confirmButton = dialog.querySelector('.confirm-button');
+        const selectedItems = new Map(); // 存储每个玩家选择的道具
+
+        stealItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                const targetPlayer = parseInt(itemElement.dataset.targetPlayer);
+                const targetItem = parseInt(itemElement.dataset.itemIndex);
+                const isSelected = itemElement.dataset.selected === 'true';
+
+                if (isSelected) {
+                    // 取消选择
+                    itemElement.dataset.selected = 'false';
+                    itemElement.classList.remove('selected');
+                    selectedItems.delete(targetPlayer);
+                } else {
+                    // 检查是否已经选择了2个不同的玩家
+                    if (selectedItems.size >= 2) {
+                        alert('最多只能选择2个玩家的道具！');
+                        return;
+                    }
+
+                    // 检查是否超过了最大夺取数量
+                    if (selectedItems.size >= maxStealCount) {
+                        alert(`最多只能夺取${maxStealCount}个道具！`);
+                        return;
+                    }
+
+                    // 检查该玩家是否已经选择了道具
+                    if (selectedItems.has(targetPlayer)) {
+                        // 取消该玩家之前的选择
+                        const previousItem = dialog.querySelector(`.steal-item[data-target-player="${targetPlayer}"][data-selected="true"]`);
+                        if (previousItem) {
+                            previousItem.dataset.selected = 'false';
+                            previousItem.classList.remove('selected');
+                        }
+                    }
+
+                    // 选择新道具
+                    itemElement.dataset.selected = 'true';
+                    itemElement.classList.add('selected');
+                    selectedItems.set(targetPlayer, targetItem);
+                }
+
+                // 更新选择计数
+                selectedCountElement.textContent = `已选择：${selectedItems.size}/${Math.min(2, maxStealCount)}`;
+                
+                // 启用/禁用确认按钮
+                confirmButton.disabled = selectedItems.size === 0;
+            });
+        });
+
+        // 处理确认按钮
+        confirmButton.addEventListener('click', () => {
+            if (selectedItems.size > 0) {
+                onConfirm(selectedItems);
+                this.closeDialog(dialog);
+            }
+        });
+
+        // 添加样式
+        this.addDialogStyle('steal-dialog');
+
+        return dialog;
+    }
+
     // 添加对话框样式
     static addDialogStyle(dialogClass) {
         // 检查是否已经添加了样式
@@ -2958,6 +3053,10 @@ class GameDialogService {
                 }
                 .steal-item:hover {
                     background-color: #f0f0f0;
+                }
+                .steal-item.selected {
+                    background-color: #e3f2fd;
+                    border-color: #2196F3;
                 }
             `;
         } else if (dialogClass === 'exchange-dialog') {
@@ -3932,12 +4031,6 @@ function useFantasySkillByIndex(playerIndex, skillIndex) {
     // 保存游戏状态到历史记录，以便可以撤回操作
     saveGameState();
     
-    // 标记幻象技为已使用
-    player.fantasySkills[skillIndex] = {
-        ...skill,
-        used: true
-    };
-    
     // 处理幻象技效果
     handleFantasySkillEffect(skill, player, playerIndex, skillIndex);
     
@@ -3949,6 +4042,11 @@ function useFantasySkillByIndex(playerIndex, skillIndex) {
 function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
     switch (skill.name) {
         case '测试':
+            // 标记幻象技为已使用
+            player.fantasySkills[skillIndex] = {
+                ...skill,
+                used: true
+            };
             // 店主行动点+10
             player.action += 10;
             logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，获得了10点行动点`);
@@ -3976,6 +4074,11 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
             GameDialogService.createDropItemDialog(
                 availablePlayers,
                 (selectedItems) => {
+                    // 标记幻象技为已使用
+                    player.fantasySkills[skillIndex] = {
+                        ...skill,
+                        used: true
+                    };
                     // 处理丢弃道具
                     selectedItems.forEach((itemIndex, targetPlayerIndex) => {
                         const targetPlayer = gameState.players[targetPlayerIndex];
@@ -3995,8 +4098,7 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
                     updateUI();
                 },
                 () => {
-                    // 取消使用幻象技，需要恢复技能状态
-                    player.fantasySkills[skillIndex].used = false;
+                    // 取消使用幻象技
                     logEvent(`玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}`);
                     elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}！`;
                 }
@@ -4011,9 +4113,74 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
             break;
         case '大蛇丸':
             // 从最多两名存活玩家手中各夺取一张道具卡（由你指定）
-            // 实现逻辑
             logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            
+            // 检查是否达到手牌上限
+            const handLimit = characterAttributes[player.role].maxCards; // 使用角色的实际最大手牌值
+            const currentHandCount = player.items.length;
+            const availableSlots = handLimit - currentHandCount;
+            
+            if (availableSlots <= 0) {
+                elements.gameMessage.textContent = '你的手牌已达到上限，无法使用大蛇丸幻象技！';
+                logEvent(`玩家${playerIndex + 1}（店主）尝试使用大蛇丸幻象技，但手牌已达到上限`);
+                return;
+            }
+            
+            // 计算最多可以夺取的道具数量
+            const maxStealCount = Math.min(2, availableSlots);
+            
+            // 过滤出其他存活玩家
+            const stealablePlayers = [];
+            gameState.players.forEach((targetPlayer, targetIndex) => {
+                if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
+                    stealablePlayers.push(targetIndex);
+                }
+            });
+            
+            if (stealablePlayers.length === 0) {
+                elements.gameMessage.textContent = '没有可夺取道具的目标！';
+                logEvent(`玩家${playerIndex + 1}（店主）使用大蛇丸幻象技，但没有可夺取道具的目标`);
+                return;
+            }
+            
+            // 创建夺取道具对话框
+            GameDialogService.createStealItemDialog(
+                stealablePlayers,
+                maxStealCount,
+                (selectedItems) => {
+                    // 标记幻象技为已使用
+                    player.fantasySkills[skillIndex] = {
+                        ...skill,
+                        used: true
+                    };
+                    // 处理夺取道具
+                    selectedItems.forEach((itemIndex, targetPlayerIndex) => {
+                        const targetPlayer = gameState.players[targetPlayerIndex];
+                        const stolenItem = targetPlayer.items[itemIndex];
+                        
+                        // 从目标玩家手中移除道具
+                        targetPlayer.items.splice(itemIndex, 1);
+                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+                        
+                        // 添加到当前玩家手中
+                        player.items.push(stolenItem);
+                        player.cards++;
+                        
+                        // 记录日志
+                        logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中夺取了道具${stolenItem.name}`);
+                    });
+                    
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}，从${selectedItems.size}名玩家手中各夺取了一张道具！`;
+                    
+                    // 更新UI
+                    updateUI();
+                },
+                () => {
+                    // 取消使用幻象技
+                    logEvent(`玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}`);
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}！`;
+                }
+            );
             break;
         case '帕诺拉马岛':
             // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
