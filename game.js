@@ -357,7 +357,8 @@ function parseRoleCSV(csvText) {
             type: values[1],
             action: parseInt(values[2]),
             maxCards: parseInt(values[3]),
-            initialFavor: parseInt(values[4])
+            initialFavor: parseInt(values[4]),
+            maxFantasySkills: parseInt(values[5]) || 0
         };
 
         characterAttributesData[values[0]] = role;
@@ -3604,6 +3605,7 @@ function initGame() {
                 name: name,
                 cards: 0,
                 items: [],
+                fantasySkills: [],
                 favor: characterAttributes[role].initialFavor,
                 status: 'alive',
                 action: characterAttributes[role].action,
@@ -3663,6 +3665,26 @@ function initGame() {
 
                 logEvent(`玩家${i + 1}（${player.role}）游戏开始，获得道具${item.name}`);
             }
+
+            // 如果是店主角色，抽取幻象技
+            if (player.role === '店主') {
+                const maxFantasySkills = characterAttributes[player.role].maxFantasySkills || 0;
+                const fantasySkillNames = Object.keys(fantasySkills);
+                
+                while (player.fantasySkills.length < maxFantasySkills && fantasySkillNames.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * fantasySkillNames.length);
+                    const skillName = fantasySkillNames[randomIndex];
+                    const skill = fantasySkills[skillName];
+
+                    // 从可用技能中移除该技能
+                    fantasySkillNames.splice(randomIndex, 1);
+
+                    // 添加技能到玩家的幻象技数组
+                    player.fantasySkills.push(skill);
+
+                    logEvent(`玩家${i + 1}（店主）游戏开始，获得幻象技${skill.name}`);
+                }
+            }
         }
     });
 
@@ -3708,6 +3730,30 @@ function updateItemsDisplay() {
 
             itemsContainer.appendChild(itemElement);
         });
+
+        // 如果是店主角色，显示幻象技
+        if (player.role === '店主') {
+            const fantasySkillsContainer = document.getElementById(`player${i + 1}-fantasy-skills`);
+            if (!fantasySkillsContainer) {
+                // 如果幻象技容器不存在，创建它
+                const container = document.createElement('div');
+                container.className = 'fantasy-skills-container';
+                container.innerHTML = '<p>幻象技:</p><div id="player' + (i + 1) + '-fantasy-skills" class="fantasy-skills-list"></div>';
+                itemsContainer.parentNode.appendChild(container);
+            }
+
+            const skillsContainer = document.getElementById(`player${i + 1}-fantasy-skills`);
+            skillsContainer.innerHTML = '';
+
+            player.fantasySkills.forEach((skill, index) => {
+                const skillElement = document.createElement('div');
+                skillElement.className = 'fantasy-skill';
+                skillElement.textContent = skill.name;
+                skillElement.title = skill.description;
+
+                skillsContainer.appendChild(skillElement);
+            });
+        }
     }
 }
 

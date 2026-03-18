@@ -567,6 +567,39 @@ h2 {
     opacity: 0.6;
 }
 
+/* 幻象技样式 */
+.fantasy-skills-container {
+    margin-top: 10px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+}
+
+.fantasy-skills-container p {
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.fantasy-skills-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.fantasy-skill {
+    padding: 5px 10px;
+    background-color: #f3e5f5;
+    border: 1px solid #ce93d8;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background-color 0.3s ease;
+}
+
+.fantasy-skill:hover {
+    background-color: #e1bee7;
+    border-color: #ba68c8;
+}
+
 /* 道具池样式 */
 .item-pool-item {
     padding: 8px;
