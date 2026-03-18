@@ -4914,16 +4914,35 @@ function showWinDialog(winner) {
 function checkWinCondition() {
     const playerCount = gameState.players.length;
     // 检查A玩家是否好感度达到100
+    const winningPlayers = [];
     for (let i = 0; i < playerCount; i++) {
         const player = gameState.players[i];
         if (player.type === 'A' && player.favor >= 100) {
-            elements.gameMessage.textContent = `玩家${i + 1}（A类型）好感度达到100，游戏胜利！`;
-            logEvent(`游戏胜利：玩家${i + 1}（A类型）好感度达到100`);
-            gameState.gameWon = true;
-            // 显示胜利弹窗
-            showWinDialog(`玩家${i + 1}（${player.role}）`);
-            return true;
+            winningPlayers.push({ index: i + 1, role: player.role, name: player.name });
         }
+    }
+
+    // 如果有多个A类型玩家达到胜利条件，宣布他们同时胜利
+    if (winningPlayers.length > 0) {
+        let winnerText = '';
+        let winnerNames = '';
+        for (let i = 0; i < winningPlayers.length; i++) {
+            const player = winningPlayers[i];
+            winnerText += `玩家${player.index}（${player.role}）`;
+            if (i < winningPlayers.length - 1) {
+                winnerText += '、';
+            }
+            winnerNames += `玩家${player.index}（${player.role}）`;
+            if (i < winningPlayers.length - 1) {
+                winnerNames += '、';
+            }
+        }
+        elements.gameMessage.textContent = `${winnerText}好感度达到100，游戏胜利！`;
+        logEvent(`游戏胜利：${winnerText}好感度达到100`);
+        gameState.gameWon = true;
+        // 显示胜利弹窗
+        showWinDialog(winnerNames);
+        return true;
     }
 
     // 检查B玩家是否杀死所有A玩家
