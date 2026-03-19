@@ -2963,6 +2963,238 @@ class GameDialogService {
         return dialog;
     }
 
+    // 创建交换道具对话框（帕诺拉马岛幻象技）
+    static createExchangeItemsDialog(availablePlayers, onConfirm, onCancel) {
+        let step = 1;
+        let player1Index = null;
+        let player2Index = null;
+        let maxExchangeCount = 0;
+        let player1SelectedItems = [];
+        let player2SelectedItems = [];
+
+        const buildPlayerSelectionHTML = () => {
+            let html = '<div class="exchange-step-indicator">步骤 1/3：选择第一位玩家</div>';
+            html += '<div class="exchange-players-list">';
+            availablePlayers.forEach(targetIndex => {
+                const targetPlayer = gameState.players[targetIndex];
+                const maxCards = characterAttributes[targetPlayer.role].maxCards;
+                html += `<div class="exchange-player-option" data-player-index="${targetIndex}">
+                    <div class="player-info-header">玩家${targetIndex + 1}（${targetPlayer.role}）</div>
+                    <div class="player-info-detail">道具数量: ${targetPlayer.items.length} / 手牌上限: ${maxCards}</div>
+                    <div class="player-items-preview">`;
+                if (targetPlayer.items.length === 0) {
+                    html += '<span class="no-items-text">无道具</span>';
+                } else {
+                    targetPlayer.items.forEach(item => {
+                        html += `<span class="item-tag">${item.name}</span>`;
+                    });
+                }
+                html += '</div></div>';
+            });
+            html += '</div>';
+            return html;
+        };
+
+        const buildPlayer2SelectionHTML = () => {
+            let html = '<div class="exchange-step-indicator">步骤 2/3：选择第二位玩家</div>';
+            html += '<div class="exchange-players-list">';
+            availablePlayers.forEach(targetIndex => {
+                if (targetIndex === player1Index) return;
+                const targetPlayer = gameState.players[targetIndex];
+                const maxCards = characterAttributes[targetPlayer.role].maxCards;
+                html += `<div class="exchange-player-option" data-player-index="${targetIndex}">
+                    <div class="player-info-header">玩家${targetIndex + 1}（${targetPlayer.role}）</div>
+                    <div class="player-info-detail">道具数量: ${targetPlayer.items.length} / 手牌上限: ${maxCards}</div>
+                    <div class="player-items-preview">`;
+                if (targetPlayer.items.length === 0) {
+                    html += '<span class="no-items-text">无道具</span>';
+                } else {
+                    targetPlayer.items.forEach(item => {
+                        html += `<span class="item-tag">${item.name}</span>`;
+                    });
+                }
+                html += '</div></div>';
+            });
+            html += '</div>';
+            return html;
+        };
+
+        const buildItemSelectionHTML = () => {
+            const player1 = gameState.players[player1Index];
+            const player2 = gameState.players[player2Index];
+            const player1MaxCards = characterAttributes[player1.role].maxCards;
+            const player2MaxCards = characterAttributes[player2.role].maxCards;
+            
+            maxExchangeCount = Math.min(
+                player1.items.length,
+                player2.items.length,
+                player1MaxCards,
+                player2MaxCards
+            );
+
+            let html = `<div class="exchange-step-indicator">步骤 3/3：选择要交换的道具（最多交换 ${maxExchangeCount} 个）</div>`;
+            html += `<div class="exchange-max-count">本次最多可交换道具数量: ${maxExchangeCount}</div>`;
+            
+            html += '<div class="exchange-items-container">';
+            
+            html += `<div class="exchange-player-column">
+                <h4>玩家${player1Index + 1}（${player1.role}）的道具</h4>
+                <div class="exchange-items-list" data-player="1">`;
+            if (player1.items.length === 0) {
+                html += '<div class="no-items-text">无道具</div>';
+            } else {
+                player1.items.forEach((item, itemIndex) => {
+                    html += `<div class="exchange-item" data-item-index="${itemIndex}" data-player="1">
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-desc">${item.description}</span>
+                    </div>`;
+                });
+            }
+            html += '</div></div>';
+            
+            html += `<div class="exchange-player-column">
+                <h4>玩家${player2Index + 1}（${player2.role}）的道具</h4>
+                <div class="exchange-items-list" data-player="2">`;
+            if (player2.items.length === 0) {
+                html += '<div class="no-items-text">无道具</div>';
+            } else {
+                player2.items.forEach((item, itemIndex) => {
+                    html += `<div class="exchange-item" data-item-index="${itemIndex}" data-player="2">
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-desc">${item.description}</span>
+                    </div>`;
+                });
+            }
+            html += '</div></div>';
+            
+            html += '</div>';
+            
+            html += `<div class="exchange-selection-status">
+                <div>玩家${player1Index + 1}已选择: <span id="player1-selected-count">0</span> 个</div>
+                <div>玩家${player2Index + 1}已选择: <span id="player2-selected-count">0</span> 个</div>
+            </div>`;
+            
+            html += '<div class="exchange-buttons"><button class="confirm-button" data-action="confirm" disabled>确认交换</button></div>';
+            
+            return html;
+        };
+
+        const dialog = this.createDialog(
+            'exchange-items-dialog',
+            'exchange-items-dialog-content',
+            '帕诺拉马岛 - 交换道具',
+            buildPlayerSelectionHTML(),
+            '取消',
+            null,
+            onCancel
+        );
+
+        const updateDialogContent = (html) => {
+            const content = dialog.querySelector('.exchange-items-dialog-content');
+            const header = content.querySelector('h3');
+            const body = content.querySelector('div:not(.cancel-button)');
+            const cancelButton = content.querySelector('.cancel-button');
+            content.innerHTML = '';
+            content.appendChild(header);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+            content.appendChild(wrapper);
+            content.appendChild(cancelButton);
+        };
+
+        const handlePlayer1Selection = () => {
+            const playerOptions = dialog.querySelectorAll('.exchange-player-option');
+            playerOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    player1Index = parseInt(option.dataset.playerIndex);
+                    step = 2;
+                    updateDialogContent(buildPlayer2SelectionHTML());
+                    handlePlayer2Selection();
+                });
+            });
+        };
+
+        const handlePlayer2Selection = () => {
+            const playerOptions = dialog.querySelectorAll('.exchange-player-option');
+            playerOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    player2Index = parseInt(option.dataset.playerIndex);
+                    step = 3;
+                    updateDialogContent(buildItemSelectionHTML());
+                    handleItemSelection();
+                });
+            });
+        };
+
+        const handleItemSelection = () => {
+            const exchangeItems = dialog.querySelectorAll('.exchange-item');
+            const confirmButton = dialog.querySelector('.confirm-button');
+            const player1CountDisplay = dialog.querySelector('#player1-selected-count');
+            const player2CountDisplay = dialog.querySelector('#player2-selected-count');
+
+            const updateConfirmButton = () => {
+                const count1 = player1SelectedItems.length;
+                const count2 = player2SelectedItems.length;
+                const canConfirm = count1 > 0 && count2 > 0 && count1 === count2;
+                confirmButton.disabled = !canConfirm;
+            };
+
+            exchangeItems.forEach(itemElement => {
+                itemElement.addEventListener('click', () => {
+                    const itemIndex = parseInt(itemElement.dataset.itemIndex);
+                    const playerNum = parseInt(itemElement.dataset.player);
+                    const isSelected = itemElement.classList.contains('selected');
+
+                    if (isSelected) {
+                        itemElement.classList.remove('selected');
+                        if (playerNum === 1) {
+                            player1SelectedItems = player1SelectedItems.filter(i => i !== itemIndex);
+                        } else {
+                            player2SelectedItems = player2SelectedItems.filter(i => i !== itemIndex);
+                        }
+                    } else {
+                        const currentPlayerSelectedCount = playerNum === 1 ? player1SelectedItems.length : player2SelectedItems.length;
+                        if (currentPlayerSelectedCount >= maxExchangeCount) {
+                            alert(`每位玩家最多只能选择 ${maxExchangeCount} 个道具！`);
+                            return;
+                        }
+                        itemElement.classList.add('selected');
+                        if (playerNum === 1) {
+                            player1SelectedItems.push(itemIndex);
+                        } else {
+                            player2SelectedItems.push(itemIndex);
+                        }
+                    }
+
+                    player1CountDisplay.textContent = player1SelectedItems.length;
+                    player2CountDisplay.textContent = player2SelectedItems.length;
+
+                    updateConfirmButton();
+                });
+            });
+
+            confirmButton.addEventListener('click', () => {
+                if (player1SelectedItems.length !== player2SelectedItems.length) {
+                    alert('双方必须选中等量的道具才能进行交换！');
+                    return;
+                }
+                if (player1SelectedItems.length > 0 && player2SelectedItems.length > 0) {
+                    onConfirm({
+                        player1Index,
+                        player2Index,
+                        player1Items: player1SelectedItems,
+                        player2Items: player2SelectedItems
+                    });
+                    this.closeDialog(dialog);
+                }
+            });
+        };
+
+        handlePlayer1Selection();
+
+        return dialog;
+    }
+
     // 添加对话框样式
     static addDialogStyle(dialogClass) {
         // 检查是否已经添加了样式
@@ -4184,9 +4416,73 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
             break;
         case '帕诺拉马岛':
             // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
-            // 实现逻辑
             logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            
+            // 过滤出所有存活玩家
+            const alivePlayers = [];
+            gameState.players.forEach((targetPlayer, targetIndex) => {
+                if (targetPlayer.status === 'alive') {
+                    alivePlayers.push(targetIndex);
+                }
+            });
+            
+            if (alivePlayers.length < 2) {
+                elements.gameMessage.textContent = '存活玩家不足2人，无法使用帕诺拉马岛！';
+                logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，但存活玩家不足2人`);
+                return;
+            }
+            
+            // 创建交换道具对话框
+            GameDialogService.createExchangeItemsDialog(
+                alivePlayers,
+                (result) => {
+                    // 标记幻象技为已使用
+                    player.fantasySkills[skillIndex] = {
+                        ...skill,
+                        used: true
+                    };
+                    
+                    const { player1Index, player2Index, player1Items, player2Items } = result;
+                    const player1 = gameState.players[player1Index];
+                    const player2 = gameState.players[player2Index];
+                    
+                    // 获取要交换的道具
+                    const player1ExchangeItems = player1Items.map(idx => player1.items[idx]);
+                    const player2ExchangeItems = player2Items.map(idx => player2.items[idx]);
+                    
+                    // 从原玩家手中移除道具（从后往前删除，避免索引问题）
+                    player1Items.sort((a, b) => b - a).forEach(idx => {
+                        player1.items.splice(idx, 1);
+                    });
+                    player2Items.sort((a, b) => b - a).forEach(idx => {
+                        player2.items.splice(idx, 1);
+                    });
+                    
+                    // 将道具添加到对方手中
+                    player1.items.push(...player2ExchangeItems);
+                    player2.items.push(...player1ExchangeItems);
+                    
+                    // 更新手牌数
+                    player1.cards = player1.items.length;
+                    player2.cards = player2.items.length;
+                    
+                    // 记录日志
+                    const player1ItemNames = player1ExchangeItems.map(item => item.name).join('、');
+                    const player2ItemNames = player2ExchangeItems.map(item => item.name).join('、');
+                    
+                    logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，玩家${player1Index + 1}（${player1.role}）的${player1ItemNames}与玩家${player2Index + 1}（${player2.role}）的${player2ItemNames}进行了交换`);
+                    
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}，交换完成！`;
+                    
+                    // 更新UI
+                    updateUI();
+                },
+                () => {
+                    // 取消使用幻象技
+                    logEvent(`玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}`);
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}！`;
+                }
+            );
             break;
         case '电光艇':
             // 指定棋子步数并x2
