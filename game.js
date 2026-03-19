@@ -5983,7 +5983,7 @@ function checkWinCondition() {
 // 处理玩家死亡
 function handlePlayerDeath(player, playerIndex, reason = '被杀死') {
     // 设置玩家为死亡状态
-    player.status = 'dead';
+    player.status = 'die';
     // 玩家死亡后丢失所有道具
     const lostItems = player.items.length;
     player.items = [];
