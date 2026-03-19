@@ -7176,18 +7176,25 @@ function showShopkeeperSkillDialog(shopkeeper, parentDialog) {
             // 关闭当前弹窗，返回行动开始弹窗
             document.body.removeChild(dialog);
 
-            // 标记本回合已行动（如果当前玩家不是店主）
-            const currentPlayer = gameState.players[gameState.currentPlayer];
-            if (currentPlayer.role !== '店主') {
-                currentPlayer.hasActed = true;
-            }
+
 
             // 更新行动开始弹窗中的店主幻象技按钮状态
             const shopkeeperSkillButton = parentDialog.querySelector('#action-start-shopkeeper-skill');
             if (shopkeeperSkillButton) {
-                shopkeeperSkillButton.disabled = true;
-                shopkeeperSkillButton.style.backgroundColor = '#ccc';
-                shopkeeperSkillButton.style.cursor = 'not-allowed';
+                // 重新检查是否需要禁用店主幻象技按钮
+                const currentPlayer = gameState.players[gameState.currentPlayer];
+                const hasAvailableSkills = shopkeeper.fantasySkills.some(skill => !skill.used);
+                const shouldDisable = !hasAvailableSkills || (currentPlayer.hasActed && currentPlayer.role !== '店主');
+                
+                if (shouldDisable) {
+                    shopkeeperSkillButton.disabled = true;
+                    shopkeeperSkillButton.style.backgroundColor = '#ccc';
+                    shopkeeperSkillButton.style.cursor = 'not-allowed';
+                } else {
+                    shopkeeperSkillButton.disabled = false;
+                    shopkeeperSkillButton.style.backgroundColor = '#ff9800';
+                    shopkeeperSkillButton.style.cursor = 'pointer';
+                }
             }
 
             // 检查是否需要显示确认按钮
@@ -7210,16 +7217,172 @@ function showShopkeeperSkillDialog(shopkeeper, parentDialog) {
     });
 }
 
+// 辅助函数：获取店主索引
+function getShopkeeperIndex(shopkeeper) {
+    return gameState.players.indexOf(shopkeeper);
+}
+
+// 辅助函数：记录幻象技使用日志
+function logSkillUsage(skill, shopkeeperIndex, extra = '') {
+    logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}${extra}`);
+}
+
+// 辅助函数：显示幻象技消息
+function showSkillMessage(skill, shopkeeperIndex, message) {
+    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）${message}！`;
+}
+
+// 辅助函数：处理取消使用幻象技
+function handleSkillCancel(skill, shopkeeperIndex) {
+    logEvent(`玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}`);
+    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}！`;
+}
+
+// 辅助函数：过滤出有道具的其他存活玩家
+function getPlayersWithItems(excludeIndex) {
+    const players = [];
+    gameState.players.forEach((targetPlayer, targetIndex) => {
+        if (targetIndex !== excludeIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
+            players.push(targetIndex);
+        }
+    });
+    return players;
+}
+
+// 辅助函数：过滤出所有存活玩家
+function getAllAlivePlayers() {
+    const players = [];
+    gameState.players.forEach((targetPlayer, targetIndex) => {
+        if (targetPlayer.status === 'alive') {
+            players.push(targetIndex);
+        }
+    });
+    return players;
+}
+
+// 辅助函数：处理道具丢弃
+function handleItemDrop(selectedItems, skill, shopkeeperIndex) {
+    selectedItems.forEach((itemIndex, targetPlayerIndex) => {
+        const targetPlayer = gameState.players[targetPlayerIndex];
+        const droppedItem = targetPlayer.items[itemIndex];
+        
+        // 从目标玩家手中移除道具
+        targetPlayer.items.splice(itemIndex, 1);
+        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+        
+        // 记录日志
+        logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，强制玩家${targetPlayerIndex + 1}（${targetPlayer.role}）丢弃了道具${droppedItem.name}`);
+    });
+    
+    showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，强制' + selectedItems.size + '名玩家各丢弃了一张道具');
+    
+    // 更新UI
+    updateUI();
+}
+
+// 辅助函数：处理道具夺取
+function handleItemSteal(selectedItems, shopkeeper, skill, shopkeeperIndex) {
+    selectedItems.forEach((itemIndex, targetPlayerIndex) => {
+        const targetPlayer = gameState.players[targetPlayerIndex];
+        const stolenItem = targetPlayer.items[itemIndex];
+        
+        // 从目标玩家手中移除道具
+        targetPlayer.items.splice(itemIndex, 1);
+        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+        
+        // 添加到当前玩家手中
+        shopkeeper.items.push(stolenItem);
+        shopkeeper.cards++;
+        
+        // 记录日志
+        logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中夺取了道具${stolenItem.name}`);
+    });
+    
+    showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，从' + selectedItems.size + '名玩家手中各夺取了一张道具');
+    
+    // 更新UI
+    updateUI();
+}
+
+// 辅助函数：处理道具交换
+function handleItemExchange(result, skill, shopkeeperIndex) {
+    const { player1Index, player2Index, player1Items, player2Items } = result;
+    const player1 = gameState.players[player1Index];
+    const player2 = gameState.players[player2Index];
+    
+    // 获取要交换的道具
+    const player1ExchangeItems = player1Items.map(idx => player1.items[idx]);
+    const player2ExchangeItems = player2Items.map(idx => player2.items[idx]);
+    
+    // 从原玩家手中移除道具（从后往前删除，避免索引问题）
+    player1Items.sort((a, b) => b - a).forEach(idx => {
+        player1.items.splice(idx, 1);
+    });
+    player2Items.sort((a, b) => b - a).forEach(idx => {
+        player2.items.splice(idx, 1);
+    });
+    
+    // 将道具添加到对方手中
+    player1.items.push(...player2ExchangeItems);
+    player2.items.push(...player1ExchangeItems);
+    
+    // 更新手牌数
+    player1.cards = player1.items.length;
+    player2.cards = player2.items.length;
+    
+    // 记录日志
+    const player1ItemNames = player1ExchangeItems.map(item => item.name).join('、');
+    const player2ItemNames = player2ExchangeItems.map(item => item.name).join('、');
+    
+    logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，玩家${player1Index + 1}（${player1.role}）的${player1ItemNames}与玩家${player2Index + 1}（${player2.role}）的${player2ItemNames}进行了交换`);
+    
+    showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，交换完成');
+    
+    // 更新UI
+    updateUI();
+}
+
+// 辅助函数：处理电光艇移动
+function handleLightningBoatMove(totalSteps) {
+    // 记录原始位置
+    const originalPosition = gameState.tokenPosition;
+    
+    // 移动棋子
+    if (gameState.reverseDirection) {
+        // 逆时针移动
+        gameState.tokenPosition = (gameState.tokenPosition - totalSteps + gridConfig.length) % gridConfig.length;
+    } else {
+        // 顺时针移动
+        gameState.tokenPosition = (gameState.tokenPosition + totalSteps) % gridConfig.length;
+    }
+    
+    // 更新棋子位置
+    updateTokenPosition();
+    
+    // 触发格子效果
+    const currentGrid = gridConfig[gameState.tokenPosition];
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    const strategies = GridStrategyFactory.getStrategies(currentGrid);
+    
+    // 检查是否是水洼格子（会结束回合）
+    const isWaterGrid = currentGrid.types && currentGrid.types.includes('水洼');
+    
+    strategies.forEach(strategy => {
+        strategy.execute(currentGrid, currentPlayer);
+    });
+}
+
 // 触发店主幻象技效果
 function triggerShopkeeperSkill(skill, shopkeeper) {
-    const shopkeeperIndex = gameState.players.indexOf(shopkeeper);
+    const shopkeeperIndex = getShopkeeperIndex(shopkeeper);
+    
     // 根据技能名称触发不同的效果
     switch (skill.name) {
         case '蛙男':
             // 蛙男技能：全程不会成为其他角色强制丢弃道具或损耗行动点的对象
             shopkeeper.hasFrogManSkill = true;
-            logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}，全程不会成为其他角色强制丢弃道具或损耗行动点的对象`);
-            elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）的幻象技${skill.name}生效！`;
+            logSkillUsage(skill, shopkeeperIndex, '，全程不会成为其他角色强制丢弃道具或损耗行动点的对象');
+            showSkillMessage(skill, shopkeeperIndex, '的幻象技' + skill.name + '生效');
             break;
         case '幸运草':
             // 幸运草技能：可以多抽一张道具卡
@@ -7235,8 +7398,8 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
                 shopkeeper.items.push(item);
                 shopkeeper.cards++;
 
-                logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}，获得道具${item.name}`);
-                elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}，获得道具${item.name}！`;
+                logSkillUsage(skill, shopkeeperIndex, '，获得道具' + item.name);
+                showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，获得道具' + item.name);
 
                 // 更新道具池显示
                 updateItemPoolDisplay();
@@ -7244,54 +7407,27 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             break;
         case '晴彦':
             // 强制最多三名存活角色各丢弃一张道具卡（由你指定）
-            logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}`);
+            logSkillUsage(skill, shopkeeperIndex);
             
             // 过滤出其他存活玩家
-            const availablePlayers = [];
-            gameState.players.forEach((targetPlayer, targetIndex) => {
-                if (targetIndex !== shopkeeperIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
-                    availablePlayers.push(targetIndex);
-                }
-            });
+            const availablePlayers = getPlayersWithItems(shopkeeperIndex);
             
             if (availablePlayers.length === 0) {
                 elements.gameMessage.textContent = '没有可丢弃道具的目标！';
-                logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，但没有可丢弃道具的目标`);
+                logSkillUsage(skill, shopkeeperIndex, '，但没有可丢弃道具的目标');
                 return;
             }
             
             // 创建丢弃道具对话框
             GameDialogService.createDropItemDialog(
                 availablePlayers,
-                (selectedItems) => {
-                    // 处理丢弃道具
-                    selectedItems.forEach((itemIndex, targetPlayerIndex) => {
-                        const targetPlayer = gameState.players[targetPlayerIndex];
-                        const droppedItem = targetPlayer.items[itemIndex];
-                        
-                        // 从目标玩家手中移除道具
-                        targetPlayer.items.splice(itemIndex, 1);
-                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
-                        
-                        // 记录日志
-                        logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，强制玩家${targetPlayerIndex + 1}（${targetPlayer.role}）丢弃了道具${droppedItem.name}`);
-                    });
-                    
-                    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}，强制${selectedItems.size}名玩家各丢弃了一张道具！`;
-                    
-                    // 更新UI
-                    updateUI();
-                },
-                () => {
-                    // 取消使用幻象技
-                    logEvent(`玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}`);
-                    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}！`;
-                }
+                (selectedItems) => handleItemDrop(selectedItems, skill, shopkeeperIndex),
+                () => handleSkillCancel(skill, shopkeeperIndex)
             );
             break;
         case '大蛇丸':
             // 从最多两名存活玩家手中各夺取一张道具卡（由你指定）
-            logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}`);
+            logSkillUsage(skill, shopkeeperIndex);
             
             // 检查是否达到手牌上限
             const handLimit = characterAttributes[shopkeeper.role].maxCards;
@@ -7300,7 +7436,7 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             
             if (availableSlots <= 0) {
                 elements.gameMessage.textContent = '你的手牌已达到上限，无法使用大蛇丸幻象技！';
-                logEvent(`玩家${shopkeeperIndex + 1}（店主）尝试使用大蛇丸幻象技，但手牌已达到上限`);
+                logSkillUsage(skill, shopkeeperIndex, '，但手牌已达到上限');
                 return;
             }
             
@@ -7308,16 +7444,11 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             const maxStealCount = Math.min(2, availableSlots);
             
             // 过滤出其他存活玩家
-            const stealablePlayers = [];
-            gameState.players.forEach((targetPlayer, targetIndex) => {
-                if (targetIndex !== shopkeeperIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
-                    stealablePlayers.push(targetIndex);
-                }
-            });
+            const stealablePlayers = getPlayersWithItems(shopkeeperIndex);
             
             if (stealablePlayers.length === 0) {
                 elements.gameMessage.textContent = '没有可夺取道具的目标！';
-                logEvent(`玩家${shopkeeperIndex + 1}（店主）使用大蛇丸幻象技，但没有可夺取道具的目标`);
+                logSkillUsage(skill, shopkeeperIndex, '，但没有可夺取道具的目标');
                 return;
             }
             
@@ -7325,144 +7456,44 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             GameDialogService.createStealItemDialog(
                 stealablePlayers,
                 maxStealCount,
-                (selectedItems) => {
-                    // 处理夺取道具
-                    selectedItems.forEach((itemIndex, targetPlayerIndex) => {
-                        const targetPlayer = gameState.players[targetPlayerIndex];
-                        const stolenItem = targetPlayer.items[itemIndex];
-                        
-                        // 从目标玩家手中移除道具
-                        targetPlayer.items.splice(itemIndex, 1);
-                        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
-                        
-                        // 添加到当前玩家手中
-                        shopkeeper.items.push(stolenItem);
-                        shopkeeper.cards++;
-                        
-                        // 记录日志
-                        logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中夺取了道具${stolenItem.name}`);
-                    });
-                    
-                    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}，从${selectedItems.size}名玩家手中各夺取了一张道具！`;
-                    
-                    // 更新UI
-                    updateUI();
-                },
-                () => {
-                    // 取消使用幻象技
-                    logEvent(`玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}`);
-                    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}！`;
-                }
+                (selectedItems) => handleItemSteal(selectedItems, shopkeeper, skill, shopkeeperIndex),
+                () => handleSkillCancel(skill, shopkeeperIndex)
             );
             break;
         case '帕诺拉马岛':
             // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
-            logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}`);
+            logSkillUsage(skill, shopkeeperIndex);
             
             // 过滤出所有存活玩家
-            const alivePlayers = [];
-            gameState.players.forEach((targetPlayer, targetIndex) => {
-                if (targetPlayer.status === 'alive') {
-                    alivePlayers.push(targetIndex);
-                }
-            });
+            const alivePlayers = getAllAlivePlayers();
             
             if (alivePlayers.length < 2) {
                 elements.gameMessage.textContent = '存活玩家不足2人，无法使用帕诺拉马岛！';
-                logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，但存活玩家不足2人`);
+                logSkillUsage(skill, shopkeeperIndex, '，但存活玩家不足2人');
                 return;
             }
             
             // 创建交换道具对话框
             GameDialogService.createExchangeItemsDialog(
                 alivePlayers,
-                (result) => {
-                    const { player1Index, player2Index, player1Items, player2Items } = result;
-                    const player1 = gameState.players[player1Index];
-                    const player2 = gameState.players[player2Index];
-                    
-                    // 获取要交换的道具
-                    const player1ExchangeItems = player1Items.map(idx => player1.items[idx]);
-                    const player2ExchangeItems = player2Items.map(idx => player2.items[idx]);
-                    
-                    // 从原玩家手中移除道具（从后往前删除，避免索引问题）
-                    player1Items.sort((a, b) => b - a).forEach(idx => {
-                        player1.items.splice(idx, 1);
-                    });
-                    player2Items.sort((a, b) => b - a).forEach(idx => {
-                        player2.items.splice(idx, 1);
-                    });
-                    
-                    // 将道具添加到对方手中
-                    player1.items.push(...player2ExchangeItems);
-                    player2.items.push(...player1ExchangeItems);
-                    
-                    // 更新手牌数
-                    player1.cards = player1.items.length;
-                    player2.cards = player2.items.length;
-                    
-                    // 记录日志
-                    const player1ItemNames = player1ExchangeItems.map(item => item.name).join('、');
-                    const player2ItemNames = player2ExchangeItems.map(item => item.name).join('、');
-                    
-                    logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，玩家${player1Index + 1}（${player1.role}）的${player1ItemNames}与玩家${player2Index + 1}（${player2.role}）的${player2ItemNames}进行了交换`);
-                    
-                    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}，交换完成！`;
-                    
-                    // 更新UI
-                    updateUI();
-                },
-                () => {
-                    // 取消使用幻象技
-                    logEvent(`玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}`);
-                    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}！`;
-                }
+                (result) => handleItemExchange(result, skill, shopkeeperIndex),
+                () => handleSkillCancel(skill, shopkeeperIndex)
             );
             break;
         case '电光艇':
             // 电光艇技能：指定步数并x2
-            logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}`);
+            logSkillUsage(skill, shopkeeperIndex);
             
             // 创建电光艇对话框
             GameDialogService.createLightningBoatDialog(
-                (totalSteps) => {
-                    // 记录原始位置
-                    const originalPosition = gameState.tokenPosition;
-                    
-                    // 移动棋子
-                    if (gameState.reverseDirection) {
-                        // 逆时针移动
-                        gameState.tokenPosition = (gameState.tokenPosition - totalSteps + gridConfig.length) % gridConfig.length;
-                    } else {
-                        // 顺时针移动
-                        gameState.tokenPosition = (gameState.tokenPosition + totalSteps) % gridConfig.length;
-                    }
-                    
-                    // 更新棋子位置
-                    updateTokenPosition();
-                    
-                    // 触发格子效果
-                    const currentGrid = gridConfig[gameState.tokenPosition];
-                    const currentPlayer = gameState.players[gameState.currentPlayer];
-                    const strategies = GridStrategyFactory.getStrategies(currentGrid);
-                    
-                    // 检查是否是水洼格子（会结束回合）
-                    const isWaterGrid = currentGrid.types && currentGrid.types.includes('水洼');
-                    
-                    strategies.forEach(strategy => {
-                        strategy.execute(currentGrid, currentPlayer);
-                    });
-                },
-                () => {
-                    // 取消使用
-                    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}！`;
-                }
+                (totalSteps) => handleLightningBoatMove(totalSteps),
+                () => handleSkillCancel(skill, shopkeeperIndex)
             );
             break;
         // 可以添加其他技能的处理逻辑
         default:
-            logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}`);
-            elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            logSkillUsage(skill, shopkeeperIndex);
+            showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name);
             break;
     }
 }
