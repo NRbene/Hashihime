@@ -4237,11 +4237,8 @@ function updateItemsDisplay() {
                 skillElement.textContent = skill.name;
                 skillElement.title = skill.description;
 
-                // 只要是店主且存活且游戏未胜利且技能未使用，就可以使用幻象技（无论是否是当前回合）
-                if (player.role === '店主' && player.status === 'alive' && !gameState.gameWon && !skill.used) {
-                    skillElement.style.cursor = 'pointer';
-                    skillElement.addEventListener('click', () => useFantasySkillByIndex(i, index));
-                } else {
+                // 移除点击使用效果，只显示幻象技
+                if (skill.used) {
                     skillElement.classList.add('used');
                 }
 
