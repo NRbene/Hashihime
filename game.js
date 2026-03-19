@@ -1798,16 +1798,15 @@ class GlassesItemStrategy extends ItemStrategy {
         // 确保行动点是数字类型
         player.action = Number(player.action) || 0;
 
-        // 检查行动点是否足够
-        if (player.action < 1) {
-            elements.gameMessage.textContent = `行动点不足，无法使用眼镜！`;
-            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用眼镜，但行动点不足`);
-            return false;
+        // 行动点的检查和消耗已经在useItem函数中处理
+        // 店主使用眼镜不消耗行动点
+        if (player.role !== '店主') {
+            // 非店主角色消耗行动点
+            player.action -= 1;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用眼镜，剩余行动点：${player.action}`);
+        } else {
+            logEvent(`玩家${playerIndex + 1}（店主）使用眼镜，不消耗行动点`);
         }
-
-        // 消耗行动点
-        player.action -= 1;
-        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用眼镜，剩余行动点：${player.action}`);
 
         // 过滤出符合条件的玩家，不包括有蛙男技能的玩家
         const availablePlayers = [];
@@ -1837,31 +1836,6 @@ class GlassesItemStrategy extends ItemStrategy {
         const dialog = document.createElement('div');
         dialog.className = 'glasses-dialog';
 
-        // 构建对话框内容
-        let dialogContent = `
-            <div class="dialog-content">
-                <h3>使用眼镜</h3>
-                <p>强制其他存活且拥有行动点的角色玩家依次掷骰子</p>
-                <div class="total-result" style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">
-                    <strong>骰子点数总和：</strong><span class="total-dice">0</span>
-                </div>
-                <div class="players-list">
-        `;
-
-        // 添加每个玩家的信息和按钮
-        availablePlayers.forEach(({ index, player: targetPlayer }) => {
-            dialogContent += `
-                <div class="player-item" data-player-index="${index}">
-                    <div class="player-info">
-                        <div>玩家${index + 1}（${targetPlayer.role}）</div>
-                        <div>行动点：<span class="action-points">${Number(targetPlayer.action) || 0}</span></div>
-                    </div>
-                    <button class="roll-dice-button" data-player-index="${index}">掷骰子 (消耗1行动点)</button>
-                    <div class="dice-result" style="margin-top: 5px; display: none;">骰子结果：-</div>
-                </div>
-            `;
-        });
-
         // 构建玩家列表HTML
         let playersHTML = '';
         availablePlayers.forEach(({ index, player: targetPlayer }) => {
@@ -1877,6 +1851,21 @@ class GlassesItemStrategy extends ItemStrategy {
             `;
         });
 
+        // 构建对话框内容
+        let dialogContent = `
+            <div class="dialog-content">
+                <h3>使用眼镜</h3>
+                <p>强制其他存活且拥有行动点的角色玩家依次掷骰子</p>
+                <div class="total-result" style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">
+                    <strong>骰子点数总和：</strong><span class="total-dice">0</span>
+                </div>
+                <div class="players-list">
+                    ${playersHTML}
+                </div>
+                <button class="close-button" style="display: none; margin-top: 20px;">关闭</button>
+            </div>
+            `;
+
         // 使用templates.html中的模板
         const template = document.getElementById('glasses-dialog-template');
         if (template) {
@@ -1887,12 +1876,6 @@ class GlassesItemStrategy extends ItemStrategy {
             }
         } else {
             // 备用HTML（如果模板不存在）
-            dialogContent += `
-                    ${playersHTML}
-                </div>
-                <button class="close-button" style="display: none; margin-top: 20px;">关闭</button>
-            </div>
-            `;
             dialog.innerHTML = dialogContent;
         }
         
@@ -4735,7 +4718,8 @@ function useItem(playerIndex, itemIndex) {
         // 汽车道具特殊处理，不消耗初始1点行动点，在道具策略中消耗2点
         canUseWithoutAction = true;
     } else if (item.name === '眼镜') {
-        // 眼镜道具特殊处理，不消耗初始1点行动点，在道具策略中消耗1点
+        // 眼镜道具特殊处理，不消耗初始1点行动点
+        // 店主使用眼镜不消耗行动点
         canUseWithoutAction = true;
     }
 
@@ -4831,8 +4815,13 @@ function useItem(playerIndex, itemIndex) {
             // 汽车道具特殊处理，不消耗初始1点行动点，在道具策略中消耗2点
             shouldConsumeAction = false;
         } else if (item.name === '眼镜') {
-            // 眼镜道具特殊处理，不消耗初始1点行动点，在道具策略中消耗1点
-            shouldConsumeAction = false;
+            // 眼镜道具特殊处理，不消耗初始1点行动点
+            // 店主使用眼镜不消耗行动点
+            if (player.role === '店主') {
+                shouldConsumeAction = false;
+            } else {
+                shouldConsumeAction = false;
+            }
         }
         if (shouldConsumeAction) {
             player.action = Number(player.action) || 0;
@@ -7030,7 +7019,10 @@ function showActionStartDialog() {
     `;
 
     dialogContent.innerHTML = `
-        <h3>玩家${gameState.currentPlayer + 1}行动开始</h3>
+        <div style="position: relative;">
+            <h3 style="margin-top: 0;">玩家${gameState.currentPlayer + 1}行动开始</h3>
+            <button id="action-start-close" style="position: absolute; top: 0; right: 0; background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
+        </div>
         <p>角色：${currentPlayer.role}</p>
         ${isStagnant ? '<p style="color: red;">当前处于停滞状态，无法移动</p>' : '<p>是否进行一次不消耗行动点的掷骰子？</p>'}
         <div id="action-start-result" style="margin: 15px 0; padding: 10px; background-color: #f0f0f0; border-radius: 4px;"></div>
@@ -7047,6 +7039,14 @@ function showActionStartDialog() {
 
     dialog.appendChild(dialogContent);
     document.body.appendChild(dialog);
+
+    // 处理关闭按钮点击
+    const closeButton = document.getElementById('action-start-close');
+    if (closeButton) {
+        closeButton.addEventListener('click', () => {
+            document.body.removeChild(dialog);
+        });
+    }
 
     // 状态变量
     let diceRoll = null;
@@ -7303,11 +7303,13 @@ function showShopkeeperSkillDialog(shopkeeper, parentDialog) {
 
 
 
+            // 获取当前玩家
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            
             // 更新行动开始弹窗中的店主幻象技按钮状态
             const shopkeeperSkillButton = parentDialog.querySelector('#action-start-shopkeeper-skill');
             if (shopkeeperSkillButton) {
                 // 重新检查是否需要禁用店主幻象技按钮
-                const currentPlayer = gameState.players[gameState.currentPlayer];
                 const hasAvailableSkills = shopkeeper.fantasySkills.some(skill => !skill.used);
                 const shouldDisable = !hasAvailableSkills || (currentPlayer.hasActed && currentPlayer.role !== '店主');
                 
