@@ -7424,6 +7424,9 @@ function handleLightningBoatMove(totalSteps) {
 function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
     const shopkeeperIndex = getShopkeeperIndex(shopkeeper);
     
+    // 保存游戏状态到历史记录，以便可以撤回操作
+    saveGameState();
+    
     // 根据技能名称触发不同的效果
     switch (skill.name) {
         case '蛙男':
