@@ -6074,6 +6074,17 @@ function nextPlayer() {
     // 重置本回合是否行动过字段
     currentPlayer.hasActed = false;
 
+    // 检查特殊规则：如果所有存活角色的行动点均不超过2，且存活角色数量<=本局游戏玩家数一半时，额外+2行动点
+    const alivePlayers = gameState.players.filter(player => player.status === 'alive');
+    const totalPlayers = gameState.players.length;
+    const allActionsBelow3 = alivePlayers.every(player => player.action <= 2);
+    const aliveCountHalf = Math.ceil(totalPlayers / 2);
+    
+    if (alivePlayers.length <= aliveCountHalf && allActionsBelow3) {
+        currentPlayer.action += 2;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）因特殊规则获得额外2点行动点`);
+    }
+
     // 如果游戏已胜利，直接返回
     if (gameState.gameWon) {
         elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
