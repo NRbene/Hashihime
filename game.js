@@ -3391,7 +3391,7 @@ class FavorGridStrategy extends GridStrategy {
                 logEvent(`触发效果：没有${favorEffect.role}角色在场`);
             }
         } else if (favorEffect.type === 'all') {
-            // 全员好感度+10（仅对存活的A类角色生效，薰不回复好感和行动点）
+            // 全员好感度+10（仅对存活的追求者生效，薰不回复好感和行动点）
             let affectedPlayers = 0;
             const affectedRoles = [];
             gameState.players.forEach((targetPlayer, index) => {
@@ -4055,6 +4055,15 @@ function initGame() {
         alert('一局游戏最多只能有1个店主角色！');
         return;
     }
+    
+    // 检查B类角色数量限制：游玩人数不足5人时，B类角色（薰、店主）的数量最多为1个
+    if (playerCount < 5) {
+        const bRoleCount = playerRoles.filter(role => role === '薰' || role === '店主').length;
+        if (bRoleCount > 1) {
+            alert('游玩人数不足5人时，一局游戏中薰、店主的数量最多为1个！');
+            return;
+        }
+    }
 
     // 设置玩家属性和重置游戏状态（使用观察者模式）
     gameStateManager.updateState((state) => {
@@ -4445,7 +4454,7 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
                         targetPlayer.cards = 0;
                     }
                     
-                    // 3. 如果是A类角色，将好感度设置为30
+                    // 3. 如果是追求者，将好感度设置为30
                     if (targetPlayer.type === 'A') {
                         targetPlayer.favor = 30;
                     }
@@ -4461,7 +4470,7 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
             loadEarthquakeItemPool();
             
             // 显示消息
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}，${affectedPlayers}名玩家的行动值和手牌归零，A类角色的好感度降低到30点，道具池已更新！`;
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}，${affectedPlayers}名玩家的行动值和手牌归零，追求者的好感度降低到30点，道具池已更新！`;
             
             // 更新UI
             updateUI();
@@ -5949,25 +5958,39 @@ function checkWinCondition() {
         return true;
     }
 
-    // 检查B玩家是否杀死所有A玩家
-    let aliveAPlayers = 0;
-    let aliveBPlayers = 0;
-    for (let i = 0; i < playerCount; i++) {
-        const player = gameState.players[i];
-        if (player.type === 'A' && player.status === 'alive') {
-            aliveAPlayers++;
-        }
-        if (player.type === 'B' && player.status === 'alive') {
-            aliveBPlayers++;
+    // 检查特殊胜利条件
+    const alivePlayers = gameState.players.filter(player => player.status === 'alive');
+    const aliveAPlayers = alivePlayers.filter(player => player.type === 'A');
+    const hasKaoru = alivePlayers.some(player => player.role === '薰');
+    const hasShopkeeper = alivePlayers.some(player => player.role === '店主');
+    
+    // 当一场游戏中只存在薰时，胜利条件为，场上所有追求者死亡，则薰胜利
+    if (alivePlayers.length === 1 && hasKaoru && aliveAPlayers.length === 0) {
+        elements.gameMessage.textContent = '所有追求者已死亡，薰胜利！';
+        logEvent(`游戏胜利：所有追求者已死亡，薰胜利`);
+        gameState.gameWon = true;
+        showWinDialog('薰');
+        return true;
+    }
+    
+    // 当一场游戏中只存在店主时，胜利条件为，棋子总计踩满（总玩家人数-1）*2 次水洼，则店主胜利
+    if (alivePlayers.length === 1 && hasShopkeeper) {
+        const requiredPuddles = (playerCount - 1) * 2;
+        if (gameState.puddleCount >= requiredPuddles) {
+            elements.gameMessage.textContent = `棋子踩满${requiredPuddles}次水洼，店主胜利！`;
+            logEvent(`游戏胜利：棋子踩满${requiredPuddles}次水洼，店主胜利`);
+            gameState.gameWon = true;
+            showWinDialog('店主');
+            return true;
         }
     }
-
-    if (aliveAPlayers === 0 && aliveBPlayers > 0) {
-        elements.gameMessage.textContent = '所有发小已被杀死，薰胜利！';
-        logEvent(`游戏胜利：所有发小已被杀死，薰胜利`);
+    
+    // 当一场游戏中存在店主和薰时，胜利条件为，场上所有追求者死亡，此时薰、店主共同胜利
+    if (hasKaoru && hasShopkeeper && aliveAPlayers.length === 0) {
+        elements.gameMessage.textContent = '所有追求者已死亡，薰和店主共同胜利！';
+        logEvent(`游戏胜利：所有追求者已死亡，薰和店主共同胜利`);
         gameState.gameWon = true;
-        // 显示胜利弹窗
-        showWinDialog('薰');
+        showWinDialog('薰、店主');
         return true;
     }
 
@@ -7608,7 +7631,7 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
                         targetPlayer.cards = 0;
                     }
                     
-                    // 3. 如果是A类角色，将好感度设置为30
+                    // 3. 如果是追求者，将好感度设置为30
                     if (targetPlayer.type === 'A') {
                         targetPlayer.favor = 30;
                     }
@@ -7624,7 +7647,7 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             loadEarthquakeItemPool();
             
             // 显示消息
-            showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，' + affectedPlayers + '名玩家的行动值和手牌归零，A类角色的好感度降低到30点，道具池已更新');
+            showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，' + affectedPlayers + '名玩家的行动值和手牌归零，追求者的好感度降低到30点，道具池已更新');
             
             // 更新UI
             updateUI();
