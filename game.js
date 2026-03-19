@@ -6049,24 +6049,24 @@ function nextPlayer() {
 
     // 玩家行动开始时，从牌堆摸一张道具卡（如果手牌未达到上限）
     let itemMessage = '';
-    if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
-        const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
-        const itemName = gameState.itemPool[randomIndex];
-        const item = items[itemName];
+    // if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
+    //     const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+    //     const itemName = gameState.itemPool[randomIndex];
+    //     const item = items[itemName];
 
-        // 从道具池中移除该道具
-        gameState.itemPool.splice(randomIndex, 1);
+    //     // 从道具池中移除该道具
+    //     gameState.itemPool.splice(randomIndex, 1);
 
-        // 添加道具到玩家的道具数组
-        currentPlayer.items.push(item);
-        currentPlayer.cards++;
+    //     // 添加道具到玩家的道具数组
+    //     currentPlayer.items.push(item);
+    //     currentPlayer.cards++;
 
-        itemMessage = `获得道具${item.name}，`;
-        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动开始，获得道具${item.name}`);
+    //     itemMessage = `获得道具${item.name}，`;
+    //     logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动开始，获得道具${item.name}`);
 
-        // 更新道具池显示
-        updateItemPoolDisplay();
-    }
+    //     // 更新道具池显示
+    //     updateItemPoolDisplay();
+    // }
 
     // 若当前角色行动点为零，自动回复1点
     let actionMessage = '';
@@ -6891,6 +6891,7 @@ function monitorItemPool() {
 // 显示行动开始弹窗
 function showActionStartDialog() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
+    const maxCards = characterAttributes[currentPlayer.role].maxCards;
 
     // 创建弹窗
     const dialog = document.createElement('div');
@@ -6926,16 +6927,23 @@ function showActionStartDialog() {
         <h3>玩家${gameState.currentPlayer + 1}行动开始</h3>
         <p>角色：${currentPlayer.role}</p>
         ${isStagnant ? '<p style="color: red;">当前处于停滞状态，无法移动</p>' : '<p>是否进行一次不消耗行动点的掷骰子？</p>'}
+        <div id="action-start-result" style="margin: 15px 0; padding: 10px; background-color: #f0f0f0; border-radius: 4px;"></div>
         <div style="margin-top: 20px;">
             ${isStagnant ?
             '<button id="action-start-cannot-move" style="padding: 10px 20px; margin: 5px; background-color: #ccc; color: white; border: none; border-radius: 4px; cursor: pointer;">不可移动</button>' :
-            '<button id="action-start-roll-dice" style="padding: 10px 20px; margin: 5px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">掷骰子</button>'
+            '<button id="action-start-roll-dice" style="padding: 10px 20px; margin: 5px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">掷骰子（不消耗行动点）</button>'
         }
+            <button id="action-start-draw-card" style="padding: 10px 20px; margin: 5px; background-color: ${currentPlayer.cards >= maxCards || gameState.itemPool.length <= 0 ? '#ccc' : '#2196F3'}; color: white; border: none; border-radius: 4px; cursor: ${currentPlayer.cards >= maxCards || gameState.itemPool.length <= 0 ? 'not-allowed' : 'pointer'};" ${currentPlayer.cards >= maxCards || gameState.itemPool.length <= 0 ? 'disabled' : ''}>抽牌（不消耗行动点）</button>
+            <button id="action-start-confirm" style="padding: 10px 20px; margin: 5px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; display: none;">确认</button>
         </div>
     `;
 
     dialog.appendChild(dialogContent);
     document.body.appendChild(dialog);
+
+    // 状态变量
+    let diceRoll = null;
+    let drawnItem = null;
 
     // 处理按钮点击
     if (isStagnant) {
@@ -6945,10 +6953,66 @@ function showActionStartDialog() {
         });
     } else {
         // 掷骰子按钮
-        document.getElementById('action-start-roll-dice').addEventListener('click', () => {
+        const rollDiceButton = document.getElementById('action-start-roll-dice');
+        rollDiceButton.addEventListener('click', () => {
             // 进行一次不消耗行动点的掷骰子
-            const diceRoll = Math.floor(Math.random() * 6) + 1;
+            diceRoll = Math.floor(Math.random() * 6) + 1;
 
+            // 显示骰子点数
+            document.getElementById('action-start-result').textContent = `骰子点数：${diceRoll}`;
+
+            // 禁用掷骰子按钮
+            rollDiceButton.disabled = true;
+            rollDiceButton.style.backgroundColor = '#ccc';
+            rollDiceButton.style.cursor = 'not-allowed';
+
+            // 检查是否需要显示确认按钮
+            checkShowConfirmButton();
+        });
+    }
+
+    // 抽牌按钮（如果存在）
+    const drawCardButton = document.getElementById('action-start-draw-card');
+    if (drawCardButton) {
+        drawCardButton.addEventListener('click', () => {
+            // 检查是否可以抽牌
+            if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
+                // 从道具池中随机抽取一张道具卡
+                const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+                const itemName = gameState.itemPool[randomIndex];
+                drawnItem = items[itemName];
+
+                // 从道具池中移除该道具
+                gameState.itemPool.splice(randomIndex, 1);
+
+                // 添加道具到玩家的道具数组
+                currentPlayer.items.push(drawnItem);
+                currentPlayer.cards++;
+
+                // 显示获得的道具
+                document.getElementById('action-start-result').textContent = `获得道具：${drawnItem.name}`;
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得道具${drawnItem.name}！`;
+                logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动开始，获得道具${drawnItem.name}`);
+
+                // 更新道具池显示
+                updateItemPoolDisplay();
+
+                // 禁用抽牌按钮
+                drawCardButton.disabled = true;
+                drawCardButton.style.backgroundColor = '#ccc';
+                drawCardButton.style.cursor = 'not-allowed';
+
+                // 检查是否需要显示确认按钮
+                checkShowConfirmButton();
+            }
+        });
+    }
+
+    // 确认按钮
+    const confirmButton = document.getElementById('action-start-confirm');
+    confirmButton.addEventListener('click', () => {
+        // 如果有骰子点数，执行移动
+        if (diceRoll !== null) {
             // 保存当前行动点
             const currentActionPoints = currentPlayer.action;
 
@@ -6957,9 +7021,27 @@ function showActionStartDialog() {
 
             // 恢复行动点
             currentPlayer.action = currentActionPoints;
+        }
 
-            // 关闭弹窗
-            document.body.removeChild(dialog);
-        });
+        // 关闭弹窗
+        document.body.removeChild(dialog);
+    });
+
+    // 检查是否需要显示确认按钮
+    function checkShowConfirmButton() {
+        const rollDiceButton = document.getElementById('action-start-roll-dice');
+        const drawCardButton = document.getElementById('action-start-draw-card');
+        const confirmButton = document.getElementById('action-start-confirm');
+
+        // 检查是否处于停滞状态或两个按钮都不可点击
+        const isRollDiceDisabled = isStagnant || (rollDiceButton && rollDiceButton.disabled);
+        const isDrawCardDisabled = drawCardButton && (drawCardButton.disabled || currentPlayer.cards >= maxCards || gameState.itemPool.length <= 0);
+
+        if (isRollDiceDisabled && isDrawCardDisabled) {
+            confirmButton.style.display = 'inline-block';
+        }
     }
+
+    // 初始检查
+    checkShowConfirmButton();
 }
