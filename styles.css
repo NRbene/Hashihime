@@ -1966,6 +1966,45 @@ h2 {
     max-height: 80%;
     overflow-y: auto;
 }
+
+/* 玩家道具选择对话框样式 */
+.player-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.player-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+.player-dialog .player-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.player-dialog .player-item {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.player-dialog .player-item:hover {
+    background-color: #f0f0f0;
+}
 .select-player-dialog-content h3 {
     margin-top: 0;
     color: #333;
@@ -2239,6 +2278,45 @@ h2 {
     background-color: #f0f0f0;
 }
 
+/* 交换道具对话框样式 */
+.exchange-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.exchange-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+.exchange-dialog .exchange-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.exchange-dialog .exchange-option {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.exchange-dialog .exchange-option:hover {
+    background-color: #f0f0f0;
+}
+
 /* 夺取道具对话框样式（大蛇丸幻象技） */
 .steal-dialog {
     position: fixed;
@@ -2260,28 +2338,6 @@ h2 {
     max-width: 600px;
     max-height: 80%;
     overflow-y: auto;
-}
-.steal-dialog .cancel-button {
-    margin-top: 20px;
-    padding: 10px;
-    background-color: #ccc;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-.steal-dialog .confirm-button {
-    margin-top: 10px;
-    margin-right: 10px;
-    padding: 10px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-.steal-dialog .confirm-button:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
 }
 .steal-dialog .steal-item {
     padding: 8px;
@@ -2330,28 +2386,97 @@ h2 {
     max-height: 80%;
     overflow-y: auto;
 }
-.drop-dialog .cancel-button {
-    margin-top: 20px;
-    padding: 10px;
-    background-color: #ccc;
+
+/* 统一对话框按钮样式 */
+.dialog-button {
+    padding: 10px 20px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+    margin: 5px;
 }
-.drop-dialog .confirm-button {
-    margin-top: 10px;
-    margin-right: 10px;
-    padding: 10px;
+
+.dialog-button.confirm {
     background-color: #4CAF50;
     color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
 }
-.drop-dialog .confirm-button:disabled {
+
+.dialog-button.confirm:hover {
+    background-color: #45a049;
+}
+
+.dialog-button.confirm:disabled {
     background-color: #cccccc;
     cursor: not-allowed;
 }
+
+.dialog-button.cancel {
+    background-color: #ccc;
+    color: #333;
+}
+
+.dialog-button.cancel:hover {
+    background-color: #999;
+}
+
+.dialog-button.close {
+    background-color: #2196F3;
+    color: white;
+}
+
+.dialog-button.close:hover {
+    background-color: #0b7dda;
+}
+
+.dialog-button.danger {
+    background-color: #f44336;
+    color: white;
+}
+
+.dialog-button.danger:hover {
+    background-color: #da190b;
+}
+
+/* 兼容旧的按钮类名 */
+.confirm-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+    margin: 5px;
+    background-color: #4CAF50;
+    color: white;
+}
+
+.confirm-button:hover {
+    background-color: #45a049;
+}
+
+.confirm-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.cancel-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+    margin: 5px;
+    background-color: #ccc;
+    color: #333;
+}
+
+.cancel-button:hover {
+    background-color: #999;
+}
+
 .drop-dialog .drop-item {
     padding: 8px;
     margin: 5px 0;

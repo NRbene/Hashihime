@@ -7161,6 +7161,9 @@ function showActionStartDialog() {
                 // 更新道具池显示
                 updateItemPoolDisplay();
 
+                // 更新UI
+                updateUI();
+
                 // 禁用抽牌按钮
                 drawCardButton.disabled = true;
                 drawCardButton.style.backgroundColor = '#ccc';
@@ -7574,10 +7577,12 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
                 availablePlayers,
                 (selectedItems) => {
                     handleItemDrop(selectedItems, skill, shopkeeperIndex);
+                    // 标记技能为已使用
+                    skill.used = true;
                 },
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
-            return true;
+            return false;
         case '大蛇丸':
             // 从最多两名存活玩家手中各夺取一张道具卡（由你指定）
             logSkillUsage(skill, shopkeeperIndex);
@@ -7609,10 +7614,14 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             GameDialogService.createStealItemDialog(
                 stealablePlayers,
                 maxStealCount,
-                (selectedItems) => handleItemSteal(selectedItems, shopkeeper, skill, shopkeeperIndex),
+                (selectedItems) => {
+                    handleItemSteal(selectedItems, shopkeeper, skill, shopkeeperIndex);
+                    // 标记技能为已使用
+                    skill.used = true;
+                },
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
-            return true;
+            return false;
         case '帕诺拉马岛':
             // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
             logSkillUsage(skill, shopkeeperIndex);
@@ -7629,20 +7638,28 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             // 创建交换道具对话框
             GameDialogService.createExchangeItemsDialog(
                 alivePlayers,
-                (result) => handleItemExchange(result, skill, shopkeeperIndex),
+                (result) => {
+                    handleItemExchange(result, skill, shopkeeperIndex);
+                    // 标记技能为已使用
+                    skill.used = true;
+                },
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
-            return true;
+            return false;
         case '电光艇':
             // 电光艇技能：指定步数并x2
             logSkillUsage(skill, shopkeeperIndex);
             
             // 创建电光艇对话框
             GameDialogService.createLightningBoatDialog(
-                (totalSteps) => handleLightningBoatMove(totalSteps),
+                (totalSteps) => {
+                    handleLightningBoatMove(totalSteps);
+                    // 标记技能为已使用
+                    skill.used = true;
+                },
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
-            return true;
+            return false;
         case '关东大地震':
             // 除你自己以外全员行动值及手牌归零且好感度全部降低到30点
             logSkillUsage(skill, shopkeeperIndex);
