@@ -1061,6 +1061,16 @@ h2 {
     color: white;
 }
 
+.btn-export {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-action-start {
+    background-color: #4CAF50;
+    color: white;
+}
+
 /* 按钮悬停效果 */
 .game-btn:hover {
     opacity: 0.8;

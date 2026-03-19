@@ -6783,6 +6783,16 @@ window.onload = async function () {
     if (rollDiceButton) {
         rollDiceButton.addEventListener('click', rollDice);
     }
+    
+    const actionStartButton = document.getElementById('action-start');
+    if (actionStartButton) {
+        actionStartButton.addEventListener('click', () => {
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            const isStagnant = currentGrid && currentGrid.isStagnant;
+            showActionStartDialog(currentPlayer, isStagnant);
+        });
+    }
 
     const resetGameButton = document.getElementById('reset-game');
     if (resetGameButton) {
@@ -7013,7 +7023,20 @@ function showActionStartDialog() {
     } else {
         // 掷骰子按钮
         const rollDiceButton = document.getElementById('action-start-roll-dice');
+        
+        // 如果玩家本回合已经行动过，禁用掷骰子按钮
+        if (currentPlayer.hasActed) {
+            rollDiceButton.disabled = true;
+            rollDiceButton.style.backgroundColor = '#ccc';
+            rollDiceButton.style.cursor = 'not-allowed';
+        }
+        
         rollDiceButton.addEventListener('click', () => {
+            // 检查是否已经行动过
+            if (currentPlayer.hasActed) {
+                return;
+            }
+            
             // 进行一次不消耗行动点的掷骰子
             diceRoll = Math.floor(Math.random() * 6) + 1;
 
@@ -7039,7 +7062,19 @@ function showActionStartDialog() {
     // 抽牌按钮（如果存在）
     const drawCardButton = document.getElementById('action-start-draw-card');
     if (drawCardButton) {
+        // 如果玩家本回合已经行动过，禁用抽牌按钮
+        if (currentPlayer.hasActed) {
+            drawCardButton.disabled = true;
+            drawCardButton.style.backgroundColor = '#ccc';
+            drawCardButton.style.cursor = 'not-allowed';
+        }
+        
         drawCardButton.addEventListener('click', () => {
+            // 检查是否已经行动过
+            if (currentPlayer.hasActed) {
+                return;
+            }
+            
             // 检查是否可以抽牌
             if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
                 // 标记本回合已行动
