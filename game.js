@@ -3388,6 +3388,106 @@ class GameDialogService {
                     background-color: #f0f0f0;
                 }
             `;
+        } else if (dialogClass === 'select-player-dialog') {
+            style.textContent += `
+                .select-player-dialog-content {
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 5px;
+                    width: 95%;
+                    max-width: 1000px;
+                    max-height: 80%;
+                    overflow-y: auto;
+                }
+                .player-option {
+                    padding: 15px;
+                    background-color: #f9f9f9;
+                    border-radius: 8px;
+                    border: 1px solid #ddd;
+                    transition: background-color 0.3s ease;
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    font-size: 12px;
+                    flex: 1 1 200px;
+                    min-width: 200px;
+                    margin: 0;
+                }
+                .player-option:hover {
+                    background-color: #f0f0f0;
+                }
+                .player-option.selected {
+                    background-color: #e3f2fd;
+                    border-color: #2196F3;
+                }
+                .player-badge {
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    background-color: #2196F3;
+                    color: white;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 0 8px 0 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                    font-size: 14px;
+                }
+                .player-option h3 {
+                    margin-bottom: 10px;
+                    color: #333;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 14px;
+                }
+                .player-name-display {
+                    font-size: 12px;
+                    font-weight: normal;
+                    color: #666;
+                    font-style: italic;
+                }
+                .player-option p {
+                    margin-bottom: 5px;
+                    font-size: 14px;
+                }
+                .items-container {
+                    margin-top: 10px;
+                    border-top: 1px solid #eee;
+                    padding-top: 10px;
+                }
+                .items-container p {
+                    margin-bottom: 5px;
+                    font-weight: bold;
+                }
+                .items-list {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 5px;
+                    margin-top: 5px;
+                }
+                .item {
+                    padding: 2px 5px;
+                    background-color: #f0f0f0;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    font-size: 10px;
+                }
+                .no-items {
+                    color: #999;
+                    font-style: italic;
+                }
+                .player-list {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 15px;
+                    max-height: 400px;
+                    overflow-y: auto;
+                    margin-bottom: 20px;
+                }
+            `;
         }
 
         document.head.appendChild(style);
@@ -3401,16 +3501,36 @@ class GameDialogService {
     }
 
     // 创建选择玩家对话框（河童幻象技）
-    static createSelectPlayerDialog(availablePlayers, onSelect, onCancel) {
+    static createSelectPlayerDialog(availablePlayers, onSelect, onCancel, parentDialog) {
         // 构建选择界面
         let playerOptions = '';
         availablePlayers.forEach(targetIndex => {
             const targetPlayer = gameState.players[targetIndex];
             const maxCards = characterAttributes[targetPlayer.role].maxCards;
+            
+            // 构建道具列表
+            let itemsHTML = '';
+            if (targetPlayer.items.length > 0) {
+                itemsHTML = '<div class="items-list">';
+                targetPlayer.items.forEach(item => {
+                    itemsHTML += `<div class="item">${item.name}</div>`;
+                });
+                itemsHTML += '</div>';
+            } else {
+                itemsHTML = '<div class="no-items">无</div>';
+            }
+            
             playerOptions += `<div class="player-option" data-target-player="${targetIndex}">
-                <div class="player-info">
-                    <span class="player-name">玩家${targetIndex + 1}（${targetPlayer.role}）</span>
-                    <span class="player-favor">行动点：${targetPlayer.action || 0} | 道具：${targetPlayer.items.length}/${maxCards}</span>
+                <div class="player-badge">${targetIndex + 1}</div>
+                <h3>玩家${targetIndex + 1} <span class="player-name-display">(${targetPlayer.name || '匿名'})</span></h3>
+                <p>角色: ${targetPlayer.role}</p>
+                <p>行动点: ${targetPlayer.action || 0}</p>
+                <p>手牌: ${targetPlayer.items.length}/${maxCards}</p>
+                <p>好感度: ${targetPlayer.favor || 0}</p>
+                <p>状态: ${targetPlayer.status || '存活'}</p>
+                <div class="items-container">
+                    <p>道具:</p>
+                    ${itemsHTML}
                 </div>
             </div>`;
         });
@@ -5005,6 +5125,22 @@ function updateUI() {
             keyIcon.style.marginLeft = '5px';
             playerNameElement.appendChild(keyIcon);
         }
+        
+        // 更新河童技能书本图标
+        // 移除现有的书本图标
+        const existingSkipIcon = playerNameElement.querySelector('.skip-turn-icon');
+        if (existingSkipIcon) {
+            playerNameElement.removeChild(existingSkipIcon);
+        }
+        // 如果被河童技能选中，添加书本图标
+        if (player.skipNextTurn) {
+            const skipIcon = document.createElement('span');
+            skipIcon.className = 'skip-turn-icon';
+            skipIcon.innerHTML = '📚';
+            skipIcon.style.color = 'blue';
+            skipIcon.style.marginLeft = '5px';
+            playerNameElement.appendChild(skipIcon);
+        }
     }
 
     // 更新道具显示
@@ -6124,14 +6260,8 @@ function nextPlayer() {
         // 移除跳过标记
         currentPlayer.skipNextTurn = false;
         
-        // 移除书本icon
-        const playerElement = document.querySelector(`#player${gameState.currentPlayer + 1}-name`);
-        if (playerElement) {
-            const icon = playerElement.querySelector('.skip-turn-icon');
-            if (icon) {
-                playerElement.removeChild(icon);
-            }
-        }
+        // 更新UI，移除书本icon
+        updateUI();
         
         // 递归调用nextPlayer，切换到下一个玩家
         nextPlayer();
@@ -7156,6 +7286,11 @@ function showActionStartDialog() {
 
         // 关闭弹窗
         document.body.removeChild(dialog);
+        
+        // 如果当前玩家被标记为跳过回合，直接结束回合
+        if (currentPlayer.skipNextTurn) {
+            endTurn();
+        }
     });
 
     // 检查是否需要显示确认按钮
@@ -7260,7 +7395,7 @@ function showShopkeeperSkillDialog(shopkeeper, parentDialog) {
             const skill = shopkeeper.fantasySkills[skillIndex];
 
             // 触发技能效果
-            const skillUsed = triggerShopkeeperSkill(skill, shopkeeper);
+            const skillUsed = triggerShopkeeperSkill(skill, shopkeeper, parentDialog);
             
             // 只有在技能成功执行后才标记为已使用
             if (skillUsed) {
@@ -7467,7 +7602,7 @@ function handleLightningBoatMove(totalSteps) {
 }
 
 // 触发店主幻象技效果
-function triggerShopkeeperSkill(skill, shopkeeper) {
+function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
     const shopkeeperIndex = getShopkeeperIndex(shopkeeper);
     
     // 根据技能名称触发不同的效果
@@ -7617,20 +7752,32 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
                     // 显示技能消息
                     showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，跳过玩家' + (selectedPlayerIndex + 1) + '（' + selectedPlayer.role + '）的下一回合');
                     
-                    // 在玩家名称旁添加书本icon
-                    const playerElement = document.querySelector(`#player${selectedPlayerIndex + 1}-name`);
-                    if (playerElement) {
-                        // 检查是否已经有icon
-                        if (!playerElement.querySelector('.skip-turn-icon')) {
-                            const icon = document.createElement('span');
-                            icon.className = 'skip-turn-icon';
-                            icon.style.cssText = 'display: inline-block; margin-left: 5px; font-size: 16px;';
-                            icon.textContent = '📚';
-                            playerElement.appendChild(icon);
+                    // 如果选择的是当前玩家，禁用action-start-dialog中的按钮
+                    if (selectedPlayerIndex === gameState.currentPlayer && parentDialog) {
+                        const rollDiceButton = parentDialog.querySelector('#action-start-roll-dice');
+                        const drawCardButton = parentDialog.querySelector('#action-start-draw-card');
+                        if (rollDiceButton) {
+                            rollDiceButton.disabled = true;
+                            rollDiceButton.style.backgroundColor = '#ccc';
+                            rollDiceButton.style.cursor = 'not-allowed';
+                        }
+                        if (drawCardButton) {
+                            drawCardButton.disabled = true;
+                            drawCardButton.style.backgroundColor = '#ccc';
+                            drawCardButton.style.cursor = 'not-allowed';
+                        }
+                        // 显示确认按钮
+                        const confirmButton = parentDialog.querySelector('#action-start-confirm');
+                        if (confirmButton) {
+                            confirmButton.style.display = 'inline-block';
                         }
                     }
+                    
+                    // 更新UI，显示书本icon
+                    updateUI();
                 },
-                () => handleSkillCancel(skill, shopkeeperIndex)
+                () => handleSkillCancel(skill, shopkeeperIndex),
+                parentDialog
             );
             return true;
         // 可以添加其他技能的处理逻辑
