@@ -4083,6 +4083,8 @@ function initGame() {
                 action: characterAttributes[role].action,
                 hasKeychain: false,
                 hasActed: false,
+                hasRolledDiceWithoutAction: false,
+                hasDrawnCardWithoutAction: false,
                 skipNextTurn: false
             });
         }
@@ -4474,6 +4476,9 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
             
             // 更新UI
             updateUI();
+            
+            // 显示行动开始对话框
+            showActionStartDialog();
             break;
         case '帕诺拉马岛':
             // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
@@ -6096,6 +6101,8 @@ function nextPlayer() {
 
     // 重置本回合是否行动过字段
     currentPlayer.hasActed = false;
+    currentPlayer.hasRolledDiceWithoutAction = false;
+    currentPlayer.hasDrawnCardWithoutAction = false;
 
     // 检查特殊规则：如果所有存活角色的行动点均不超过2，且存活角色数量<=本局游戏玩家数一半时，额外+2行动点
     const alivePlayers = gameState.players.filter(player => player.status === 'alive');
@@ -7058,22 +7065,24 @@ function showActionStartDialog() {
         // 掷骰子按钮
         const rollDiceButton = document.getElementById('action-start-roll-dice');
         
-        // 如果玩家本回合已经行动过，禁用掷骰子按钮
-        if (currentPlayer.hasActed) {
+        // 如果玩家本回合已经执行过不消耗行动点的掷骰子，禁用掷骰子按钮
+        if (currentPlayer.hasRolledDiceWithoutAction) {
             rollDiceButton.disabled = true;
             rollDiceButton.style.backgroundColor = '#ccc';
             rollDiceButton.style.cursor = 'not-allowed';
         }
         
         rollDiceButton.addEventListener('click', () => {
-            // 检查是否已经行动过
-            if (currentPlayer.hasActed) {
+            // 检查是否已经执行过不消耗行动点的掷骰子
+            if (currentPlayer.hasRolledDiceWithoutAction) {
                 return;
             }
             
             // 进行一次不消耗行动点的掷骰子
             diceRoll = Math.floor(Math.random() * 6) + 1;
 
+            // 标记本回合已执行过不消耗行动点的掷骰子
+            currentPlayer.hasRolledDiceWithoutAction = true;
             // 标记本回合已行动
             currentPlayer.hasActed = true;
 
@@ -7096,24 +7105,26 @@ function showActionStartDialog() {
     // 抽牌按钮（如果存在）
     const drawCardButton = document.getElementById('action-start-draw-card');
     if (drawCardButton) {
-        // 如果玩家本回合已经行动过，禁用抽牌按钮
-        if (currentPlayer.hasActed) {
+        // 如果玩家本回合已经执行过不消耗行动点的抽牌，禁用抽牌按钮
+        if (currentPlayer.hasDrawnCardWithoutAction) {
             drawCardButton.disabled = true;
             drawCardButton.style.backgroundColor = '#ccc';
             drawCardButton.style.cursor = 'not-allowed';
         }
         
         drawCardButton.addEventListener('click', () => {
-            // 检查是否已经行动过
-            if (currentPlayer.hasActed) {
+            // 检查是否已经执行过不消耗行动点的抽牌
+            if (currentPlayer.hasDrawnCardWithoutAction) {
                 return;
             }
             
             // 检查是否可以抽牌
             if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
+                // 标记本回合已执行过不消耗行动点的抽牌
+                currentPlayer.hasDrawnCardWithoutAction = true;
                 // 标记本回合已行动
                 currentPlayer.hasActed = true;
-
+                
                 // 从道具池中随机抽取一张道具卡
                 const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
                 const itemName = gameState.itemPool[randomIndex];
