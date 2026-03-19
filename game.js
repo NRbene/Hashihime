@@ -1634,72 +1634,28 @@ class CarItemStrategy extends ItemStrategy {
         // 创建弹出框
         const dialog = document.createElement('div');
         dialog.className = 'car-dialog';
-        dialog.innerHTML = `
-            <div class="dialog-content">
-                <h3>使用汽车</h3>
-                <p>点击按钮掷骰子，移动点数 × 3</p>
-                <button class="roll-dice-button">掷骰子</button>
-                <div class="dice-result" style="margin-top: 10px;">骰子结果：-</div>
-                <div class="confirm-section" style="display: none; margin-top: 10px;">
-                    <p>本次点数为 <span class="final-dice-result">-</span>，是否确认移动？</p>
-                    <button class="confirm-button">确认</button>
-                    <button class="cancel-button">取消</button>
+        
+        // 使用templates.html中的模板
+        const template = document.getElementById('car-dialog-template');
+        if (template) {
+            dialog.innerHTML = template.innerHTML;
+        } else {
+            // 备用HTML（如果模板不存在）
+            dialog.innerHTML = `
+                <div class="dialog-content">
+                    <h3>使用汽车</h3>
+                    <p>点击按钮掷骰子，移动点数 × 3</p>
+                    <button class="roll-dice-button">掷骰子</button>
+                    <div class="dice-result" style="margin-top: 10px;">骰子结果：-</div>
+                    <div class="confirm-section" style="display: none; margin-top: 10px;">
+                        <p>本次点数为 <span class="final-dice-result">-</span>，是否确认移动？</p>
+                        <button class="confirm-button">确认</button>
+                        <button class="cancel-button">取消</button>
+                    </div>
                 </div>
-            </div>
-        `;
-
-        // 添加居中样式
-        const style = document.createElement('style');
-        style.textContent = `
-            .car-dialog {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
-            }
-            .car-dialog .dialog-content {
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                width: 80%;
-                max-width: 400px;
-                text-align: center;
-            }
-            .car-dialog button {
-                margin: 10px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: normal;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                min-width: 80px;
-            }
-            .car-dialog .roll-dice-button,
-            .car-dialog .confirm-button {
-                background-color: #4CAF50;
-                color: white;
-            }
-            .car-dialog .roll-dice-button:hover,
-            .car-dialog .confirm-button:hover {
-                background-color: #45a049;
-            }
-            .car-dialog .cancel-button {
-                background-color: #f44336;
-                color: white;
-            }
-            .car-dialog .cancel-button:hover {
-                background-color: #da190b;
-            }
-        `;
-        document.head.appendChild(style);
-
+            `;
+        }
+        
         document.body.appendChild(dialog);
 
         // 处理掷骰子按钮
@@ -1862,85 +1818,40 @@ class GlassesItemStrategy extends ItemStrategy {
             `;
         });
 
-        dialogContent += `
+        // 构建玩家列表HTML
+        let playersHTML = '';
+        availablePlayers.forEach(({ index, player: targetPlayer }) => {
+            playersHTML += `
+                <div class="player-item" data-player-index="${index}">
+                    <div class="player-info">
+                        <div>玩家${index + 1}（${targetPlayer.role}）</div>
+                        <div>行动点：<span class="action-points">${Number(targetPlayer.action) || 0}</span></div>
+                    </div>
+                    <button class="roll-dice-button" data-player-index="${index}">掷骰子 (消耗1行动点)</button>
+                    <div class="dice-result" style="margin-top: 5px; display: none;">骰子结果：-</div>
+                </div>
+            `;
+        });
+
+        // 使用templates.html中的模板
+        const template = document.getElementById('glasses-dialog-template');
+        if (template) {
+            dialog.innerHTML = template.innerHTML;
+            const playersList = dialog.querySelector('#glasses-players-list');
+            if (playersList) {
+                playersList.innerHTML = playersHTML;
+            }
+        } else {
+            // 备用HTML（如果模板不存在）
+            dialogContent += `
+                    ${playersHTML}
                 </div>
                 <button class="close-button" style="display: none; margin-top: 20px;">关闭</button>
             </div>
-        `;
-
-        dialog.innerHTML = dialogContent;
-
-        // 添加居中样式
-        const style = document.createElement('style');
-        style.textContent = `
-            .glasses-dialog {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
-            }
-            .glasses-dialog .dialog-content {
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                width: 80%;
-                max-width: 500px;
-                max-height: 80vh;
-                overflow-y: auto;
-            }
-            .glasses-dialog .players-list {
-                margin-top: 20px;
-            }
-            .glasses-dialog .player-item {
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                padding: 10px;
-                margin-bottom: 10px;
-            }
-            .glasses-dialog .player-info {
-                margin-bottom: 10px;
-            }
-            .glasses-dialog .total-result {
-                font-size: 16px;
-                background-color: #f9f9f9;
-            }
-            .glasses-dialog button {
-                margin: 5px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: normal;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                min-width: 120px;
-            }
-            .glasses-dialog .roll-dice-button {
-                background-color: #4CAF50;
-                color: white;
-            }
-            .glasses-dialog .roll-dice-button:hover {
-                background-color: #45a049;
-            }
-            .glasses-dialog .close-button {
-                background-color: #2196F3;
-                color: white;
-            }
-            .glasses-dialog .close-button:hover {
-                background-color: #0b7dda;
-            }
-            .glasses-dialog .roll-dice-button:disabled {
-                background-color: #cccccc;
-                cursor: not-allowed;
-            }
-        `;
-        document.head.appendChild(style);
-
+            `;
+            dialog.innerHTML = dialogContent;
+        }
+        
         document.body.appendChild(dialog);
 
         // 处理掷骰子按钮
@@ -3256,241 +3167,9 @@ class GameDialogService {
         return dialog;
     }
 
-    // 添加对话框样式
+    // 添加对话框样式（已移至styles.css）
     static addDialogStyle(dialogClass) {
-        // 检查是否已经添加了样式
-        if (document.getElementById(`${dialogClass}-style`)) {
-            return;
-        }
-
-        // 创建样式
-        const style = document.createElement('style');
-        style.id = `${dialogClass}-style`;
-        style.textContent = `
-            .${dialogClass} {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
-            }
-            .${dialogClass}-content {
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                width: 80%;
-                max-width: 600px;
-                max-height: 80%;
-                overflow-y: auto;
-            }
-            .${dialogClass} .cancel-button {
-                margin-top: 20px;
-                padding: 10px;
-                background-color: #ccc;
-                border: none;
-                border-radius: 5px;
-            }
-            .${dialogClass} .confirm-button {
-                margin-top: 10px;
-                margin-right: 10px;
-                padding: 10px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-            }
-            .${dialogClass} .confirm-button:disabled {
-                background-color: #cccccc;
-                cursor: not-allowed;
-            }
-            .${dialogClass} .drop-item {
-                padding: 8px;
-                margin: 5px 0;
-                border: 1px solid #ddd;
-                border-radius: 3px;
-                cursor: pointer;
-            }
-            .${dialogClass} .drop-item:hover {
-                background-color: #f0f0f0;
-            }
-            .${dialogClass} .drop-item.selected {
-                background-color: #e3f2fd;
-                border-color: #2196F3;
-            }
-            .${dialogClass} .no-items {
-                padding: 8px;
-                margin: 5px 0;
-                color: #999;
-                font-style: italic;
-            }
-            .${dialogClass} .selected-count {
-                margin-top: 15px;
-                font-weight: bold;
-            }
-        `;
-
-        // 添加特定样式
-        if (dialogClass === 'steal-dialog') {
-            style.textContent += `
-                .steal-item {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .steal-item:hover {
-                    background-color: #f0f0f0;
-                }
-                .steal-item.selected {
-                    background-color: #e3f2fd;
-                    border-color: #2196F3;
-                }
-            `;
-        } else if (dialogClass === 'exchange-dialog') {
-            style.textContent += `
-                .exchange-option {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .exchange-option:hover {
-                    background-color: #f0f0f0;
-                }
-            `;
-        } else if (dialogClass === 'player-dialog') {
-            style.textContent += `
-                .player-item {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .player-item:hover {
-                    background-color: #f0f0f0;
-                }
-            `;
-        } else if (dialogClass === 'kill-dialog') {
-            style.textContent += `
-                .kill-item {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .kill-item:hover {
-                    background-color: #f0f0f0;
-                }
-            `;
-        } else if (dialogClass === 'select-player-dialog') {
-            style.textContent += `
-                .select-player-dialog-content {
-                    background-color: white;
-                    padding: 20px;
-                    border-radius: 5px;
-                    width: 95%;
-                    max-width: 1000px;
-                    max-height: 80%;
-                    overflow-y: auto;
-                }
-                .player-option {
-                    padding: 15px;
-                    background-color: #f9f9f9;
-                    border-radius: 8px;
-                    border: 1px solid #ddd;
-                    transition: background-color 0.3s ease;
-                    position: relative;
-                    display: flex;
-                    flex-direction: column;
-                    font-size: 12px;
-                    flex: 1 1 200px;
-                    min-width: 200px;
-                    margin: 0;
-                }
-                .player-option:hover {
-                    background-color: #f0f0f0;
-                }
-                .player-option.selected {
-                    background-color: #e3f2fd;
-                    border-color: #2196F3;
-                }
-                .player-badge {
-                    position: absolute;
-                    top: 0;
-                    right: 0;
-                    background-color: #2196F3;
-                    color: white;
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 0 8px 0 8px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-weight: bold;
-                    font-size: 14px;
-                }
-                .player-option h3 {
-                    margin-bottom: 10px;
-                    color: #333;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    font-size: 14px;
-                }
-                .player-name-display {
-                    font-size: 12px;
-                    font-weight: normal;
-                    color: #666;
-                    font-style: italic;
-                }
-                .player-option p {
-                    margin-bottom: 5px;
-                    font-size: 14px;
-                }
-                .items-container {
-                    margin-top: 10px;
-                    border-top: 1px solid #eee;
-                    padding-top: 10px;
-                }
-                .items-container p {
-                    margin-bottom: 5px;
-                    font-weight: bold;
-                }
-                .items-list {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 5px;
-                    margin-top: 5px;
-                }
-                .item {
-                    padding: 2px 5px;
-                    background-color: #f0f0f0;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
-                    font-size: 10px;
-                }
-                .no-items {
-                    color: #999;
-                    font-style: italic;
-                }
-                .player-list {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 15px;
-                    max-height: 400px;
-                    overflow-y: auto;
-                    margin-bottom: 20px;
-                }
-            `;
-        }
-
-        document.head.appendChild(style);
+        // 样式已移至styles.css文件，此函数保留以保持兼容性
     }
 
     // 关闭对话框
@@ -3538,16 +3217,29 @@ class GameDialogService {
         // 创建对话框
         const dialog = document.createElement('div');
         dialog.className = 'select-player-dialog';
-        dialog.innerHTML = `
-            <div class="select-player-dialog-content">
-                <h3>选择要跳过回合的角色：</h3>
-                <div class="player-list">${playerOptions}</div>
-                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
-                    <button class="confirm-button" data-action="confirm" disabled>确认</button>
-                    <button class="cancel-button">取消</button>
+        
+        // 使用templates.html中的模板
+        const template = document.getElementById('select-player-dialog-template');
+        if (template) {
+            dialog.innerHTML = template.innerHTML;
+            const playerList = dialog.querySelector('#select-player-list');
+            if (playerList) {
+                playerList.innerHTML = playerOptions;
+            }
+        } else {
+            // 备用HTML（如果模板不存在）
+            dialog.innerHTML = `
+                <div class="select-player-dialog-content">
+                    <h3>选择要跳过回合的角色：</h3>
+                    <div class="player-list">${playerOptions}</div>
+                    <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                        <button class="confirm-button" data-action="confirm" disabled>确认</button>
+                        <button class="cancel-button">取消</button>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
+        
         document.body.appendChild(dialog);
 
         // 处理玩家选择
@@ -3581,9 +3273,6 @@ class GameDialogService {
             onCancel();
             this.closeDialog(dialog);
         });
-
-        // 添加样式
-        this.addDialogStyle('select-player-dialog');
 
         return dialog;
     }
@@ -3965,36 +3654,49 @@ function initElements() {
         player3RoleDisplay: document.getElementById('player3-role-display'),
         player4RoleDisplay: document.getElementById('player4-role-display'),
         player5RoleDisplay: document.getElementById('player5-role-display'),
+        player6RoleDisplay: document.getElementById('player6-role-display'),
         player1Action: document.getElementById('player1-action'),
         player2Action: document.getElementById('player2-action'),
         player3Action: document.getElementById('player3-action'),
         player4Action: document.getElementById('player4-action'),
         player5Action: document.getElementById('player5-action'),
+        player6Action: document.getElementById('player6-action'),
         player1Cards: document.getElementById('player1-cards'),
         player2Cards: document.getElementById('player2-cards'),
         player3Cards: document.getElementById('player3-cards'),
         player4Cards: document.getElementById('player4-cards'),
         player5Cards: document.getElementById('player5-cards'),
+        player6Cards: document.getElementById('player6-cards'),
         player1Favor: document.getElementById('player1-favor'),
         player2Favor: document.getElementById('player2-favor'),
         player3Favor: document.getElementById('player3-favor'),
         player4Favor: document.getElementById('player4-favor'),
         player5Favor: document.getElementById('player5-favor'),
+        player6Favor: document.getElementById('player6-favor'),
         player1Status: document.getElementById('player1-status'),
         player2Status: document.getElementById('player2-status'),
         player3Status: document.getElementById('player3-status'),
         player4Status: document.getElementById('player4-status'),
         player5Status: document.getElementById('player5-status'),
+        player6Status: document.getElementById('player6-status'),
+        player1Items: document.getElementById('player1-items'),
+        player2Items: document.getElementById('player2-items'),
+        player3Items: document.getElementById('player3-items'),
+        player4Items: document.getElementById('player4-items'),
+        player5Items: document.getElementById('player5-items'),
+        player6Items: document.getElementById('player6-items'),
         player1Name: document.getElementById('player1-name'),
         player2Name: document.getElementById('player2-name'),
         player3Name: document.getElementById('player3-name'),
         player4Name: document.getElementById('player4-name'),
         player5Name: document.getElementById('player5-name'),
+        player6Name: document.getElementById('player6-name'),
         player1NameDisplay: document.getElementById('player1-name-display'),
         player2NameDisplay: document.getElementById('player2-name-display'),
         player3NameDisplay: document.getElementById('player3-name-display'),
         player4NameDisplay: document.getElementById('player4-name-display'),
         player5NameDisplay: document.getElementById('player5-name-display'),
+        player6NameDisplay: document.getElementById('player6-name-display'),
         saveGame: document.getElementById('save-game'),
         loadGame: document.getElementById('load-game'),
         exportSave: document.getElementById('export-save'),
@@ -5650,51 +5352,7 @@ function addTargetDialogStyle(dialogClass) {
         return;
     }
 
-    // 创建样式
-    const style = document.createElement('style');
-    style.id = `${dialogClass}-style`;
-    style.textContent = `
-        .${dialogClass} {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-        }
-        .${dialogClass}-content {
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            width: 80%;
-            max-width: 600px;
-            max-height: 80%;
-            overflow-y: auto;
-        }
-        .${dialogClass} .cancel-target {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #ccc;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .target-item {
-            padding: 10px;
-            border: 1px solid #ccc;
-            margin: 5px 0;
-            cursor: pointer;
-        }
-        .target-item:hover {
-            background-color: #f0f0f0;
-        }
-    `;
-
-    document.head.appendChild(style);
+    // 样式已移至styles.css文件
 }
 
 // 处理行动后逻辑
@@ -6505,17 +6163,17 @@ function randomRoles() {
 function handlePlayerCountChange() {
     let playerCount = parseInt(document.getElementById('player-count').value) || 3;
 
-    // 确保playerCount在3-5之间
+    // 确保playerCount在3-6之间
     if (playerCount < 3) {
         playerCount = 3;
         document.getElementById('player-count').value = 3;
-    } else if (playerCount > 5) {
-        playerCount = 5;
-        document.getElementById('player-count').value = 5;
+    } else if (playerCount > 6) {
+        playerCount = 6;
+        document.getElementById('player-count').value = 6;
     }
 
     // 显示或隐藏玩家设置
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
         const playerInput = document.querySelector(`.player-input:nth-child(${i})`);
         if (playerInput) {
             playerInput.style.display = i <= playerCount ? 'block' : 'none';
@@ -6523,7 +6181,7 @@ function handlePlayerCountChange() {
     }
 
     // 显示或隐藏玩家信息
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
         const playerInfo = document.querySelector(`.player.player${i}`);
         if (playerInfo) {
             playerInfo.style.display = i <= playerCount ? '' : 'none';

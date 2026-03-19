@@ -143,5 +143,45 @@
             </div>
         </div>
     </div>
+
+    <!-- 选择玩家对话框模板（河童幻象技） -->
+    <div id="select-player-dialog-template" style="display: none;">
+        <div class="select-player-dialog-content">
+            <h3>选择要跳过回合的角色：</h3>
+            <div class="player-list" id="select-player-list"></div>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                <button class="confirm-button" data-action="confirm" disabled>确认</button>
+                <button class="cancel-button">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 汽车道具对话框模板 -->
+    <div id="car-dialog-template" style="display: none;">
+        <div class="dialog-content">
+            <h3>使用汽车</h3>
+            <p>消耗2点行动点，掷骰子移动3倍步数</p>
+            <div class="dice-result" style="margin-top: 10px;">骰子结果：-</div>
+            <div class="confirm-section" style="display: none; margin-top: 10px;">
+                <p>最终结果：<span class="final-dice-result"></span></p>
+                <button class="confirm-button" data-action="confirm">确认移动</button>
+                <button class="cancel-button">取消</button>
+            </div>
+            <button class="roll-dice-button" style="margin-top: 20px;">掷骰子</button>
+        </div>
+    </div>
+
+    <!-- 眼镜道具对话框模板 -->
+    <div id="glasses-dialog-template" style="display: none;">
+        <div class="dialog-content">
+            <h3>使用眼镜</h3>
+            <p>强制其他存活且拥有行动点的角色玩家依次掷骰子</p>
+            <div class="total-result" style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">
+                <strong>骰子点数总和：</strong><span class="total-dice">0</span>
+            </div>
+            <div class="players-list" id="glasses-players-list"></div>
+            <button class="close-button" style="display: none; margin-top: 20px;">关闭</button>
+        </div>
+    </div>
 </body>
 </html>
