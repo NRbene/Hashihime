@@ -539,6 +539,46 @@ function loadMapFromFile() {
     reader.readAsText(file, 'UTF-8');
 }
 
+// 加载地震道具池
+async function loadEarthquakeItemPool() {
+    try {
+        const response = await fetch('item_earthquake.csv');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const csvText = await response.text();
+        const result = parseItemCSV(csvText);
+        
+        // 检查是否成功加载道具
+        if (Object.keys(result.items).length === 0 || result.itemPool.length === 0) {
+            throw new Error('地震道具池为空');
+        }
+        
+        items = result.items;
+        itemPool = result.itemPool;
+        gameState.itemPool = [...itemPool];
+        updateItemPoolDisplay();
+        logEvent('关东大地震：道具池已更新为地震专用道具池');
+        return true;
+    } catch (error) {
+        console.error('加载地震道具池失败:', error);
+        logEvent('关东大地震：加载地震专用道具池失败，恢复原始道具池');
+        
+        // 恢复原始道具池
+        if (originalItems && Object.keys(originalItems).length > 0 && originalItemPool && originalItemPool.length > 0) {
+            items = { ...originalItems };
+            itemPool = [...originalItemPool];
+            gameState.itemPool = [...originalItemPool];
+            updateItemPoolDisplay();
+            logEvent('关东大地震：已恢复原始道具池');
+        } else {
+            logEvent('关东大地震：原始道具池不存在，无法恢复');
+        }
+        
+        return false;
+    }
+}
+
 // 尝试自动读取地图CSV文件
 async function autoLoadMapFromCSV() {
     try {
@@ -747,6 +787,10 @@ const gameStateManager = new GameStateManager();
 
 // 游戏状态（向后兼容）
 let gameState = gameStateManager.getState();
+
+// 原始道具池（用于关东大地震加载失败时恢复）
+let originalItemPool = [];
+let originalItems = {};
 
 // 道具策略类
 class ItemStrategy {
@@ -3985,6 +4029,10 @@ function initGame() {
         return;
     }
 
+    // 保存原始道具池（用于关东大地震加载失败时恢复）
+    originalItemPool = [...itemPool];
+    originalItems = { ...items };
+
     // 清空历史记录
     gameState.history = [];
 
@@ -3999,6 +4047,13 @@ function initGame() {
         const name = document.getElementById(`player${i}-name`).value || '匿名';
         playerRoles.push(role);
         playerNames.push(name);
+    }
+    
+    // 检查是否有多个店主角色
+    const shopkeeperCount = playerRoles.filter(role => role === '店主').length;
+    if (shopkeeperCount > 1) {
+        alert('一局游戏最多只能有1个店主角色！');
+        return;
     }
 
     // 设置玩家属性和重置游戏状态（使用观察者模式）
@@ -4366,6 +4421,50 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
                     elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}！`;
                 }
             );
+            break;
+        case '关东大地震':
+            // 除你自己以外全员行动值及手牌归零且好感度全部降低到30点
+            logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
+            
+            // 标记幻象技为已使用
+            player.fantasySkills[skillIndex] = {
+                ...skill,
+                used: true
+            };
+            
+            // 处理其他存活玩家
+            let affectedPlayers = 0;
+            gameState.players.forEach((targetPlayer, targetIndex) => {
+                if (targetIndex !== playerIndex && targetPlayer.status === 'alive') {
+                    // 1. 行动点归零
+                    targetPlayer.action = 0;
+                    
+                    // 2. 道具全部丢弃
+                    if (targetPlayer.items.length > 0) {
+                        targetPlayer.items = [];
+                        targetPlayer.cards = 0;
+                    }
+                    
+                    // 3. 如果是A类角色，将好感度设置为30
+                    if (targetPlayer.type === 'A') {
+                        targetPlayer.favor = 30;
+                    }
+                    
+                    affectedPlayers++;
+                }
+            });
+            
+            // 4. 为店主增加骷髅头icon，并记录倒计时
+            player.skeletonCountdown = 5;
+            
+            // 5. 清空道具池并加载地震专用道具池
+            loadEarthquakeItemPool();
+            
+            // 显示消息
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}，${affectedPlayers}名玩家的行动值和手牌归零，A类角色的好感度降低到30点，道具池已更新！`;
+            
+            // 更新UI
+            updateUI();
             break;
         case '帕诺拉马岛':
             // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
@@ -4842,6 +4941,34 @@ function updateUI() {
             skipIcon.style.color = 'blue';
             skipIcon.style.marginLeft = '5px';
             playerNameElement.appendChild(skipIcon);
+        }
+        
+        // 更新关东大地震骷髅头图标
+        // 移除现有的骷髅头图标
+        const existingSkeletonIcon = playerNameElement.querySelector('.skeleton-icon');
+        if (existingSkeletonIcon) {
+            playerNameElement.removeChild(existingSkeletonIcon);
+        }
+        // 如果店主使用了关东大地震，添加骷髅头图标和倒计时
+        if (player.skeletonCountdown && player.skeletonCountdown > 0) {
+            const skeletonContainer = document.createElement('span');
+            skeletonContainer.className = 'skeleton-icon';
+            skeletonContainer.style.marginLeft = '5px';
+            
+            const skeletonIcon = document.createElement('span');
+            skeletonIcon.innerHTML = '💀';
+            skeletonIcon.style.color = 'red';
+            
+            const countdownText = document.createElement('span');
+            countdownText.innerHTML = ` (${player.skeletonCountdown})`;
+            countdownText.style.color = 'red';
+            countdownText.style.fontSize = '12px';
+            
+            skeletonContainer.appendChild(skeletonIcon);
+            skeletonContainer.appendChild(countdownText);
+            skeletonContainer.title = `关东大地震效果：${player.skeletonCountdown}回合后死亡`;
+            
+            playerNameElement.appendChild(skeletonContainer);
         }
     }
 
@@ -5881,6 +6008,24 @@ function endTurn() {
 function nextPlayer() {
     const playerCount = gameState.players.length;
 
+    // 处理所有玩家的骷髅头倒计时
+    gameState.players.forEach((player, index) => {
+        if (player.skeletonCountdown && player.skeletonCountdown > 0) {
+            // 减少倒计时
+            player.skeletonCountdown--;
+            
+            // 如果倒计时为0，玩家死亡
+            if (player.skeletonCountdown === 0) {
+                player.status = 'dead';
+                // 清空手牌
+                player.items = [];
+                player.cards = 0;
+                logEvent(`玩家${index + 1}（${player.role}）因关东大地震效果死亡，手牌已清空`);
+                elements.gameMessage.textContent = `玩家${index + 1}（${player.role}）因关东大地震效果死亡！`;
+            }
+        }
+    });
+    
     // 找到下一个存活的玩家
     let nextPlayerIndex;
     if (gameState.reverseDirection) {
@@ -6140,7 +6285,23 @@ function initDraggableLog() {
 // 随机分配角色
 function randomRoles() {
     const playerCount = parseInt(document.getElementById('player-count').value) || 3;
-    const roles = ['水上', '川濑', '花泽', '博士', '薰', '店主'];
+    
+    // 准备角色列表，确保只有一个店主
+    let roles = ['水上', '川濑', '花泽', '博士', '薰'];
+    
+    // 如果玩家数量大于5，添加店主角色
+    if (playerCount > 5) {
+        roles.push('店主');
+    } else {
+        // 随机决定是否添加店主角色
+        const includeShopkeeper = Math.random() > 0.5;
+        if (includeShopkeeper) {
+            // 从非店主角色中随机移除一个，添加店主
+            const removeIndex = Math.floor(Math.random() * roles.length);
+            roles.splice(removeIndex, 1);
+            roles.push('店主');
+        }
+    }
 
     // 打乱角色顺序
     for (let i = roles.length - 1; i > 0; i--) {
@@ -7380,6 +7541,44 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
                 (totalSteps) => handleLightningBoatMove(totalSteps),
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
+            return true;
+        case '关东大地震':
+            // 除你自己以外全员行动值及手牌归零且好感度全部降低到30点
+            logSkillUsage(skill, shopkeeperIndex);
+            
+            // 处理其他存活玩家
+            let affectedPlayers = 0;
+            gameState.players.forEach((targetPlayer, targetIndex) => {
+                if (targetIndex !== shopkeeperIndex && targetPlayer.status === 'alive') {
+                    // 1. 行动点归零
+                    targetPlayer.action = 0;
+                    
+                    // 2. 道具全部丢弃
+                    if (targetPlayer.items.length > 0) {
+                        targetPlayer.items = [];
+                        targetPlayer.cards = 0;
+                    }
+                    
+                    // 3. 如果是A类角色，将好感度设置为30
+                    if (targetPlayer.type === 'A') {
+                        targetPlayer.favor = 30;
+                    }
+                    
+                    affectedPlayers++;
+                }
+            });
+            
+            // 4. 为店主增加骷髅头icon，并记录倒计时
+            shopkeeper.skeletonCountdown = 5;
+            
+            // 5. 清空道具池并加载地震专用道具池
+            loadEarthquakeItemPool();
+            
+            // 显示消息
+            showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，' + affectedPlayers + '名玩家的行动值和手牌归零，A类角色的好感度降低到30点，道具池已更新');
+            
+            // 更新UI
+            updateUI();
             return true;
         case '河童':
             // 河童技能：跳过任一自己以外角色的一回合
