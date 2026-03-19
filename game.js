@@ -3195,6 +3195,67 @@ class GameDialogService {
         return dialog;
     }
 
+    // 创建电光艇对话框
+    static createLightningBoatDialog(onConfirm, onCancel) {
+        // 创建对话框
+        const dialog = document.createElement('div');
+        dialog.className = 'lightning-boat-dialog';
+        dialog.innerHTML = `
+            <div class="lightning-boat-dialog-content">
+                <h3>电光艇 - 指定步数</h3>
+                <div class="lightning-boat-content">
+                    <div class="lightning-boat-step">选择要移动的步数（1-6）：</div>
+                    <select id="lightning-boat-steps" class="lightning-boat-select">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                    </select>
+                    <div class="lightning-boat-info" id="lightning-boat-info">
+                        即将移动 <span class="steps-value">1</span> * 2 = <span class="total-steps">2</span> 格
+                    </div>
+                </div>
+                <div class="lightning-boat-buttons">
+                    <button class="confirm-button" data-action="confirm">确认移动</button>
+                    <button class="cancel-button">取消</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(dialog);
+
+        // 处理步数选择
+        const stepsSelect = dialog.querySelector('#lightning-boat-steps');
+        const stepsValue = dialog.querySelector('.steps-value');
+        const totalSteps = dialog.querySelector('.total-steps');
+
+        stepsSelect.addEventListener('change', () => {
+            const selectedSteps = parseInt(stepsSelect.value);
+            const multipliedSteps = selectedSteps * 2;
+            stepsValue.textContent = selectedSteps;
+            totalSteps.textContent = multipliedSteps;
+        });
+
+        // 处理确认按钮
+        const confirmButton = dialog.querySelector('.confirm-button');
+        confirmButton.addEventListener('click', () => {
+            const selectedSteps = parseInt(stepsSelect.value);
+            const multipliedSteps = selectedSteps * 2;
+            onConfirm(multipliedSteps);
+            this.closeDialog(dialog);
+        });
+
+        // 处理取消按钮
+        const cancelButton = dialog.querySelector('.cancel-button');
+        cancelButton.addEventListener('click', () => {
+            onCancel();
+            this.closeDialog(dialog);
+        });
+
+        return dialog;
+    }
+
     // 添加对话框样式
     static addDialogStyle(dialogClass) {
         // 检查是否已经添加了样式
@@ -4486,9 +4547,63 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
             break;
         case '电光艇':
             // 指定棋子步数并x2
-            // 实现逻辑
             logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}`);
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}！`;
+            
+            // 创建电光艇对话框
+            GameDialogService.createLightningBoatDialog(
+                (totalSteps) => {
+                    // 标记幻象技为已使用
+                    player.fantasySkills[skillIndex] = {
+                        ...skill,
+                        used: true
+                    };
+                    
+                    // 记录原始位置
+                    const originalPosition = gameState.tokenPosition;
+                    
+                    // 移动棋子
+                    if (gameState.reverseDirection) {
+                        // 逆时针移动
+                        gameState.tokenPosition = (gameState.tokenPosition - totalSteps + gridConfig.length) % gridConfig.length;
+                    } else {
+                        // 顺时针移动
+                        gameState.tokenPosition = (gameState.tokenPosition + totalSteps) % gridConfig.length;
+                    }
+                    
+                    // 更新棋子位置
+                    updateTokenPosition();
+                    
+                    // 触发格子效果
+                    const currentGrid = gridConfig[gameState.tokenPosition];
+                    const currentPlayer = gameState.players[gameState.currentPlayer];
+                    const strategies = GridStrategyFactory.getStrategies(currentGrid);
+                    
+                    // 检查是否是水洼格子（会结束回合）
+                    const isWaterGrid = currentGrid.types && currentGrid.types.includes('水洼');
+                    
+                    strategies.forEach(strategy => {
+                        strategy.execute(currentGrid, currentPlayer);
+                    });
+                    
+                    // 如果是水洼格子，WaterGridStrategy已经调用了endTurn()结束回合
+                    // 不再执行后续代码，直接返回
+                    if (isWaterGrid) {
+                        return;
+                    }
+                    
+                    // 记录日志
+                    logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，棋子移动了${totalSteps}格`);
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）使用了幻象技${skill.name}，棋子移动了${totalSteps}格！`;
+                    
+                    // 更新UI
+                    updateUI();
+                },
+                () => {
+                    // 取消使用幻象技
+                    logEvent(`玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}`);
+                    elements.gameMessage.textContent = `玩家${playerIndex + 1}（店主）取消使用幻象技${skill.name}！`;
+                }
+            );
             break;
         case '河童':
             // 跳过任一自己以外角色的一回合

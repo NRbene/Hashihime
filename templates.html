@@ -118,5 +118,30 @@
             </div>
         </div>
     </div>
+
+    <!-- 电光艇弹窗模板 -->
+    <div id="lightning-boat-dialog-template" style="display: none;">
+        <div class="lightning-boat-dialog-content">
+            <h3>电光艇 - 指定步数</h3>
+            <div class="lightning-boat-content">
+                <div class="lightning-boat-step">选择要移动的步数（1-6）：</div>
+                <select id="lightning-boat-steps" class="lightning-boat-select">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+                <div class="lightning-boat-info" id="lightning-boat-info">
+                    即将移动 <span class="steps-value">1</span> * 2 = <span class="total-steps">2</span> 格
+                </div>
+            </div>
+            <div class="lightning-boat-buttons">
+                <button class="confirm-button" data-action="confirm">确认移动</button>
+                <button class="cancel-button">取消</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
