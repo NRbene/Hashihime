@@ -6011,6 +6011,41 @@ function endTurn() {
         gameState.stagnantTurn = -1;
     }
 
+    // 检查水道桥格子功能：如果当前玩家是水上角色，停留在水道桥格子，且游戏中存在存活的店主角色，则水上角色死亡
+    if (currentPlayer.role === '水上' && currentGrid.name === '水道桥') {
+        // 检查游戏中是否存在存活的店主角色
+        const hasAliveShopkeeper = gameState.players.some(player => player.role === '店主' && player.status === 'alive');
+        if (hasAliveShopkeeper) {
+            // 水上角色死亡
+            currentPlayer.status = 'dead';
+            // 清空手牌
+            currentPlayer.items = [];
+            currentPlayer.cards = 0;
+            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）停留在水道桥格子，因店主角色存活而死亡，手牌已清空`);
+            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）停留在水道桥格子，因店主角色存活而死亡！`;
+        }
+    }
+
+    // 检查吾妻桥格子功能：如果当前玩家是博士角色，停留在吾妻桥格子，且游戏中存在存活的店主角色，则店主角色死亡
+    if (currentPlayer.role === '博士' && currentGrid.name === '吾妻桥') {
+        // 检查游戏中是否存在存活的店主角色
+        const hasAliveShopkeeper = gameState.players.some(player => player.role === '店主' && player.status === 'alive');
+        if (hasAliveShopkeeper) {
+            // 找到并杀死店主角色
+            gameState.players.forEach((player, index) => {
+                if (player.role === '店主' && player.status === 'alive') {
+                    // 店主角色死亡
+                    player.status = 'dead';
+                    // 清空手牌
+                    player.items = [];
+                    player.cards = 0;
+                    logEvent(`玩家${index + 1}（${player.role}）因博士角色停留在吾妻桥格子而死亡，手牌已清空`);
+                    elements.gameMessage.textContent = `玩家${index + 1}（${player.role}）因博士角色停留在吾妻桥格子而死亡！`;
+                }
+            });
+        }
+    }
+
     // 每个玩家行动结束后，回合数+1
     gameStateManager.setState('round', gameState.round + 1);
 
