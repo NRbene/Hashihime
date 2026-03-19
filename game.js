@@ -5689,16 +5689,8 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
                         targetPlayer.items.splice(defenseIndex, 1);
                         targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
 
-                        // 设置目标玩家为死亡
-                        targetPlayer.status = 'die';
-                        // 玩家死亡后丢失所有道具
-                        const lostItems = targetPlayer.items.length;
-                        targetPlayer.items = [];
-                        targetPlayer.cards = 0;
-                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）行动点不足，念珠防御不生效，被${item.name}杀死，丢失了${lostItems}个道具`);
-
-                        // 显示消息
-                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）行动点不足，念珠防御不生效，已被${item.name}杀死！`;
+                        // 行动点不足，防御不生效，直接死亡
+                        handlePlayerDeath(targetPlayer, targetPlayerIndex, `行动点不足，念珠防御不生效，被${item.name}杀死`);
                     } else {
                         // 行动点足够，防御生效
                         // 移除防御道具
@@ -5988,6 +5980,18 @@ function checkWinCondition() {
     return false;
 }
 
+// 处理玩家死亡
+function handlePlayerDeath(player, playerIndex, reason = '被杀死') {
+    // 设置玩家为死亡状态
+    player.status = 'dead';
+    // 玩家死亡后丢失所有道具
+    const lostItems = player.items.length;
+    player.items = [];
+    player.cards = 0;
+    logEvent(`玩家${playerIndex + 1}（${player.role}）${reason}，丢失了${lostItems}个道具`);
+    elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）${reason}！`;
+}
+
 // 结束行动
 function endTurn() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
@@ -6017,12 +6021,7 @@ function endTurn() {
         const hasAliveShopkeeper = gameState.players.some(player => player.role === '店主' && player.status === 'alive');
         if (hasAliveShopkeeper) {
             // 水上角色死亡
-            currentPlayer.status = 'dead';
-            // 清空手牌
-            currentPlayer.items = [];
-            currentPlayer.cards = 0;
-            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）停留在水道桥格子，因店主角色存活而死亡，手牌已清空`);
-            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）停留在水道桥格子，因店主角色存活而死亡！`;
+            handlePlayerDeath(currentPlayer, gameState.currentPlayer, '停留在水道桥格子，因店主角色存活而死亡');
         }
     }
 
@@ -6035,12 +6034,7 @@ function endTurn() {
             gameState.players.forEach((player, index) => {
                 if (player.role === '店主' && player.status === 'alive') {
                     // 店主角色死亡
-                    player.status = 'dead';
-                    // 清空手牌
-                    player.items = [];
-                    player.cards = 0;
-                    logEvent(`玩家${index + 1}（${player.role}）因博士角色停留在吾妻桥格子而死亡，手牌已清空`);
-                    elements.gameMessage.textContent = `玩家${index + 1}（${player.role}）因博士角色停留在吾妻桥格子而死亡！`;
+                    handlePlayerDeath(player, index, '因博士角色停留在吾妻桥格子而死亡');
                 }
             });
         }
@@ -6065,12 +6059,7 @@ function nextPlayer() {
             
             // 如果倒计时为0，玩家死亡
             if (player.skeletonCountdown === 0) {
-                player.status = 'dead';
-                // 清空手牌
-                player.items = [];
-                player.cards = 0;
-                logEvent(`玩家${index + 1}（${player.role}）因关东大地震效果死亡，手牌已清空`);
-                elements.gameMessage.textContent = `玩家${index + 1}（${player.role}）因关东大地震效果死亡！`;
+                handlePlayerDeath(player, index, '因关东大地震效果死亡');
             }
         }
     });
@@ -6602,12 +6591,7 @@ function killPlayer() {
                 }
             } else {
                 // 设置目标玩家为死亡
-                targetPlayer.status = 'die';
-                // 玩家死亡后丢失所有道具
-                const lostItems = targetPlayer.items.length;
-                targetPlayer.items = [];
-                targetPlayer.cards = 0;
-                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死，丢失了${lostItems}个道具`);
+                handlePlayerDeath(targetPlayer, targetPlayerIndex, '被杀死');
 
                 // 显示消息
                 elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被杀死！`;
