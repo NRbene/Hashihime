@@ -3399,6 +3399,74 @@ class GameDialogService {
             document.body.removeChild(dialog);
         }
     }
+
+    // 创建选择玩家对话框（河童幻象技）
+    static createSelectPlayerDialog(availablePlayers, onSelect, onCancel) {
+        // 构建选择界面
+        let playerOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            const maxCards = characterAttributes[targetPlayer.role].maxCards;
+            playerOptions += `<div class="player-option" data-target-player="${targetIndex}">
+                <div class="player-info">
+                    <span class="player-name">玩家${targetIndex + 1}（${targetPlayer.role}）</span>
+                    <span class="player-favor">行动点：${targetPlayer.action || 0} | 道具：${targetPlayer.items.length}/${maxCards}</span>
+                </div>
+            </div>`;
+        });
+
+        // 创建对话框
+        const dialog = document.createElement('div');
+        dialog.className = 'select-player-dialog';
+        dialog.innerHTML = `
+            <div class="select-player-dialog-content">
+                <h3>选择要跳过回合的角色：</h3>
+                <div class="player-list">${playerOptions}</div>
+                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                    <button class="confirm-button" data-action="confirm" disabled>确认</button>
+                    <button class="cancel-button">取消</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(dialog);
+
+        // 处理玩家选择
+        const playerOptionsElements = dialog.querySelectorAll('.player-option');
+        const confirmButton = dialog.querySelector('.confirm-button');
+        let selectedPlayer = null;
+
+        playerOptionsElements.forEach(option => {
+            option.addEventListener('click', () => {
+                // 取消之前的选择
+                playerOptionsElements.forEach(opt => opt.classList.remove('selected'));
+                // 选择当前玩家
+                option.classList.add('selected');
+                selectedPlayer = parseInt(option.dataset.targetPlayer);
+                // 启用确认按钮
+                confirmButton.disabled = false;
+            });
+        });
+
+        // 处理确认按钮
+        confirmButton.addEventListener('click', () => {
+            if (selectedPlayer !== null) {
+                onSelect(selectedPlayer);
+                this.closeDialog(dialog);
+            }
+        });
+
+        // 处理取消按钮
+        const cancelButton = dialog.querySelector('.cancel-button');
+        cancelButton.addEventListener('click', () => {
+            onCancel();
+            this.closeDialog(dialog);
+        });
+
+        // 添加样式
+        this.addDialogStyle('select-player-dialog');
+
+        return dialog;
+    }
 }
 
 // 道具策略工厂
@@ -4128,7 +4196,8 @@ function initGame() {
                 status: 'alive',
                 action: characterAttributes[role].action,
                 hasKeychain: false,
-                hasActed: false
+                hasActed: false,
+                skipNextTurn: false
             });
         }
 
@@ -6046,6 +6115,29 @@ function nextPlayer() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
     const maxCards = characterAttributes[currentPlayer.role].maxCards;
 
+    // 检查该玩家是否被标记为跳过回合
+    if (currentPlayer.skipNextTurn) {
+        // 显示跳过消息
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）的回合被跳过！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）的回合被跳过`);
+        
+        // 移除跳过标记
+        currentPlayer.skipNextTurn = false;
+        
+        // 移除书本icon
+        const playerElement = document.querySelector(`#player${gameState.currentPlayer + 1}-name`);
+        if (playerElement) {
+            const icon = playerElement.querySelector('.skip-turn-icon');
+            if (icon) {
+                playerElement.removeChild(icon);
+            }
+        }
+        
+        // 递归调用nextPlayer，切换到下一个玩家
+        nextPlayer();
+        return;
+    }
+
     // 重置本回合是否行动过字段
     currentPlayer.hasActed = false;
 
@@ -7167,11 +7259,13 @@ function showShopkeeperSkillDialog(shopkeeper, parentDialog) {
             const skillIndex = parseInt(button.dataset.skillIndex);
             const skill = shopkeeper.fantasySkills[skillIndex];
 
-            // 标记技能为已使用
-            skill.used = true;
-
             // 触发技能效果
-            triggerShopkeeperSkill(skill, shopkeeper);
+            const skillUsed = triggerShopkeeperSkill(skill, shopkeeper);
+            
+            // 只有在技能成功执行后才标记为已使用
+            if (skillUsed) {
+                skill.used = true;
+            }
 
             // 关闭当前弹窗，返回行动开始弹窗
             document.body.removeChild(dialog);
@@ -7383,7 +7477,7 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             shopkeeper.hasFrogManSkill = true;
             logSkillUsage(skill, shopkeeperIndex, '，全程不会成为其他角色强制丢弃道具或损耗行动点的对象');
             showSkillMessage(skill, shopkeeperIndex, '的幻象技' + skill.name + '生效');
-            break;
+            return true;
         case '幸运草':
             // 幸运草技能：可以多抽一张道具卡
             if (shopkeeper.cards < characterAttributes[shopkeeper.role].maxCards && gameState.itemPool.length > 0) {
@@ -7403,8 +7497,10 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
 
                 // 更新道具池显示
                 updateItemPoolDisplay();
+                return true;
+            } else {
+                return false;
             }
-            break;
         case '晴彦':
             // 强制最多三名存活角色各丢弃一张道具卡（由你指定）
             logSkillUsage(skill, shopkeeperIndex);
@@ -7415,16 +7511,18 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             if (availablePlayers.length === 0) {
                 elements.gameMessage.textContent = '没有可丢弃道具的目标！';
                 logSkillUsage(skill, shopkeeperIndex, '，但没有可丢弃道具的目标');
-                return;
+                return false;
             }
             
             // 创建丢弃道具对话框
             GameDialogService.createDropItemDialog(
                 availablePlayers,
-                (selectedItems) => handleItemDrop(selectedItems, skill, shopkeeperIndex),
+                (selectedItems) => {
+                    handleItemDrop(selectedItems, skill, shopkeeperIndex);
+                },
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
-            break;
+            return true;
         case '大蛇丸':
             // 从最多两名存活玩家手中各夺取一张道具卡（由你指定）
             logSkillUsage(skill, shopkeeperIndex);
@@ -7437,7 +7535,7 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             if (availableSlots <= 0) {
                 elements.gameMessage.textContent = '你的手牌已达到上限，无法使用大蛇丸幻象技！';
                 logSkillUsage(skill, shopkeeperIndex, '，但手牌已达到上限');
-                return;
+                return false;
             }
             
             // 计算最多可以夺取的道具数量
@@ -7449,7 +7547,7 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             if (stealablePlayers.length === 0) {
                 elements.gameMessage.textContent = '没有可夺取道具的目标！';
                 logSkillUsage(skill, shopkeeperIndex, '，但没有可夺取道具的目标');
-                return;
+                return false;
             }
             
             // 创建夺取道具对话框
@@ -7459,7 +7557,7 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
                 (selectedItems) => handleItemSteal(selectedItems, shopkeeper, skill, shopkeeperIndex),
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
-            break;
+            return true;
         case '帕诺拉马岛':
             // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
             logSkillUsage(skill, shopkeeperIndex);
@@ -7470,7 +7568,7 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
             if (alivePlayers.length < 2) {
                 elements.gameMessage.textContent = '存活玩家不足2人，无法使用帕诺拉马岛！';
                 logSkillUsage(skill, shopkeeperIndex, '，但存活玩家不足2人');
-                return;
+                return false;
             }
             
             // 创建交换道具对话框
@@ -7479,7 +7577,7 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
                 (result) => handleItemExchange(result, skill, shopkeeperIndex),
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
-            break;
+            return true;
         case '电光艇':
             // 电光艇技能：指定步数并x2
             logSkillUsage(skill, shopkeeperIndex);
@@ -7489,11 +7587,56 @@ function triggerShopkeeperSkill(skill, shopkeeper) {
                 (totalSteps) => handleLightningBoatMove(totalSteps),
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
-            break;
+            return true;
+        case '河童':
+            // 河童技能：跳过任一自己以外角色的一回合
+            logSkillUsage(skill, shopkeeperIndex);
+            
+            // 过滤出其他存活玩家
+            const otherAlivePlayers = gameState.players.filter((player, index) => 
+                index !== shopkeeperIndex && player.status === 'alive'
+            );
+            
+            if (otherAlivePlayers.length === 0) {
+                elements.gameMessage.textContent = '没有可跳过回合的目标！';
+                logSkillUsage(skill, shopkeeperIndex, '，但没有可跳过回合的目标');
+                return false;
+            }
+            
+            // 提取玩家索引
+            const selectablePlayers = otherAlivePlayers.map(player => gameState.players.indexOf(player));
+            
+            // 创建选择玩家对话框
+            GameDialogService.createSelectPlayerDialog(
+                selectablePlayers,
+                (selectedPlayerIndex) => {
+                    const selectedPlayer = gameState.players[selectedPlayerIndex];
+                    // 标记玩家为跳过回合
+                    selectedPlayer.skipNextTurn = true;
+                    
+                    // 显示技能消息
+                    showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，跳过玩家' + (selectedPlayerIndex + 1) + '（' + selectedPlayer.role + '）的下一回合');
+                    
+                    // 在玩家名称旁添加书本icon
+                    const playerElement = document.querySelector(`#player${selectedPlayerIndex + 1}-name`);
+                    if (playerElement) {
+                        // 检查是否已经有icon
+                        if (!playerElement.querySelector('.skip-turn-icon')) {
+                            const icon = document.createElement('span');
+                            icon.className = 'skip-turn-icon';
+                            icon.style.cssText = 'display: inline-block; margin-left: 5px; font-size: 16px;';
+                            icon.textContent = '📚';
+                            playerElement.appendChild(icon);
+                        }
+                    }
+                },
+                () => handleSkillCancel(skill, shopkeeperIndex)
+            );
+            return true;
         // 可以添加其他技能的处理逻辑
         default:
             logSkillUsage(skill, shopkeeperIndex);
             showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name);
-            break;
+            return true;
     }
 }
