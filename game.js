@@ -4060,22 +4060,45 @@ function initGame() {
         for (let i = 0; i < playerCount; i++) {
             const role = playerRoles[i];
             const name = playerNames[i];
-            state.players.push({
-                type: characterAttributes[role].type,
-                role: role,
-                name: name,
-                cards: 0,
-                items: [],
-                fantasySkills: [],
-                favor: characterAttributes[role].initialFavor,
-                status: 'alive',
-                action: characterAttributes[role].action,
-                hasKeychain: false,
-                hasActed: false,
-                hasRolledDiceWithoutAction: false,
-                hasDrawnCardWithoutAction: false,
-                skipNextTurn: false
-            });
+            
+            // 检查角色是否存在于characterAttributes中
+            if (!characterAttributes[role]) {
+                console.error(`角色${role}不存在于角色配置中`);
+                // 使用默认值
+                state.players.push({
+                    type: 'A',
+                    role: role,
+                    name: name,
+                    cards: 0,
+                    items: [],
+                    fantasySkills: [],
+                    favor: 50,
+                    status: 'alive',
+                    action: 3,
+                    hasKeychain: false,
+                    hasActed: false,
+                    hasRolledDiceWithoutAction: false,
+                    hasDrawnCardWithoutAction: false,
+                    skipNextTurn: false
+                });
+            } else {
+                state.players.push({
+                    type: characterAttributes[role].type,
+                    role: role,
+                    name: name,
+                    cards: 0,
+                    items: [],
+                    fantasySkills: [],
+                    favor: characterAttributes[role].initialFavor,
+                    status: 'alive',
+                    action: characterAttributes[role].action,
+                    hasKeychain: false,
+                    hasActed: false,
+                    hasRolledDiceWithoutAction: false,
+                    hasDrawnCardWithoutAction: false,
+                    skipNextTurn: false
+                });
+            }
         }
 
         state.currentPlayer = 0;
