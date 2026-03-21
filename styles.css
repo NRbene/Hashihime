@@ -1050,6 +1050,11 @@ h2 {
     border: 1px solid #ddd;
 }
 
+.btn-drop {
+    background-color: black;
+    color: white;
+}
+
 .btn-reset {
     background-color: #f0f0f0;
     color: black;
