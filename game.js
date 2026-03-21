@@ -3754,8 +3754,8 @@ function saveGameState() {
         puddleCount: gameState.puddleCount
     };
     gameState.history.push(stateCopy);
-    // 限制历史记录长度，只保留最近10个状态
-    if (gameState.history.length > 10) {
+    // 限制历史记录长度，只保留最近50个状态
+    if (gameState.history.length > 50) {
         gameState.history.shift();
     }
 }
@@ -4890,6 +4890,9 @@ function showDropItemDialog() {
                 document.body.removeChild(dropItemDialog);
                 return;
             }
+
+            // 保存游戏状态，以便可以撤回操作
+            saveGameState();
 
             // 从玩家道具栏中移除道具
             currentPlayer.items.splice(itemIndex, 1);
@@ -6814,6 +6817,12 @@ function showActionStartDialog() {
             // 显示骰子点数
             document.getElementById('action-start-result').textContent = `骰子点数：${diceRoll}`;
 
+            // 立即执行移动
+            moveToken(diceRoll);
+
+            // 更新UI
+            updateUI();
+
             // 禁用掷骰子按钮
             rollDiceButton.disabled = true;
             rollDiceButton.style.backgroundColor = '#ccc';
@@ -6899,18 +6908,6 @@ function showActionStartDialog() {
     // 确认按钮
     const confirmButton = document.getElementById('action-start-confirm');
     confirmButton.addEventListener('click', () => {
-        // 如果有骰子点数，执行移动
-        if (diceRoll !== null) {
-            // 保存当前行动点
-            const currentActionPoints = currentPlayer.action;
-
-            // 执行移动
-            moveToken(diceRoll);
-
-            // 恢复行动点
-            currentPlayer.action = currentActionPoints;
-        }
-
         // 关闭弹窗
         document.body.removeChild(dialog);
         
