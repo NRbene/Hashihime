@@ -1657,15 +1657,15 @@ class CarItemStrategy extends ItemStrategy {
         player.action = Number(player.action) || 0;
 
         // 检查行动点是否足够
-        if (player.action < 2) {
+        if (player.action < 1) {
             elements.gameMessage.textContent = `行动点不足，无法使用汽车！`;
             logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用汽车，但行动点不足`);
             return false;
         }
 
         // 消耗行动点
-        player.action -= 2;
-        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗2点行动点使用汽车，剩余行动点：${player.action}`);
+        player.action -= 1;
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用汽车，剩余行动点：${player.action}`);
 
         // 弹出掷骰子对话框
         this.createCarDialog(player, playerIndex, item, itemIndex);
@@ -1740,7 +1740,7 @@ class CarItemStrategy extends ItemStrategy {
         cancelButton.addEventListener('click', () => {
             // 确保行动点是数字类型并返还
             player.action = Number(player.action) || 0;
-            player.action += 2;
+            player.action += 1;
             // 记录取消使用道具的日志
             logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用汽车，行动点不变`);
             // 显示消息
@@ -4197,9 +4197,12 @@ function updateItemsDisplay() {
             itemsContainer.appendChild(itemElement);
         });
 
-        // 如果是店主角色，显示幻象技
+        // 处理幻象技容器
+        const fantasySkillsContainer = document.getElementById(`player${i + 1}-fantasy-skills`);
+        const fantasySkillsContainerParent = fantasySkillsContainer ? fantasySkillsContainer.closest('.fantasy-skills-container') : null;
+        
         if (player.role === '店主') {
-            const fantasySkillsContainer = document.getElementById(`player${i + 1}-fantasy-skills`);
+            // 如果是店主角色，显示幻象技
             if (!fantasySkillsContainer) {
                 // 如果幻象技容器不存在，创建它
                 const container = document.createElement('div');
@@ -4211,22 +4214,30 @@ function updateItemsDisplay() {
             const skillsContainer = document.getElementById(`player${i + 1}-fantasy-skills`);
             skillsContainer.innerHTML = '';
 
-            player.fantasySkills.forEach((skill, index) => {
-                const skillElement = document.createElement('div');
-                skillElement.className = 'fantasy-skill';
-                if (skill.used) {
-                    skillElement.classList.add('used');
-                }
-                skillElement.textContent = skill.name;
-                skillElement.title = skill.description;
+            // 确保player.fantasySkills是数组
+            if (Array.isArray(player.fantasySkills)) {
+                player.fantasySkills.forEach((skill, index) => {
+                    const skillElement = document.createElement('div');
+                    skillElement.className = 'fantasy-skill';
+                    if (skill.used) {
+                        skillElement.classList.add('used');
+                    }
+                    skillElement.textContent = skill.name;
+                    skillElement.title = skill.description;
 
-                // 移除点击使用效果，只显示幻象技
-                if (skill.used) {
-                    skillElement.classList.add('used');
-                }
+                    // 移除点击使用效果，只显示幻象技
+                    if (skill.used) {
+                        skillElement.classList.add('used');
+                    }
 
-                skillsContainer.appendChild(skillElement);
-            });
+                    skillsContainer.appendChild(skillElement);
+                });
+            }
+        } else {
+            // 如果不是店主角色，移除幻象技容器
+            if (fantasySkillsContainerParent) {
+                fantasySkillsContainerParent.remove();
+            }
         }
     }
 }
@@ -4296,6 +4307,7 @@ function handleFantasySkillEffect(skill, player, playerIndex, skillIndex) {
             });
             
             if (availablePlayers.length === 0) {
+                     alert('没有可丢弃道具的目标！');
                 elements.gameMessage.textContent = '没有可丢弃道具的目标！';
                 logEvent(`玩家${playerIndex + 1}（店主）使用幻象技${skill.name}，但没有可丢弃道具的目标`);
                 break;
@@ -7387,6 +7399,64 @@ function handleSkillCancel(skill, shopkeeperIndex) {
     elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}！`;
 }
 
+// 辅助函数：处理技能确认回调
+function handleSkillConfirm(callback, skill, shopkeeper, shopkeeperIndex, parentDialog) {
+    return function(result) {
+        // 执行回调函数处理技能效果
+        callback(result);
+        // 标记技能为已使用
+        skill.used = true;
+        // 更新UI
+        updateUI();
+        // 更新行动开始弹窗中的店主幻象技按钮状态
+        if (parentDialog) {
+            const shopkeeperSkillButton = parentDialog.querySelector('#action-start-shopkeeper-skill');
+            if (shopkeeperSkillButton) {
+                // 重新检查是否需要禁用店主幻象技按钮
+                const hasAvailableSkills = shopkeeper.fantasySkills.some(skill => !skill.used);
+                const currentPlayer = gameState.players[gameState.currentPlayer];
+                const shouldDisable = !hasAvailableSkills || (currentPlayer.hasActed && currentPlayer.role !== '店主');
+                
+                if (shouldDisable) {
+                    shopkeeperSkillButton.disabled = true;
+                    shopkeeperSkillButton.style.backgroundColor = '#ccc';
+                    shopkeeperSkillButton.style.cursor = 'not-allowed';
+                } else {
+                    shopkeeperSkillButton.disabled = false;
+                    shopkeeperSkillButton.style.backgroundColor = '#ff9800';
+                    shopkeeperSkillButton.style.cursor = 'pointer';
+                }
+            }
+        }
+    };
+}
+
+// 辅助函数：处理技能使用后的UI更新
+function updateSkillUI(shopkeeper, parentDialog) {
+    // 更新UI
+    updateUI();
+    // 更新行动开始弹窗中的店主幻象技按钮状态
+    if (parentDialog) {
+        const shopkeeperSkillButton = parentDialog.querySelector('#action-start-shopkeeper-skill');
+        if (shopkeeperSkillButton) {
+            // 重新检查是否需要禁用店主幻象技按钮
+            const hasAvailableSkills = shopkeeper.fantasySkills.some(skill => !skill.used);
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            const shouldDisable = !hasAvailableSkills || (currentPlayer.hasActed && currentPlayer.role !== '店主');
+            
+            if (shouldDisable) {
+                shopkeeperSkillButton.disabled = true;
+                shopkeeperSkillButton.style.backgroundColor = '#ccc';
+                shopkeeperSkillButton.style.cursor = 'not-allowed';
+            } else {
+                shopkeeperSkillButton.disabled = false;
+                shopkeeperSkillButton.style.backgroundColor = '#ff9800';
+                shopkeeperSkillButton.style.cursor = 'pointer';
+            }
+        }
+    }
+}
+
 // 辅助函数：过滤出有道具的其他存活玩家
 function getPlayersWithItems(excludeIndex) {
     const players = [];
@@ -7535,6 +7605,12 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             shopkeeper.hasFrogManSkill = true;
             logSkillUsage(skill, shopkeeperIndex, '，全程不会成为其他角色强制丢弃道具或损耗行动点的对象');
             showSkillMessage(skill, shopkeeperIndex, '的幻象技' + skill.name + '生效');
+            
+            // 标记技能为已使用
+            skill.used = true;
+            
+            // 更新UI
+            updateSkillUI(shopkeeper, parentDialog);
             return true;
         case '幸运草':
             // 幸运草技能：可以多抽一张道具卡
@@ -7555,6 +7631,12 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
 
                 // 更新道具池显示
                 updateItemPoolDisplay();
+                
+                // 标记技能为已使用
+                skill.used = true;
+                
+                // 更新UI
+                updateSkillUI(shopkeeper, parentDialog);
                 return true;
             } else {
                 return false;
@@ -7567,6 +7649,7 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             const availablePlayers = getPlayersWithItems(shopkeeperIndex);
             
             if (availablePlayers.length === 0) {
+                alert('没有可丢弃道具的目标！');
                 elements.gameMessage.textContent = '没有可丢弃道具的目标！';
                 logSkillUsage(skill, shopkeeperIndex, '，但没有可丢弃道具的目标');
                 return false;
@@ -7575,11 +7658,9 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             // 创建丢弃道具对话框
             GameDialogService.createDropItemDialog(
                 availablePlayers,
-                (selectedItems) => {
+                handleSkillConfirm((selectedItems) => {
                     handleItemDrop(selectedItems, skill, shopkeeperIndex);
-                    // 标记技能为已使用
-                    skill.used = true;
-                },
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
             return false;
@@ -7594,6 +7675,7 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             
             if (availableSlots <= 0) {
                 elements.gameMessage.textContent = '你的手牌已达到上限，无法使用大蛇丸幻象技！';
+                alert('你的手牌已达到上限，无法使用大蛇丸幻象技！');
                 logSkillUsage(skill, shopkeeperIndex, '，但手牌已达到上限');
                 return false;
             }
@@ -7614,11 +7696,9 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             GameDialogService.createStealItemDialog(
                 stealablePlayers,
                 maxStealCount,
-                (selectedItems) => {
+                handleSkillConfirm((selectedItems) => {
                     handleItemSteal(selectedItems, shopkeeper, skill, shopkeeperIndex);
-                    // 标记技能为已使用
-                    skill.used = true;
-                },
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
             return false;
@@ -7638,11 +7718,9 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             // 创建交换道具对话框
             GameDialogService.createExchangeItemsDialog(
                 alivePlayers,
-                (result) => {
+                handleSkillConfirm((result) => {
                     handleItemExchange(result, skill, shopkeeperIndex);
-                    // 标记技能为已使用
-                    skill.used = true;
-                },
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
             return false;
@@ -7652,11 +7730,9 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             
             // 创建电光艇对话框
             GameDialogService.createLightningBoatDialog(
-                (totalSteps) => {
+                handleSkillConfirm((totalSteps) => {
                     handleLightningBoatMove(totalSteps);
-                    // 标记技能为已使用
-                    skill.used = true;
-                },
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
                 () => handleSkillCancel(skill, shopkeeperIndex)
             );
             return false;
@@ -7695,8 +7771,11 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             // 显示消息
             showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，' + affectedPlayers + '名玩家的行动值和手牌归零，追求者的好感度降低到30点，道具池已更新');
             
+            // 标记技能为已使用
+            skill.used = true;
+            
             // 更新UI
-            updateUI();
+            updateSkillUI(shopkeeper, parentDialog);
             return true;
         case '河童':
             // 河童技能：跳过任一自己以外角色的一回合
@@ -7719,7 +7798,7 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
             // 创建选择玩家对话框
             GameDialogService.createSelectPlayerDialog(
                 selectablePlayers,
-                (selectedPlayerIndex) => {
+                handleSkillConfirm((selectedPlayerIndex) => {
                     const selectedPlayer = gameState.players[selectedPlayerIndex];
                     // 标记玩家为跳过回合
                     selectedPlayer.skipNextTurn = true;
@@ -7747,10 +7826,7 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
                             confirmButton.style.display = 'inline-block';
                         }
                     }
-                    
-                    // 更新UI，显示书本icon
-                    updateUI();
-                },
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
                 () => handleSkillCancel(skill, shopkeeperIndex),
                 parentDialog
             );
@@ -7759,6 +7835,12 @@ function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
         default:
             logSkillUsage(skill, shopkeeperIndex);
             showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name);
+            
+            // 标记技能为已使用
+            skill.used = true;
+            
+            // 更新UI
+            updateSkillUI(shopkeeper, parentDialog);
             return true;
     }
 }
