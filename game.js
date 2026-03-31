@@ -1161,8 +1161,25 @@ class MoneyItemStrategy extends ItemStrategy {
         // 使用GameDialogService创建交换道具对话框
         GameDialogService.createExchangeDialog(
             (exchangeType) => {
-                // 记录行动点消耗
-                logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+                // 检查是否需要消耗行动点
+                const shouldConsumeAction = exchangeType === 'draw' || exchangeType === 'player';
+                
+                // 如果需要消耗行动点
+                if (shouldConsumeAction) {
+                    // 检查行动点是否足够
+                    if (player.action <= 0) {
+                        elements.gameMessage.textContent = '行动点不足，无法进行交换！';
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱进行交换，但行动点不足`);
+                        // 处理道具取消
+                        handleItemCancel(player, playerIndex, item);
+                        return;
+                    }
+                    
+                    // 消耗1行动点
+                    player.action--;
+                    // 记录行动点消耗
+                    logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+                }
 
                 if (exchangeType === 'draw') {
                     // 从牌堆抽取
@@ -4548,29 +4565,32 @@ function updateUI() {
 
     // 更新玩家信息和当前玩家样式
     const playerCount = gameState.players.length;
-    for (let i = 0; i < playerCount; i++) {
-        const player = gameState.players[i];
-        elements[`player${i + 1}RoleDisplay`].textContent = player.role;
-        elements[`player${i + 1}NameDisplay`].textContent = `(${player.name})`;
-        // elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
-        // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
-        const currentAction = (player.action !== undefined && player.action !== null)
-            ? player.action
-            : characterAttributes[player.role].action;
-
-        elements[`player${i + 1}Action`].textContent = currentAction;
-
-        elements[`player${i + 1}Cards`].textContent = player.cards;
-        elements[`player${i + 1}Favor`].textContent = player.role === '薰' ? '???' : player.favor;
-        elements[`player${i + 1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
-
-        // 更新当前玩家样式
+    // 最多支持6个玩家
+    for (let i = 0; i < 6; i++) {
         const playerElement = document.querySelector(`.player.player${i + 1}`);
-        if (i === gameState.currentPlayer) {
-            playerElement.classList.add('current-player');
-        } else {
-            playerElement.classList.remove('current-player');
-        }
+        if (i < playerCount) {
+            // 显示存在的玩家
+            playerElement.style.display = 'block';
+            const player = gameState.players[i];
+            elements[`player${i + 1}RoleDisplay`].textContent = player.role;
+            elements[`player${i + 1}NameDisplay`].textContent = `(${player.name})`;
+            // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
+            const currentAction = (player.action !== undefined && player.action !== null)
+                ? player.action
+                : characterAttributes[player.role].action;
+
+            elements[`player${i + 1}Action`].textContent = currentAction;
+
+            elements[`player${i + 1}Cards`].textContent = player.cards;
+            elements[`player${i + 1}Favor`].textContent = player.role === '薰' ? '???' : player.favor;
+            elements[`player${i + 1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
+
+            // 更新当前玩家样式
+            if (i === gameState.currentPlayer) {
+                playerElement.classList.add('current-player');
+            } else {
+                playerElement.classList.remove('current-player');
+            }
 
         // 更新钥匙串图标
         const playerNameElement = playerElement.querySelector('h3');
@@ -4631,6 +4651,10 @@ function updateUI() {
             skeletonContainer.title = `关东大地震效果：${player.skeletonCountdown}回合后死亡`;
             
             playerNameElement.appendChild(skeletonContainer);
+        }
+        } else {
+            // 隐藏不存在的玩家
+            playerElement.style.display = 'none';
         }
     }
 
