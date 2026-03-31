@@ -2075,7 +2075,7 @@ class GhostTowerItemStrategy extends ItemStrategy {
     }
 }
 
-// 《阁楼里的两位处女》道具策略
+// 《花物语》道具策略-历史为《阁楼里的两位处女》
 class TwoVirginsItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
         // 从道具列表中移除
@@ -2089,17 +2089,17 @@ class TwoVirginsItemStrategy extends ItemStrategy {
                 // 使博士角色玩家的好感下降10
                 updateFavor(targetPlayer, -10);
                 hasAliveDoctor = true;
-                logEvent(`玩家${playerIndex + 1}（${player.role}）使用《阁楼里的两位处女》，使玩家${targetIndex + 1}（博士）的好感下降10点`);
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用《花物语》，使玩家${targetIndex + 1}（博士）的好感下降10点`);
             }
         });
 
         if (hasAliveDoctor) {
             // 显示消息
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《阁楼里的两位处女》，使所有存活的博士角色玩家的好感下降10点！`;
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《花物语》，使所有存活的博士角色玩家的好感下降10点！`;
         } else {
             // 场上没有存活的博士角色玩家，好感度降低不生效
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《阁楼里的两位处女》，但场上没有存活的博士角色玩家，好感度降低不生效！`;
-            logEvent(`玩家${playerIndex + 1}（${player.role}）使用《阁楼里的两位处女》，但场上没有存活的博士角色玩家`);
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了《花物语》，但场上没有存活的博士角色玩家，好感度降低不生效！`;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用《花物语》，但场上没有存活的博士角色玩家`);
         }
 
         // 处理行动后逻辑
@@ -2476,7 +2476,7 @@ const itemNameToTypeMap = {
     '七味粉': 'seven_spice',
     '《白发小僧》': 'white_haired_monk',
     '《幽灵塔》': 'ghost_tower',
-    '《阁楼里的两位处女》': 'two_virgins',
+    '《花物语》': 'two_virgins',
     '《脑髓地狱》': 'brain_hell',
     '雨水': 'rain_water'
 };
@@ -3689,10 +3689,6 @@ function useItem(playerIndex, itemIndex) {
         if (player.role === '博士') {
             canUseWithoutAction = true;
         }
-    } else if (item.name === '《阁楼里的两位处女》') {
-        if (player.role === '水上') {
-            canUseWithoutAction = true;
-        }
     } else if (item.name === '钱') {
         // 检查当前是否在市营电车站、机械汤、咖啡厅或电影院格子上
         const currentGrid = gridConfig[gameState.tokenPosition];
@@ -3783,10 +3779,6 @@ function useItem(playerIndex, itemIndex) {
             }
         } else if (item.name === '《幽灵塔》') {
             if (player.role === '博士') {
-                shouldConsumeAction = false;
-            }
-        } else if (item.name === '《阁楼里的两位处女》') {
-            if (player.role === '水上') {
                 shouldConsumeAction = false;
             }
         } else if (item.name === '钱') {
