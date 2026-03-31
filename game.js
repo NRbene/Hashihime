@@ -1104,8 +1104,13 @@ class MoneyItemStrategy extends ItemStrategy {
                             player.cards++;
 
                             // 从当前玩家的道具栏中移除钱（一次性道具）
+                            const moneyItem = player.items[itemIndex];
                             player.items.splice(itemIndex, 1);
                             player.cards = Math.max(0, player.cards - 1);
+
+                            // 将钱添加到目标玩家的道具栏中
+                            targetPlayer.items.push(moneyItem);
+                            targetPlayer.cards++;
 
                             // 记录日志
                             logEvent(`玩家${playerIndex + 1}（${player.role}）使用钱，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中交换了${targetItem.name}`);
@@ -3144,6 +3149,7 @@ function initElements() {
         undoAction: document.getElementById('undo-action'),
         killPlayer: document.getElementById('kill-player'),
         drawCard: document.getElementById('draw-card'),
+        dropItem: document.getElementById('drop-item'),
         diceResult: document.getElementById('dice-result'),
         currentPlayerDisplay: document.getElementById('current-player'),
         roundCount: document.getElementById('round-count'),
@@ -3186,6 +3192,16 @@ function initElements() {
         player3Status: document.getElementById('player3-status'),
         player4Status: document.getElementById('player4-status'),
         player5Status: document.getElementById('player5-status'),
+        player1Name: document.getElementById('player1-name'),
+        player2Name: document.getElementById('player2-name'),
+        player3Name: document.getElementById('player3-name'),
+        player4Name: document.getElementById('player4-name'),
+        player5Name: document.getElementById('player5-name'),
+        player1NameDisplay: document.getElementById('player1-name-display'),
+        player2NameDisplay: document.getElementById('player2-name-display'),
+        player3NameDisplay: document.getElementById('player3-name-display'),
+        player4NameDisplay: document.getElementById('player4-name-display'),
+        player5NameDisplay: document.getElementById('player5-name-display'),
         saveGame: document.getElementById('save-game'),
         loadGame: document.getElementById('load-game'),
         exportSave: document.getElementById('export-save'),
@@ -3479,11 +3495,14 @@ function initGame() {
     // 获取玩家数量
     const playerCount = parseInt(document.getElementById('player-count').value) || 3;
 
-    // 获取玩家角色设置
+    // 获取玩家角色设置和中之人名称
     const playerRoles = [];
+    const playerNames = [];
     for (let i = 1; i <= playerCount; i++) {
         const role = document.getElementById(`player${i}-role`).value;
+        const name = document.getElementById(`player${i}-name`).value || '匿名';
         playerRoles.push(role);
+        playerNames.push(name);
     }
 
     // 设置玩家属性和重置游戏状态（使用观察者模式）
@@ -3491,9 +3510,11 @@ function initGame() {
         state.players = [];
         for (let i = 0; i < playerCount; i++) {
             const role = playerRoles[i];
+            const name = playerNames[i];
             state.players.push({
                 type: characterAttributes[role].type,
                 role: role,
+                name: name,
                 cards: 0,
                 items: [],
                 favor: characterAttributes[role].initialFavor,
@@ -3865,6 +3886,7 @@ function updateUI() {
     for (let i = 0; i < playerCount; i++) {
         const player = gameState.players[i];
         elements[`player${i + 1}RoleDisplay`].textContent = player.role;
+        elements[`player${i + 1}NameDisplay`].textContent = `(${player.name})`;
         // elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
         // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
         const currentAction = (player.action !== undefined && player.action !== null)
@@ -4094,11 +4116,16 @@ function showStationDialog(player, playerIndex, itemIndex) {
     });
 }
 
-// 显示水道桥弹窗
-function showWaterwayDialog() {
+// 显示丢弃道具弹窗
+function showDropItemDialog() {
+    // 检查当前所在格子
+    const currentGrid = gridConfig[gameState.tokenPosition];
+    // 在水道桥、吾妻桥的格子上，不消耗行动点；在其他格子上消耗1点行动点
+    const consumeAction = !(currentGrid.name === '水道桥' || currentGrid.name === '吾妻桥');
+
     // 创建弹出框
-    const waterwayDialog = document.createElement('div');
-    waterwayDialog.className = 'station-dialog';
+    const dropItemDialog = document.createElement('div');
+    dropItemDialog.className = 'station-dialog';
 
     // 从模板加载HTML内容
     const templatesIframe = document.getElementById('templates-iframe');
@@ -4110,13 +4137,13 @@ function showWaterwayDialog() {
         template = document.getElementById('waterway-dialog-template');
     }
     if (template) {
-        waterwayDialog.innerHTML = template.innerHTML;
+        dropItemDialog.innerHTML = template.innerHTML;
     }
 
-    document.body.appendChild(waterwayDialog);
+    document.body.appendChild(dropItemDialog);
 
     // 显示玩家拥有的道具
-    const itemList = waterwayDialog.querySelector('#waterway-item-list');
+    const itemList = dropItemDialog.querySelector('#waterway-item-list');
     if (itemList) {
         const currentPlayer = gameState.players[gameState.currentPlayer];
         if (currentPlayer.items.length === 0) {
@@ -4136,36 +4163,58 @@ function showWaterwayDialog() {
     }
 
     // 处理道具选择
-    const itemElements = waterwayDialog.querySelectorAll('.waterway-item');
+    const itemElements = dropItemDialog.querySelectorAll('.waterway-item');
     itemElements.forEach(itemElement => {
         itemElement.addEventListener('click', () => {
             const itemIndex = parseInt(itemElement.dataset.itemIndex);
             const currentPlayer = gameState.players[gameState.currentPlayer];
             const item = currentPlayer.items[itemIndex];
 
+            // 检查行动点
+            if (consumeAction && currentPlayer.action <= 0) {
+                alert('行动点不足，无法丢弃道具！');
+                elements.gameMessage.textContent = '行动点不足，无法丢弃道具！';
+                document.body.removeChild(dropItemDialog);
+                return;
+            }
+
             // 从玩家道具栏中移除道具
             currentPlayer.items.splice(itemIndex, 1);
             currentPlayer.cards = Math.max(0, currentPlayer.cards - 1);
 
+            // 消耗行动点
+            if (consumeAction) {
+                currentPlayer.action = Math.max(0, currentPlayer.action - 1);
+            }
+
             // 记录日志
-            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）在水道桥丢弃了道具${item.name}`);
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）在${currentGrid.name}丢弃了道具${item.name}${consumeAction ? '，消耗1点行动点' : ''}`);
 
             // 显示消息
-            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}在水道桥丢弃了道具${item.name}！`;
+            elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}在${currentGrid.name}丢弃了道具${item.name}${consumeAction ? '，消耗1点行动点' : ''}！`;
 
             // 移除对话框
-            document.body.removeChild(waterwayDialog);
+            document.body.removeChild(dropItemDialog);
 
             // 更新UI
             updateUI();
+
+            // 处理行动后逻辑
+            handlePostActionLogic(currentPlayer, gameState.currentPlayer);
         });
     });
 
     // 处理取消按钮
-    const cancelButton = waterwayDialog.querySelector('.cancel-waterway');
+    const cancelButton = dropItemDialog.querySelector('.cancel-waterway');
     cancelButton.addEventListener('click', () => {
-        document.body.removeChild(waterwayDialog);
+        document.body.removeChild(dropItemDialog);
     });
+}
+
+// 显示水道桥弹窗
+function showWaterwayDialog() {
+    showDropItemDialog();
 }
 
 // 显示咖啡厅弹窗
@@ -4890,16 +4939,35 @@ function showWinDialog(winner) {
 function checkWinCondition() {
     const playerCount = gameState.players.length;
     // 检查A玩家是否好感度达到100
+    const winningPlayers = [];
     for (let i = 0; i < playerCount; i++) {
         const player = gameState.players[i];
         if (player.type === 'A' && player.favor >= 100) {
-            elements.gameMessage.textContent = `玩家${i + 1}（A类型）好感度达到100，游戏胜利！`;
-            logEvent(`游戏胜利：玩家${i + 1}（A类型）好感度达到100`);
-            gameState.gameWon = true;
-            // 显示胜利弹窗
-            showWinDialog(`玩家${i + 1}（${player.role}）`);
-            return true;
+            winningPlayers.push({ index: i + 1, role: player.role, name: player.name });
         }
+    }
+
+    // 如果有多个A类型玩家达到胜利条件，宣布他们同时胜利
+    if (winningPlayers.length > 0) {
+        let winnerText = '';
+        let winnerNames = '';
+        for (let i = 0; i < winningPlayers.length; i++) {
+            const player = winningPlayers[i];
+            winnerText += `玩家${player.index}（${player.role}）`;
+            if (i < winningPlayers.length - 1) {
+                winnerText += '、';
+            }
+            winnerNames += `玩家${player.index}（${player.role}）`;
+            if (i < winningPlayers.length - 1) {
+                winnerNames += '、';
+            }
+        }
+        elements.gameMessage.textContent = `${winnerText}好感度达到100，游戏胜利！`;
+        logEvent(`游戏胜利：${winnerText}好感度达到100`);
+        gameState.gameWon = true;
+        // 显示胜利弹窗
+        showWinDialog(winnerNames);
+        return true;
     }
 
     // 检查B玩家是否杀死所有A玩家
@@ -5694,6 +5762,22 @@ window.onload = async function () {
     const drawCardButton = document.getElementById('draw-card');
     if (drawCardButton) {
         drawCardButton.addEventListener('click', drawCard);
+    }
+
+    const dropItemButton = document.getElementById('drop-item');
+    if (dropItemButton) {
+        dropItemButton.addEventListener('click', () => {
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            if (currentPlayer.status !== 'alive') {
+                elements.gameMessage.textContent = '玩家已死亡，无法丢弃道具！';
+                return;
+            }
+            if (currentPlayer.items.length === 0) {
+                elements.gameMessage.textContent = '你没有任何道具可以丢弃！';
+                return;
+            }
+            showDropItemDialog();
+        });
     }
 
     const saveGameButton = document.getElementById('save-game');
