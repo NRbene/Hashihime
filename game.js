@@ -3489,6 +3489,11 @@ class WaterGridStrategy extends GridStrategy {
         // 立即更新UI，显示当前水洼数
         updateUI();
 
+        // 检查胜利条件
+        if (checkWinCondition()) {
+            return;
+        }
+
         // 结束当前玩家的行动
         endTurn();
     }
@@ -5636,7 +5641,7 @@ function checkWinCondition() {
     const hasShopkeeper = alivePlayers.some(player => player.role === '店主');
     
     // 当一场游戏中只存在薰时，胜利条件为，场上所有追求者死亡，则薰胜利
-    if (alivePlayers.length === 1 && hasKaoru && aliveAPlayers.length === 0) {
+    if (hasKaoru && !hasShopkeeper && aliveAPlayers.length === 0) {
         elements.gameMessage.textContent = '所有追求者已死亡，薰胜利！';
         logEvent(`游戏胜利：所有追求者已死亡，薰胜利`);
         gameState.gameWon = true;
@@ -5645,7 +5650,7 @@ function checkWinCondition() {
     }
     
     // 当一场游戏中只存在店主时，胜利条件为，棋子总计踩满（总玩家人数-1）*2 次水洼，则店主胜利
-    if (alivePlayers.length === 1 && hasShopkeeper) {
+    if (!hasKaoru  && hasShopkeeper) {
         const requiredPuddles = (playerCount - 1) * 2;
         if (gameState.puddleCount >= requiredPuddles) {
             elements.gameMessage.textContent = `棋子踩满${requiredPuddles}次水洼，店主胜利！`;
@@ -5878,6 +5883,11 @@ function nextPlayer() {
 
     // 更新UI
     updateUI();
+
+    // 检查胜利条件
+    if (checkWinCondition()) {
+        return;
+    }
 
     // 显示行动开始弹窗
     showActionStartDialog();
