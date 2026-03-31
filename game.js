@@ -223,7 +223,6 @@ function parseMapCSV(csvText) {
                     grid.favorEffect.role = '博士';
                     break;
                 case '梅钵堂':
-                case '咖啡厅':
                     grid.favorEffect.type = 'all';
                     break;
                 case '帝国大学':
