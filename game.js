@@ -3772,7 +3772,9 @@ function saveGameState() {
         gameWon: gameState.gameWon,
         week: gameState.week,
         reverseDirection: gameState.reverseDirection,
-        puddleCount: gameState.puddleCount
+        puddleCount: gameState.puddleCount,
+        stagnantTurn: gameState.stagnantTurn || -1,
+        hasLeftStart: gameState.hasLeftStart || false
     };
     gameState.history.push(stateCopy);
     // 限制历史记录长度，只保留最近50个状态
@@ -4480,11 +4482,8 @@ function useItem(playerIndex, itemIndex) {
                 shouldConsumeAction = false;
             }
         } else if (item.name === '钱') {
-            // 检查当前是否在市营电车站、机械汤、咖啡厅或电影院格子上
-            const currentGrid = gridConfig[gameState.tokenPosition];
-            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅' || currentGrid.name === '电影院')) {
-                shouldConsumeAction = false;
-            }
+            // 钱道具的行动点消耗由MoneyItemStrategy.execute函数处理
+            shouldConsumeAction = false;
         } else if (item.name === '时光机') {
             // 博士不消耗行动点可使用此道具
             if (player.role === '博士') {
@@ -6143,6 +6142,8 @@ function undoAction() {
         gameState.week = previousState.week;
         gameState.reverseDirection = previousState.reverseDirection;
         gameState.puddleCount = previousState.puddleCount;
+        gameState.stagnantTurn = previousState.stagnantTurn || -1;
+        gameState.hasLeftStart = previousState.hasLeftStart || false;
 
         // 更新UI
         updateUI();
@@ -6735,6 +6736,12 @@ function monitorItemPool() {
 function showActionStartDialog() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
     const maxCards = characterAttributes[currentPlayer.role].maxCards;
+
+    // 先移除已存在的action-start-dialog元素
+    const existingDialog = document.querySelector('.action-start-dialog');
+    if (existingDialog) {
+        document.body.removeChild(existingDialog);
+    }
 
     // 创建弹窗
     const dialog = document.createElement('div');
