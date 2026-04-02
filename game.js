@@ -5101,6 +5101,9 @@ function handleItemCancel(player, playerIndex, item) {
     logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用${item.name}，行动点不变`);
     // 显示消息
     elements.gameMessage.textContent = `玩家取消了道具使用，行动点不变！`;
+    // 刷新UI
+    updateUI();
+    updateItemsDisplay();
 }
 
 // 处理好感度变更
