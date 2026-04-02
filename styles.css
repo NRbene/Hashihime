@@ -567,6 +567,46 @@ h2 {
     opacity: 0.6;
 }
 
+/* 幻象技样式 */
+.fantasy-skills-container {
+    margin-top: 10px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+}
+
+.fantasy-skills-container p {
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.fantasy-skills-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.fantasy-skill {
+    padding: 5px 10px;
+    background-color: #f3e5f5;
+    border: 1px solid #ce93d8;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background-color 0.3s ease;
+}
+
+.fantasy-skill:hover {
+    background-color: #e1bee7;
+    border-color: #ba68c8;
+}
+
+.fantasy-skill.used {
+    background-color: #e0e0e0;
+    border-color: #bdbdbd;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 /* 道具池样式 */
 .item-pool-item {
     padding: 8px;
@@ -1019,6 +1059,21 @@ h2 {
     background-color: #f0f0f0;
     color: black;
     border: 1px solid #ddd;
+}
+
+.btn-fantasy-skill {
+    background-color: #9c27b0;
+    color: white;
+}
+
+.btn-export {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-action-start {
+    background-color: #4CAF50;
+    color: white;
 }
 
 /* 按钮悬停效果 */
@@ -1557,4 +1612,897 @@ h2 {
 }
 .university-dialog .ok-button:hover {
     background-color: #45a049;
+}
+
+/* 帕诺拉马岛对话框样式 */
+.exchange-items-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.exchange-items-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 800px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+.exchange-items-dialog-content h3 {
+    margin-top: 0;
+    color: #333;
+}
+.exchange-step-indicator {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2196F3;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #e3f2fd;
+    border-radius: 5px;
+}
+.exchange-players-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.exchange-player-option {
+    padding: 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.exchange-player-option:hover {
+    border-color: #2196F3;
+    background-color: #f5f5f5;
+}
+.player-info-header {
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+.player-info-detail {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+}
+.player-items-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.item-tag {
+    padding: 3px 8px;
+    background-color: #e0e0e0;
+    border-radius: 3px;
+    font-size: 12px;
+}
+.no-items-text {
+    color: #999;
+    font-style: italic;
+    font-size: 14px;
+}
+.exchange-max-count {
+    font-size: 14px;
+    font-weight: bold;
+    color: #ff9800;
+    margin-bottom: 15px;
+    padding: 8px;
+    background-color: #fff3e0;
+    border-radius: 5px;
+}
+.exchange-items-container {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+.exchange-player-column {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 10px;
+}
+.exchange-player-column h4 {
+    margin: 0 0 10px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+    color: #333;
+}
+.exchange-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.exchange-item {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.exchange-item:hover {
+    background-color: #f5f5f5;
+    border-color: #bbb;
+}
+.exchange-item.selected {
+    background-color: #e3f2fd;
+    border-color: #2196F3;
+    border-width: 2px;
+}
+.exchange-item .item-name {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 3px;
+}
+.exchange-item .item-desc {
+    font-size: 12px;
+    color: #666;
+}
+.exchange-selection-status {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    margin-bottom: 15px;
+}
+.exchange-selection-status div {
+    font-size: 14px;
+}
+.exchange-selection-status span {
+    font-weight: bold;
+    color: #2196F3;
+}
+.exchange-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+.exchange-buttons .confirm-button,
+.exchange-buttons .cancel-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+.exchange-buttons .confirm-button {
+    background-color: #4CAF50;
+    color: white;
+}
+.exchange-buttons .confirm-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+.exchange-buttons .cancel-button {
+    background-color: #ccc;
+    color: #333;
+}
+
+/* 电光艇对话框样式 */
+.lightning-boat-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.lightning-boat-dialog-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+.lightning-boat-dialog-content h3 {
+    margin-top: 0;
+    color: #333;
+    margin-bottom: 20px;
+}
+.lightning-boat-content {
+    margin-bottom: 30px;
+}
+.lightning-boat-step {
+    font-size: 16px;
+    margin-bottom: 15px;
+    color: #555;
+}
+.lightning-boat-select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.lightning-boat-info {
+    background-color: #f0f8ff;
+    padding: 15px;
+    border-radius: 5px;
+    margin-top: 15px;
+    font-size: 16px;
+    color: #2196F3;
+}
+.lightning-boat-info .steps-value,
+.lightning-boat-info .total-steps {
+    font-weight: bold;
+    font-size: 18px;
+}
+.lightning-boat-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+.lightning-boat-buttons .confirm-button,
+.lightning-boat-buttons .cancel-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+.lightning-boat-buttons .confirm-button {
+    background-color: #4CAF50;
+    color: white;
+}
+.lightning-boat-buttons .cancel-button {
+    background-color: #ccc;
+    color: #333;
+}
+
+/* 店主幻象技选择弹窗样式 */
+.shop-owner-fantasy-skill-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100000;
+}
+.shop-owner-fantasy-skill-dialog-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.shop-owner-fantasy-skill-dialog-content h3 {
+    margin-top: 0;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.fantasy-skill-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.fantasy-skill-item {
+    padding: 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.fantasy-skill-item:hover {
+    border-color: #9c27b0;
+    background-color: #f3e5f5;
+}
+.fantasy-skill-item.used {
+    background-color: #e0e0e0;
+    border-color: #bdbdbd;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.fantasy-skill-item .skill-name {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 5px;
+}
+.fantasy-skill-item .skill-desc {
+    font-size: 14px;
+    color: #666;
+}
+.fantasy-skill-buttons {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+.fantasy-skill-buttons .cancel-button {
+    padding: 10px 20px;
+    background-color: #ccc;
+    color: #333;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+.fantasy-skill-buttons .cancel-button:hover {
+    background-color: #999;
+}
+
+/* 选择玩家对话框样式（河童幻象技） */
+.select-player-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.select-player-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 95%;
+    max-width: 1000px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+
+/* 玩家道具选择对话框样式 */
+.player-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.player-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+.player-dialog .player-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.player-dialog .player-item {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.player-dialog .player-item:hover {
+    background-color: #f0f0f0;
+}
+.select-player-dialog-content h3 {
+    margin-top: 0;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.select-player-dialog .confirm-button {
+    margin-top: 10px;
+    margin-right: 10px;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.select-player-dialog .confirm-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+.select-player-dialog .cancel-button {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #ccc;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.select-player-dialog .player-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+.select-player-dialog .player-option {
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    transition: background-color 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    flex: 1 1 200px;
+    min-width: 200px;
+    margin: 0;
+}
+.select-player-dialog .player-option:hover {
+    background-color: #f0f0f0;
+}
+.select-player-dialog .player-option.selected {
+    background-color: #e3f2fd;
+    border-color: #2196F3;
+}
+.select-player-dialog .player-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: #2196F3;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 0 8px 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+.select-player-dialog .player-option h3 {
+    margin-bottom: 10px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    text-align: left;
+}
+.select-player-dialog .player-name-display {
+    font-size: 12px;
+    font-weight: normal;
+    color: #666;
+    font-style: italic;
+}
+.select-player-dialog .player-option p {
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+.select-player-dialog .items-container {
+    margin-top: 10px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+}
+.select-player-dialog .items-container p {
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+.select-player-dialog .items-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+}
+.select-player-dialog .item {
+    padding: 2px 5px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 10px;
+}
+.select-player-dialog .no-items {
+    color: #999;
+    font-style: italic;
+}
+
+/* 汽车道具对话框样式 */
+.car-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.car-dialog .dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 400px;
+    text-align: center;
+}
+.car-dialog button {
+    margin: 10px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: normal;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    min-width: 80px;
+}
+.car-dialog .roll-dice-button,
+.car-dialog .confirm-button {
+    background-color: #4CAF50;
+    color: white;
+}
+.car-dialog .roll-dice-button:hover,
+.car-dialog .confirm-button:hover {
+    background-color: #45a049;
+}
+.car-dialog .cancel-button {
+    background-color: #f44336;
+    color: white;
+}
+.car-dialog .cancel-button:hover {
+    background-color: #da190b;
+}
+
+/* 眼镜道具对话框样式 */
+.glasses-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.glasses-dialog .dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.glasses-dialog .players-list {
+    margin-top: 20px;
+}
+.glasses-dialog .player-item {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+.glasses-dialog .player-info {
+    margin-bottom: 10px;
+}
+.glasses-dialog .total-result {
+    font-size: 16px;
+    background-color: #f9f9f9;
+}
+.glasses-dialog button {
+    margin: 5px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: normal;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    min-width: 120px;
+}
+.glasses-dialog .roll-dice-button {
+    background-color: #4CAF50;
+    color: white;
+}
+.glasses-dialog .roll-dice-button:hover {
+    background-color: #45a049;
+}
+.glasses-dialog .close-button {
+    background-color: #2196F3;
+    color: white;
+}
+.glasses-dialog .close-button:hover {
+    background-color: #0b7dda;
+}
+.glasses-dialog .roll-dice-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* 目标选择对话框样式 */
+.target-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.target-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+.target-dialog .cancel-target {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #ccc;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.target-item {
+    padding: 10px;
+    border: 1px solid #ccc;
+    margin: 5px 0;
+    cursor: pointer;
+}
+.target-item:hover {
+    background-color: #f0f0f0;
+}
+
+/* 交换道具对话框样式 */
+.exchange-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.exchange-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+.exchange-dialog .exchange-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.exchange-dialog .exchange-option {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.exchange-dialog .exchange-option:hover {
+    background-color: #f0f0f0;
+}
+
+/* 夺取道具对话框样式（大蛇丸幻象技） */
+.steal-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.steal-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+.steal-dialog .steal-item {
+    padding: 8px;
+    margin: 5px 0;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.steal-dialog .steal-item:hover {
+    background-color: #f0f0f0;
+}
+.steal-dialog .steal-item.selected {
+    background-color: #e3f2fd;
+    border-color: #2196F3;
+}
+.steal-dialog .no-items {
+    padding: 8px;
+    margin: 5px 0;
+    color: #999;
+    font-style: italic;
+}
+.steal-dialog .selected-count {
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+/* 丢弃道具对话框样式（晴彦幻象技） */
+.drop-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+.drop-dialog-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80%;
+    overflow-y: auto;
+}
+
+/* 统一对话框按钮样式 */
+.dialog-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+    margin: 5px;
+}
+
+.dialog-button.confirm {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.dialog-button.confirm:hover {
+    background-color: #45a049;
+}
+
+.dialog-button.confirm:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.dialog-button.cancel {
+    background-color: #ccc;
+    color: #333;
+}
+
+.dialog-button.cancel:hover {
+    background-color: #999;
+}
+
+.dialog-button.close {
+    background-color: #2196F3;
+    color: white;
+}
+
+.dialog-button.close:hover {
+    background-color: #0b7dda;
+}
+
+.dialog-button.danger {
+    background-color: #f44336;
+    color: white;
+}
+
+.dialog-button.danger:hover {
+    background-color: #da190b;
+}
+
+/* 兼容旧的按钮类名 */
+.confirm-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+    margin: 5px;
+    background-color: #4CAF50;
+    color: white;
+}
+
+.confirm-button:hover {
+    background-color: #45a049;
+}
+
+.confirm-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.cancel-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+    margin: 5px;
+    background-color: #ccc;
+    color: #333;
+}
+
+.cancel-button:hover {
+    background-color: #999;
+}
+
+.drop-dialog .drop-item {
+    padding: 8px;
+    margin: 5px 0;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.drop-dialog .drop-item:hover {
+    background-color: #f0f0f0;
+}
+.drop-dialog .drop-item.selected {
+    background-color: #e3f2fd;
+    border-color: #2196F3;
+}
+.drop-dialog .no-items {
+    padding: 8px;
+    margin: 5px 0;
+    color: #999;
+    font-style: italic;
+}
+.drop-dialog .selected-count {
+    margin-top: 15px;
+    font-weight: bold;
 }

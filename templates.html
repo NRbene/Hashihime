@@ -104,5 +104,86 @@
             <button class="ok-button">确定</button>
         </div>
     </div>
+
+    <!-- 帕诺拉马岛弹窗模板 -->
+    <div id="panorama-dialog-template" style="display: none;">
+        <div class="exchange-items-dialog-content">
+            <h3>帕诺拉马岛 - 交换道具</h3>
+            <div class="exchange-content">
+                <div class="exchange-step-indicator">步骤 1/3：选择第一位玩家</div>
+                <div class="exchange-players-list" id="panorama-player-list">
+                </div>
+            </div>
+            <div class="exchange-buttons">
+                <button class="confirm-button" data-action="confirm" disabled>确认交换</button>
+                <button class="cancel-button">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 电光艇弹窗模板 -->
+    <div id="lightning-boat-dialog-template" style="display: none;">
+        <div class="lightning-boat-dialog-content">
+            <h3>电光艇 - 指定步数</h3>
+            <div class="lightning-boat-content">
+                <div class="lightning-boat-step">选择要移动的步数（1-6）：</div>
+                <select id="lightning-boat-steps" class="lightning-boat-select">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                </select>
+                <div class="lightning-boat-info" id="lightning-boat-info">
+                    即将移动 <span class="steps-value">1</span> * 2 = <span class="total-steps">2</span> 格
+                </div>
+            </div>
+            <div class="lightning-boat-buttons">
+                <button class="confirm-button" data-action="confirm">确认移动</button>
+                <button class="cancel-button">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 选择玩家对话框模板（河童幻象技） -->
+    <div id="select-player-dialog-template" style="display: none;">
+        <div class="select-player-dialog-content">
+            <h3>选择要跳过回合的角色：</h3>
+            <div class="player-list" id="select-player-list"></div>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                <button class="confirm-button" data-action="confirm" disabled>确认</button>
+                <button class="cancel-button">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 汽车道具对话框模板 -->
+    <div id="car-dialog-template" style="display: none;">
+        <div class="dialog-content">
+            <h3>使用汽车</h3>
+            <p>消耗2点行动点，掷骰子移动3倍步数</p>
+            <div class="dice-result" style="margin-top: 10px;">骰子结果：-</div>
+            <div class="confirm-section" style="display: none; margin-top: 10px;">
+                <p>最终结果：<span class="final-dice-result"></span></p>
+                <button class="confirm-button" data-action="confirm">确认移动</button>
+                <button class="cancel-button">取消</button>
+            </div>
+            <button class="roll-dice-button" style="margin-top: 20px;">掷骰子</button>
+        </div>
+    </div>
+
+    <!-- 眼镜道具对话框模板 -->
+    <div id="glasses-dialog-template" style="display: none;">
+        <div class="dialog-content">
+            <h3>使用眼镜</h3>
+            <p>强制其他存活且拥有行动点的角色玩家依次掷骰子</p>
+            <div class="total-result" style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">
+                <strong>骰子点数总和：</strong><span class="total-dice">0</span>
+            </div>
+            <div class="players-list" id="glasses-players-list"></div>
+            <button class="close-button" style="display: none; margin-top: 20px;">关闭</button>
+        </div>
+    </div>
 </body>
 </html>

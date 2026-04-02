@@ -2,6 +2,9 @@
 let items = {};
 let itemPool = [];
 
+// 幻象技配置（从CSV文件中加载）
+let fantasySkills = {};
+
 // 地图格子配置（从CSV文件中加载）
 let gridConfig = [];
 
@@ -135,6 +138,27 @@ function parseItemCSV(csvText) {
     return { items: parsedItems, itemPool: newItemPool };
 }
 
+// 解析幻象技CSV数据
+function parseFantasySkillCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    const parsedSkills = {};
+
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        const name = values[0];
+        const description = values[1];
+
+        const skill = {
+            name: name,
+            description: description
+        };
+
+        parsedSkills[name] = skill;
+    }
+
+    return parsedSkills;
+}
+
 // 解析地图CSV数据
 function parseMapCSV(csvText) {
     const lines = csvText.trim().split('\n');
@@ -199,7 +223,6 @@ function parseMapCSV(csvText) {
                     grid.favorEffect.role = '博士';
                     break;
                 case '梅钵堂':
-                case '咖啡厅':
                     grid.favorEffect.type = 'all';
                     break;
                 case '帝国大学':
@@ -257,6 +280,19 @@ function loadItemsFromCSV(csvText) {
     }
 }
 
+// 加载幻象技CSV数据
+function loadFantasySkillsFromCSV(csvText) {
+    try {
+        const parsedSkills = parseFantasySkillCSV(csvText);
+        fantasySkills = parsedSkills;
+        console.log('幻象技加载成功:', fantasySkills);
+        return true;
+    } catch (error) {
+        console.error('加载幻象技失败:', error);
+        return false;
+    }
+}
+
 // 从文件读取CSV数据
 function loadItemsFromFile() {
     const fileInput = document.getElementById('item-csv');
@@ -283,6 +319,32 @@ function loadItemsFromFile() {
     reader.readAsText(file, 'UTF-8');
 }
 
+// 从文件读取幻象技CSV数据
+function loadFantasySkillsFromFile() {
+    const fileInput = document.getElementById('fantasy-skill-csv');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert('请先选择幻象技CSV文件！');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        const csvText = e.target.result;
+        const success = loadFantasySkillsFromCSV(csvText);
+        if (success) {
+            updateFantasySkillLoadStatus('已加载');
+        } else {
+            alert('幻象技加载失败，请检查CSV文件格式！');
+        }
+    };
+    reader.onerror = function () {
+        alert('读取文件失败！');
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
 // 解析角色CSV数据
 function parseRoleCSV(csvText) {
     const lines = csvText.trim().split('\n');
@@ -294,7 +356,8 @@ function parseRoleCSV(csvText) {
             type: values[1],
             action: parseInt(values[2]),
             maxCards: parseInt(values[3]),
-            initialFavor: parseInt(values[4])
+            initialFavor: parseInt(values[4]),
+            maxFantasySkills: parseInt(values[5]) || 0
         };
 
         characterAttributesData[values[0]] = role;
@@ -355,6 +418,27 @@ async function autoLoadItemsFromCSV() {
         return false;
     } catch (error) {
         console.log('自动加载道具失败，需要手动选择:', error);
+        return false;
+    }
+}
+
+// 尝试自动读取幻象技CSV文件
+async function autoLoadFantasySkillsFromCSV() {
+    try {
+        const response = await fetch('fantasySkill.csv');
+        if (!response.ok) {
+            return false;
+        }
+        const csvText = await response.text();
+        const success = loadFantasySkillsFromCSV(csvText);
+        if (success) {
+            updateFantasySkillLoadStatus('已加载');
+            console.log('自动加载幻象技成功');
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.log('自动加载幻象技失败，需要手动选择:', error);
         return false;
     }
 }
@@ -454,6 +538,46 @@ function loadMapFromFile() {
     reader.readAsText(file, 'UTF-8');
 }
 
+// 加载地震道具池
+async function loadEarthquakeItemPool() {
+    try {
+        const response = await fetch('item_earthquake.csv');
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const csvText = await response.text();
+        const result = parseItemCSV(csvText);
+        
+        // 检查是否成功加载道具
+        if (Object.keys(result.items).length === 0 || result.itemPool.length === 0) {
+            throw new Error('地震道具池为空');
+        }
+        
+        items = result.items;
+        itemPool = result.itemPool;
+        gameState.itemPool = [...itemPool];
+        updateItemPoolDisplay();
+        logEvent('关东大地震：道具池已更新为地震专用道具池');
+        return true;
+    } catch (error) {
+        console.error('加载地震道具池失败:', error);
+        logEvent('关东大地震：加载地震专用道具池失败，恢复原始道具池');
+        
+        // 恢复原始道具池
+        if (originalItems && Object.keys(originalItems).length > 0 && originalItemPool && originalItemPool.length > 0) {
+            items = { ...originalItems };
+            itemPool = [...originalItemPool];
+            gameState.itemPool = [...originalItemPool];
+            updateItemPoolDisplay();
+            logEvent('关东大地震：已恢复原始道具池');
+        } else {
+            logEvent('关东大地震：原始道具池不存在，无法恢复');
+        }
+        
+        return false;
+    }
+}
+
 // 尝试自动读取地图CSV文件
 async function autoLoadMapFromCSV() {
     try {
@@ -486,6 +610,14 @@ function updateMapLoadStatus(status) {
 // 更新道具加载状态显示
 function updateItemLoadStatus(status) {
     const statusElement = document.getElementById('item-load-status');
+    if (statusElement) {
+        statusElement.textContent = status;
+    }
+}
+
+// 更新幻象技加载状态显示
+function updateFantasySkillLoadStatus(status) {
+    const statusElement = document.getElementById('fantasy-skill-load-status');
     if (statusElement) {
         statusElement.textContent = status;
     }
@@ -655,6 +787,10 @@ const gameStateManager = new GameStateManager();
 // 游戏状态（向后兼容）
 let gameState = gameStateManager.getState();
 
+// 原始道具池（用于关东大地震加载失败时恢复）
+let originalItemPool = [];
+let originalItems = {};
+
 // 道具策略类
 class ItemStrategy {
     constructor() { }
@@ -679,8 +815,8 @@ class MoveItemStrategy extends ItemStrategy {
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 处理好感度和行动点
-        if (player.role !== '薰') {
-            // 非薰玩家：只增加好感度，不恢复行动点
+        if (player.role !== '薰' && player.role !== '店主') {
+            // 非薰和非店主玩家：只增加好感度，不恢复行动点
             if (item.favor > 0) {
                 updateFavor(player, item.favor);
                 // 记录日志
@@ -694,18 +830,18 @@ class MoveItemStrategy extends ItemStrategy {
                 elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，移动到${newGrid.id}.${newGrid.name}！`;
             }
         } else {
-            // 薰玩家：只恢复行动点，不增加好感度
+            // 薰和店主玩家：只恢复行动点，不增加好感度
             if (item.action > 0) {
                 player.action += item.action;
                 // 记录日志
-                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，获得了${item.action}点行动点`);
                 // 显示消息
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点，移动到${newGrid.id}.${newGrid.name}！`;
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）使用了${item.name}，获得了${item.action}点行动点，移动到${newGrid.id}.${newGrid.name}！`;
             } else {
                 // 记录移动日志
-                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，从${oldGrid.id}.${oldGrid.name}移动到${newGrid.id}.${newGrid.name}`);
                 // 显示消息
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，移动到${newGrid.id}.${newGrid.name}！`;
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）使用了${item.name}，移动到${newGrid.id}.${newGrid.name}！`;
             }
         }
 
@@ -825,10 +961,10 @@ class ReverseMoveItemStrategy extends ItemStrategy {
 // 抢夺道具策略（玉森的原稿）
 class StealItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
-        // 过滤出除川濑外的其他存活玩家
+        // 过滤出除川濑外的其他存活玩家，且不包括有蛙男技能的玩家
         const availablePlayers = [];
         gameState.players.forEach((targetPlayer, targetIndex) => {
-            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.role !== '川濑' && targetPlayer.items.length > 0) {
+            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && targetPlayer.role !== '川濑' && targetPlayer.items.length > 0 && !targetPlayer.hasFrogManSkill) {
                 availablePlayers.push(targetIndex);
             }
         });
@@ -885,7 +1021,7 @@ class StealItemStrategy extends ItemStrategy {
     }
 }
 
-// 大瓶可尔思必道具策略
+// 大瓶可尔必思道具策略
 class ColspiceItemStrategy extends ItemStrategy {
     execute(player, playerIndex, item, itemIndex) {
         // 从道具列表中移除
@@ -896,19 +1032,19 @@ class ColspiceItemStrategy extends ItemStrategy {
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 增加好感度或恢复行动点
-        if (player.role !== '薰') {
+        if (player.role !== '薰' && player.role !== '店主') {
             updateFavor(player, item.favor);
             // 记录日志
             logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，增加了${item.favor}点好感度`);
             // 显示消息
             elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，增加了${item.favor}点好感度！`;
         } else {
-            // 薰无法获得好感度，而是恢复行动点
+            // 薰和店主无法获得好感度，而是恢复行动点
             player.action += item.action;
             // 记录日志
-            logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
+            logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，获得了${item.action}点行动点`);
             // 显示消息
-            elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点！`;
+            elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）使用了${item.name}，获得了${item.action}点行动点！`;
         }
 
         // 处理行动后逻辑
@@ -1025,8 +1161,25 @@ class MoneyItemStrategy extends ItemStrategy {
         // 使用GameDialogService创建交换道具对话框
         GameDialogService.createExchangeDialog(
             (exchangeType) => {
-                // 记录行动点消耗
-                logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+                // 检查是否需要消耗行动点
+                const shouldConsumeAction = exchangeType === 'draw' || exchangeType === 'player';
+                
+                // 如果需要消耗行动点
+                if (shouldConsumeAction) {
+                    // 检查行动点是否足够
+                    if (player.action <= 0) {
+                        elements.gameMessage.textContent = '行动点不足，无法进行交换！';
+                        logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用钱进行交换，但行动点不足`);
+                        // 处理道具取消
+                        handleItemCancel(player, playerIndex, item);
+                        return;
+                    }
+                    
+                    // 消耗1行动点
+                    player.action--;
+                    // 记录行动点消耗
+                    logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
+                }
 
                 if (exchangeType === 'draw') {
                     // 从牌堆抽取
@@ -1230,8 +1383,8 @@ class FavorItemStrategy extends ItemStrategy {
         logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用道具，剩余行动点：${player.action}`);
 
         // 处理好感度和行动点
-        if (player.role !== '薰') {
-            // 非薰玩家：只增加好感度，不恢复行动点
+        if (player.role !== '薰' && player.role !== '店主') {
+            // 非薰和非店主玩家：只增加好感度，不恢复行动点
             if (item.favor > 0) {
                 updateFavor(player, item.favor);
                 // 记录日志
@@ -1240,13 +1393,13 @@ class FavorItemStrategy extends ItemStrategy {
                 elements.gameMessage.textContent = `玩家${playerIndex + 1}使用了${item.name}，增加了${item.favor}点好感度！`;
             }
         } else {
-            // 薰玩家：只恢复行动点，不增加好感度
+            // 薰和店主玩家：只恢复行动点，不增加好感度
             if (item.action > 0) {
                 player.action += item.action;
                 // 记录日志
-                logEvent(`玩家${playerIndex + 1}（薰）使用${item.name}，获得了${item.action}点行动点`);
+                logEvent(`玩家${playerIndex + 1}（${player.role}）使用${item.name}，获得了${item.action}点行动点`);
                 // 显示消息
-                elements.gameMessage.textContent = `玩家${playerIndex + 1}（薰）使用了${item.name}，获得了${item.action}点行动点！`;
+                elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）使用了${item.name}，获得了${item.action}点行动点！`;
             }
         }
 
@@ -1525,15 +1678,15 @@ class CarItemStrategy extends ItemStrategy {
         player.action = Number(player.action) || 0;
 
         // 检查行动点是否足够
-        if (player.action < 2) {
+        if (player.action < 1) {
             elements.gameMessage.textContent = `行动点不足，无法使用汽车！`;
             logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用汽车，但行动点不足`);
             return false;
         }
 
         // 消耗行动点
-        player.action -= 2;
-        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗2点行动点使用汽车，剩余行动点：${player.action}`);
+        player.action -= 1;
+        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用汽车，剩余行动点：${player.action}`);
 
         // 弹出掷骰子对话框
         this.createCarDialog(player, playerIndex, item, itemIndex);
@@ -1546,72 +1699,28 @@ class CarItemStrategy extends ItemStrategy {
         // 创建弹出框
         const dialog = document.createElement('div');
         dialog.className = 'car-dialog';
-        dialog.innerHTML = `
-            <div class="dialog-content">
-                <h3>使用汽车</h3>
-                <p>点击按钮掷骰子，移动点数 × 3</p>
-                <button class="roll-dice-button">掷骰子</button>
-                <div class="dice-result" style="margin-top: 10px;">骰子结果：-</div>
-                <div class="confirm-section" style="display: none; margin-top: 10px;">
-                    <p>本次点数为 <span class="final-dice-result">-</span>，是否确认移动？</p>
-                    <button class="confirm-button">确认</button>
-                    <button class="cancel-button">取消</button>
+        
+        // 使用templates.html中的模板
+        const template = document.getElementById('car-dialog-template');
+        if (template) {
+            dialog.innerHTML = template.innerHTML;
+        } else {
+            // 备用HTML（如果模板不存在）
+            dialog.innerHTML = `
+                <div class="dialog-content">
+                    <h3>使用汽车</h3>
+                    <p>点击按钮掷骰子，移动点数 × 3</p>
+                    <button class="roll-dice-button">掷骰子</button>
+                    <div class="dice-result" style="margin-top: 10px;">骰子结果：-</div>
+                    <div class="confirm-section" style="display: none; margin-top: 10px;">
+                        <p>本次点数为 <span class="final-dice-result">-</span>，是否确认移动？</p>
+                        <button class="confirm-button">确认</button>
+                        <button class="cancel-button">取消</button>
+                    </div>
                 </div>
-            </div>
-        `;
-
-        // 添加居中样式
-        const style = document.createElement('style');
-        style.textContent = `
-            .car-dialog {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
-            }
-            .car-dialog .dialog-content {
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                width: 80%;
-                max-width: 400px;
-                text-align: center;
-            }
-            .car-dialog button {
-                margin: 10px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: normal;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                min-width: 80px;
-            }
-            .car-dialog .roll-dice-button,
-            .car-dialog .confirm-button {
-                background-color: #4CAF50;
-                color: white;
-            }
-            .car-dialog .roll-dice-button:hover,
-            .car-dialog .confirm-button:hover {
-                background-color: #45a049;
-            }
-            .car-dialog .cancel-button {
-                background-color: #f44336;
-                color: white;
-            }
-            .car-dialog .cancel-button:hover {
-                background-color: #da190b;
-            }
-        `;
-        document.head.appendChild(style);
-
+            `;
+        }
+        
         document.body.appendChild(dialog);
 
         // 处理掷骰子按钮
@@ -1652,7 +1761,7 @@ class CarItemStrategy extends ItemStrategy {
         cancelButton.addEventListener('click', () => {
             // 确保行动点是数字类型并返还
             player.action = Number(player.action) || 0;
-            player.action += 2;
+            player.action += 1;
             // 记录取消使用道具的日志
             logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用汽车，行动点不变`);
             // 显示消息
@@ -1710,21 +1819,20 @@ class GlassesItemStrategy extends ItemStrategy {
         // 确保行动点是数字类型
         player.action = Number(player.action) || 0;
 
-        // 检查行动点是否足够
-        if (player.action < 1) {
-            elements.gameMessage.textContent = `行动点不足，无法使用眼镜！`;
-            logEvent(`玩家${playerIndex + 1}（${player.role}）尝试使用眼镜，但行动点不足`);
-            return false;
+        // 行动点的检查和消耗已经在useItem函数中处理
+        // 店主使用眼镜不消耗行动点
+        if (player.role !== '店主') {
+            // 非店主角色消耗行动点
+            player.action -= 1;
+            logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用眼镜，剩余行动点：${player.action}`);
+        } else {
+            logEvent(`玩家${playerIndex + 1}（店主）使用眼镜，不消耗行动点`);
         }
 
-        // 消耗行动点
-        player.action -= 1;
-        logEvent(`玩家${playerIndex + 1}（${player.role}）消耗1点行动点使用眼镜，剩余行动点：${player.action}`);
-
-        // 过滤出符合条件的玩家
+        // 过滤出符合条件的玩家，不包括有蛙男技能的玩家
         const availablePlayers = [];
         gameState.players.forEach((targetPlayer, targetIndex) => {
-            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && (Number(targetPlayer.action) || 0) > 0) {
+            if (targetIndex !== playerIndex && targetPlayer.status === 'alive' && (Number(targetPlayer.action) || 0) > 0 && !targetPlayer.hasFrogManSkill) {
                 availablePlayers.push({ index: targetIndex, player: targetPlayer });
             }
         });
@@ -1749,20 +1857,10 @@ class GlassesItemStrategy extends ItemStrategy {
         const dialog = document.createElement('div');
         dialog.className = 'glasses-dialog';
 
-        // 构建对话框内容
-        let dialogContent = `
-            <div class="dialog-content">
-                <h3>使用眼镜</h3>
-                <p>强制其他存活且拥有行动点的角色玩家依次掷骰子</p>
-                <div class="total-result" style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">
-                    <strong>骰子点数总和：</strong><span class="total-dice">0</span>
-                </div>
-                <div class="players-list">
-        `;
-
-        // 添加每个玩家的信息和按钮
+        // 构建玩家列表HTML
+        let playersHTML = '';
         availablePlayers.forEach(({ index, player: targetPlayer }) => {
-            dialogContent += `
+            playersHTML += `
                 <div class="player-item" data-player-index="${index}">
                     <div class="player-info">
                         <div>玩家${index + 1}（${targetPlayer.role}）</div>
@@ -1774,85 +1872,34 @@ class GlassesItemStrategy extends ItemStrategy {
             `;
         });
 
-        dialogContent += `
+        // 构建对话框内容
+        let dialogContent = `
+            <div class="dialog-content">
+                <h3>使用眼镜</h3>
+                <p>强制其他存活且拥有行动点的角色玩家依次掷骰子</p>
+                <div class="total-result" style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; text-align: center;">
+                    <strong>骰子点数总和：</strong><span class="total-dice">0</span>
+                </div>
+                <div class="players-list">
+                    ${playersHTML}
                 </div>
                 <button class="close-button" style="display: none; margin-top: 20px;">关闭</button>
             </div>
-        `;
+            `;
 
-        dialog.innerHTML = dialogContent;
-
-        // 添加居中样式
-        const style = document.createElement('style');
-        style.textContent = `
-            .glasses-dialog {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
+        // 使用templates.html中的模板
+        const template = document.getElementById('glasses-dialog-template');
+        if (template) {
+            dialog.innerHTML = template.innerHTML;
+            const playersList = dialog.querySelector('#glasses-players-list');
+            if (playersList) {
+                playersList.innerHTML = playersHTML;
             }
-            .glasses-dialog .dialog-content {
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                width: 80%;
-                max-width: 500px;
-                max-height: 80vh;
-                overflow-y: auto;
-            }
-            .glasses-dialog .players-list {
-                margin-top: 20px;
-            }
-            .glasses-dialog .player-item {
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                padding: 10px;
-                margin-bottom: 10px;
-            }
-            .glasses-dialog .player-info {
-                margin-bottom: 10px;
-            }
-            .glasses-dialog .total-result {
-                font-size: 16px;
-                background-color: #f9f9f9;
-            }
-            .glasses-dialog button {
-                margin: 5px;
-                padding: 8px 16px;
-                font-size: 14px;
-                font-weight: normal;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                min-width: 120px;
-            }
-            .glasses-dialog .roll-dice-button {
-                background-color: #4CAF50;
-                color: white;
-            }
-            .glasses-dialog .roll-dice-button:hover {
-                background-color: #45a049;
-            }
-            .glasses-dialog .close-button {
-                background-color: #2196F3;
-                color: white;
-            }
-            .glasses-dialog .close-button:hover {
-                background-color: #0b7dda;
-            }
-            .glasses-dialog .roll-dice-button:disabled {
-                background-color: #cccccc;
-                cursor: not-allowed;
-            }
-        `;
-        document.head.appendChild(style);
-
+        } else {
+            // 备用HTML（如果模板不存在）
+            dialog.innerHTML = dialogContent;
+        }
+        
         document.body.appendChild(dialog);
 
         // 处理掷骰子按钮
@@ -2691,100 +2738,486 @@ class GameDialogService {
         return dialog;
     }
 
-    // 添加对话框样式
-    static addDialogStyle(dialogClass) {
-        // 检查是否已经添加了样式
-        if (document.getElementById(`${dialogClass}-style`)) {
-            return;
-        }
+    // 创建丢弃道具对话框（晴彦幻象技）
+    static createDropItemDialog(availablePlayers, onConfirm, onCancel) {
+        // 构建选择界面
+        let playerOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            playerOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+            if (targetPlayer.items.length === 0) {
+                playerOptions += `<div class="no-items">无道具</div>`;
+            } else {
+                targetPlayer.items.forEach((targetItem, itemIndex) => {
+                    playerOptions += `<div class="drop-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}" data-selected="false">${targetItem.name} - ${targetItem.description}</div>`;
+                });
+            }
+        });
 
-        // 创建样式
-        const style = document.createElement('style');
-        style.id = `${dialogClass}-style`;
-        style.textContent = `
-            .${dialogClass} {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10000;
+        // 创建对话框
+        const dialog = this.createDialog(
+            'drop-dialog',
+            'drop-dialog-content',
+            '选择要丢弃的道具（最多选择3个玩家的道具，每个玩家最多选择1个）：',
+            `<div class="drop-options">${playerOptions}</div><div class="selected-count">已选择：0/3</div><button class="confirm-button" data-action="confirm" disabled>确认</button>`,
+            '取消',
+            null,
+            onCancel
+        );
+
+        // 处理道具选择
+        const dropItems = dialog.querySelectorAll('.drop-item');
+        const selectedCountElement = dialog.querySelector('.selected-count');
+        const confirmButton = dialog.querySelector('.confirm-button');
+        const selectedItems = new Map(); // 存储每个玩家选择的道具
+
+        dropItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                const targetPlayer = parseInt(itemElement.dataset.targetPlayer);
+                const targetItem = parseInt(itemElement.dataset.itemIndex);
+                const isSelected = itemElement.dataset.selected === 'true';
+
+                if (isSelected) {
+                    // 取消选择
+                    itemElement.dataset.selected = 'false';
+                    itemElement.classList.remove('selected');
+                    selectedItems.delete(targetPlayer);
+                } else {
+                    // 检查是否已经选择了3个不同的玩家
+                    if (selectedItems.size >= 3) {
+                        alert('最多只能选择3个玩家的道具！');
+                        return;
+                    }
+
+                    // 检查该玩家是否已经选择了道具
+                    if (selectedItems.has(targetPlayer)) {
+                        // 取消该玩家之前的选择
+                        const previousItem = dialog.querySelector(`.drop-item[data-target-player="${targetPlayer}"][data-selected="true"]`);
+                        if (previousItem) {
+                            previousItem.dataset.selected = 'false';
+                            previousItem.classList.remove('selected');
+                        }
+                    }
+
+                    // 选择新道具
+                    itemElement.dataset.selected = 'true';
+                    itemElement.classList.add('selected');
+                    selectedItems.set(targetPlayer, targetItem);
+                }
+
+                // 更新选择计数
+                selectedCountElement.textContent = `已选择：${selectedItems.size}/3`;
+                
+                // 启用/禁用确认按钮
+                confirmButton.disabled = selectedItems.size === 0;
+            });
+        });
+
+        // 处理确认按钮
+        confirmButton.addEventListener('click', () => {
+            if (selectedItems.size > 0) {
+                onConfirm(selectedItems);
+                this.closeDialog(dialog);
             }
-            .${dialogClass}-content {
-                background-color: white;
-                padding: 20px;
-                border-radius: 5px;
-                width: 80%;
-                max-width: 600px;
-                max-height: 80%;
-                overflow-y: auto;
+        });
+
+        // 添加样式
+        this.addDialogStyle('drop-dialog');
+
+        return dialog;
+    }
+
+    // 创建夺取道具对话框（大蛇丸幻象技）
+    static createStealItemDialog(availablePlayers, maxStealCount, onConfirm, onCancel) {
+        // 构建选择界面
+        let playerOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            playerOptions += `<h4>玩家${targetIndex + 1}（${targetPlayer.role}）的道具：</h4>`;
+            if (targetPlayer.items.length === 0) {
+                playerOptions += `<div class="no-items">无道具</div>`;
+            } else {
+                targetPlayer.items.forEach((targetItem, itemIndex) => {
+                    playerOptions += `<div class="steal-item" data-target-player="${targetIndex}" data-item-index="${itemIndex}" data-selected="false">${targetItem.name} - ${targetItem.description}</div>`;
+                });
             }
-            .${dialogClass} .cancel-button {
-                margin-top: 20px;
-                padding: 10px;
-                background-color: #ccc;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
+        });
+
+        // 创建对话框
+        const dialog = this.createDialog(
+            'steal-dialog',
+            'steal-dialog-content',
+            `选择要夺取的道具（最多选择${Math.min(2, maxStealCount)}个玩家的道具，每个玩家最多选择1个）：`,
+            `<div class="steal-options">${playerOptions}</div><div class="selected-count">已选择：0/${Math.min(2, maxStealCount)}</div><button class="confirm-button" data-action="confirm" disabled>确认</button>`,
+            '取消',
+            null,
+            onCancel
+        );
+
+        // 处理道具选择
+        const stealItems = dialog.querySelectorAll('.steal-item');
+        const selectedCountElement = dialog.querySelector('.selected-count');
+        const confirmButton = dialog.querySelector('.confirm-button');
+        const selectedItems = new Map(); // 存储每个玩家选择的道具
+
+        stealItems.forEach(itemElement => {
+            itemElement.addEventListener('click', () => {
+                const targetPlayer = parseInt(itemElement.dataset.targetPlayer);
+                const targetItem = parseInt(itemElement.dataset.itemIndex);
+                const isSelected = itemElement.dataset.selected === 'true';
+
+                if (isSelected) {
+                    // 取消选择
+                    itemElement.dataset.selected = 'false';
+                    itemElement.classList.remove('selected');
+                    selectedItems.delete(targetPlayer);
+                } else {
+                    // 检查是否已经选择了2个不同的玩家
+                    if (selectedItems.size >= 2) {
+                        alert('最多只能选择2个玩家的道具！');
+                        return;
+                    }
+
+                    // 检查是否超过了最大夺取数量
+                    if (selectedItems.size >= maxStealCount) {
+                        alert(`最多只能夺取${maxStealCount}个道具！`);
+                        return;
+                    }
+
+                    // 检查该玩家是否已经选择了道具
+                    if (selectedItems.has(targetPlayer)) {
+                        // 取消该玩家之前的选择
+                        const previousItem = dialog.querySelector(`.steal-item[data-target-player="${targetPlayer}"][data-selected="true"]`);
+                        if (previousItem) {
+                            previousItem.dataset.selected = 'false';
+                            previousItem.classList.remove('selected');
+                        }
+                    }
+
+                    // 选择新道具
+                    itemElement.dataset.selected = 'true';
+                    itemElement.classList.add('selected');
+                    selectedItems.set(targetPlayer, targetItem);
+                }
+
+                // 更新选择计数
+                selectedCountElement.textContent = `已选择：${selectedItems.size}/${Math.min(2, maxStealCount)}`;
+                
+                // 启用/禁用确认按钮
+                confirmButton.disabled = selectedItems.size === 0;
+            });
+        });
+
+        // 处理确认按钮
+        confirmButton.addEventListener('click', () => {
+            if (selectedItems.size > 0) {
+                onConfirm(selectedItems);
+                this.closeDialog(dialog);
             }
+        });
+
+        // 添加样式
+        this.addDialogStyle('steal-dialog');
+
+        return dialog;
+    }
+
+    // 创建交换道具对话框（帕诺拉马岛幻象技）
+    static createExchangeItemsDialog(availablePlayers, onConfirm, onCancel) {
+        let step = 1;
+        let player1Index = null;
+        let player2Index = null;
+        let maxExchangeCount = 0;
+        let player1SelectedItems = [];
+        let player2SelectedItems = [];
+
+        const buildPlayerSelectionHTML = () => {
+            let html = '<div class="exchange-step-indicator">步骤 1/3：选择第一位玩家</div>';
+            html += '<div class="exchange-players-list">';
+            availablePlayers.forEach(targetIndex => {
+                const targetPlayer = gameState.players[targetIndex];
+                const maxCards = characterAttributes[targetPlayer.role].maxCards;
+                html += `<div class="exchange-player-option" data-player-index="${targetIndex}">
+                    <div class="player-info-header">玩家${targetIndex + 1}（${targetPlayer.role}）</div>
+                    <div class="player-info-detail">道具数量: ${targetPlayer.items.length} / 手牌上限: ${maxCards}</div>
+                    <div class="player-items-preview">`;
+                if (targetPlayer.items.length === 0) {
+                    html += '<span class="no-items-text">无道具</span>';
+                } else {
+                    targetPlayer.items.forEach(item => {
+                        html += `<span class="item-tag">${item.name}</span>`;
+                    });
+                }
+                html += '</div></div>';
+            });
+            html += '</div>';
+            return html;
+        };
+
+        const buildPlayer2SelectionHTML = () => {
+            let html = '<div class="exchange-step-indicator">步骤 2/3：选择第二位玩家</div>';
+            html += '<div class="exchange-players-list">';
+            availablePlayers.forEach(targetIndex => {
+                if (targetIndex === player1Index) return;
+                const targetPlayer = gameState.players[targetIndex];
+                const maxCards = characterAttributes[targetPlayer.role].maxCards;
+                html += `<div class="exchange-player-option" data-player-index="${targetIndex}">
+                    <div class="player-info-header">玩家${targetIndex + 1}（${targetPlayer.role}）</div>
+                    <div class="player-info-detail">道具数量: ${targetPlayer.items.length} / 手牌上限: ${maxCards}</div>
+                    <div class="player-items-preview">`;
+                if (targetPlayer.items.length === 0) {
+                    html += '<span class="no-items-text">无道具</span>';
+                } else {
+                    targetPlayer.items.forEach(item => {
+                        html += `<span class="item-tag">${item.name}</span>`;
+                    });
+                }
+                html += '</div></div>';
+            });
+            html += '</div>';
+            return html;
+        };
+
+        const buildItemSelectionHTML = () => {
+            const player1 = gameState.players[player1Index];
+            const player2 = gameState.players[player2Index];
+            const player1MaxCards = characterAttributes[player1.role].maxCards;
+            const player2MaxCards = characterAttributes[player2.role].maxCards;
+            
+            maxExchangeCount = Math.min(
+                player1.items.length,
+                player2.items.length,
+                player1MaxCards,
+                player2MaxCards
+            );
+
+            let html = `<div class="exchange-step-indicator">步骤 3/3：选择要交换的道具（最多交换 ${maxExchangeCount} 个）</div>`;
+            html += `<div class="exchange-max-count">本次最多可交换道具数量: ${maxExchangeCount}</div>`;
+            
+            html += '<div class="exchange-items-container">';
+            
+            html += `<div class="exchange-player-column">
+                <h4>玩家${player1Index + 1}（${player1.role}）的道具</h4>
+                <div class="exchange-items-list" data-player="1">`;
+            if (player1.items.length === 0) {
+                html += '<div class="no-items-text">无道具</div>';
+            } else {
+                player1.items.forEach((item, itemIndex) => {
+                    html += `<div class="exchange-item" data-item-index="${itemIndex}" data-player="1">
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-desc">${item.description}</span>
+                    </div>`;
+                });
+            }
+            html += '</div></div>';
+            
+            html += `<div class="exchange-player-column">
+                <h4>玩家${player2Index + 1}（${player2.role}）的道具</h4>
+                <div class="exchange-items-list" data-player="2">`;
+            if (player2.items.length === 0) {
+                html += '<div class="no-items-text">无道具</div>';
+            } else {
+                player2.items.forEach((item, itemIndex) => {
+                    html += `<div class="exchange-item" data-item-index="${itemIndex}" data-player="2">
+                        <span class="item-name">${item.name}</span>
+                        <span class="item-desc">${item.description}</span>
+                    </div>`;
+                });
+            }
+            html += '</div></div>';
+            
+            html += '</div>';
+            
+            html += `<div class="exchange-selection-status">
+                <div>玩家${player1Index + 1}已选择: <span id="player1-selected-count">0</span> 个</div>
+                <div>玩家${player2Index + 1}已选择: <span id="player2-selected-count">0</span> 个</div>
+            </div>`;
+            
+            html += '<div class="exchange-buttons"><button class="confirm-button" data-action="confirm" disabled>确认交换</button></div>';
+            
+            return html;
+        };
+
+        const dialog = this.createDialog(
+            'exchange-items-dialog',
+            'exchange-items-dialog-content',
+            '帕诺拉马岛 - 交换道具',
+            buildPlayerSelectionHTML(),
+            '取消',
+            null,
+            onCancel
+        );
+
+        const updateDialogContent = (html) => {
+            const content = dialog.querySelector('.exchange-items-dialog-content');
+            const header = content.querySelector('h3');
+            const body = content.querySelector('div:not(.cancel-button)');
+            const cancelButton = content.querySelector('.cancel-button');
+            content.innerHTML = '';
+            content.appendChild(header);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+            content.appendChild(wrapper);
+            content.appendChild(cancelButton);
+        };
+
+        const handlePlayer1Selection = () => {
+            const playerOptions = dialog.querySelectorAll('.exchange-player-option');
+            playerOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    player1Index = parseInt(option.dataset.playerIndex);
+                    step = 2;
+                    updateDialogContent(buildPlayer2SelectionHTML());
+                    handlePlayer2Selection();
+                });
+            });
+        };
+
+        const handlePlayer2Selection = () => {
+            const playerOptions = dialog.querySelectorAll('.exchange-player-option');
+            playerOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    player2Index = parseInt(option.dataset.playerIndex);
+                    step = 3;
+                    updateDialogContent(buildItemSelectionHTML());
+                    handleItemSelection();
+                });
+            });
+        };
+
+        const handleItemSelection = () => {
+            const exchangeItems = dialog.querySelectorAll('.exchange-item');
+            const confirmButton = dialog.querySelector('.confirm-button');
+            const player1CountDisplay = dialog.querySelector('#player1-selected-count');
+            const player2CountDisplay = dialog.querySelector('#player2-selected-count');
+
+            const updateConfirmButton = () => {
+                const count1 = player1SelectedItems.length;
+                const count2 = player2SelectedItems.length;
+                const canConfirm = count1 > 0 && count2 > 0 && count1 === count2;
+                confirmButton.disabled = !canConfirm;
+            };
+
+            exchangeItems.forEach(itemElement => {
+                itemElement.addEventListener('click', () => {
+                    const itemIndex = parseInt(itemElement.dataset.itemIndex);
+                    const playerNum = parseInt(itemElement.dataset.player);
+                    const isSelected = itemElement.classList.contains('selected');
+
+                    if (isSelected) {
+                        itemElement.classList.remove('selected');
+                        if (playerNum === 1) {
+                            player1SelectedItems = player1SelectedItems.filter(i => i !== itemIndex);
+                        } else {
+                            player2SelectedItems = player2SelectedItems.filter(i => i !== itemIndex);
+                        }
+                    } else {
+                        const currentPlayerSelectedCount = playerNum === 1 ? player1SelectedItems.length : player2SelectedItems.length;
+                        if (currentPlayerSelectedCount >= maxExchangeCount) {
+                            alert(`每位玩家最多只能选择 ${maxExchangeCount} 个道具！`);
+                            return;
+                        }
+                        itemElement.classList.add('selected');
+                        if (playerNum === 1) {
+                            player1SelectedItems.push(itemIndex);
+                        } else {
+                            player2SelectedItems.push(itemIndex);
+                        }
+                    }
+
+                    player1CountDisplay.textContent = player1SelectedItems.length;
+                    player2CountDisplay.textContent = player2SelectedItems.length;
+
+                    updateConfirmButton();
+                });
+            });
+
+            confirmButton.addEventListener('click', () => {
+                if (player1SelectedItems.length !== player2SelectedItems.length) {
+                    alert('双方必须选中等量的道具才能进行交换！');
+                    return;
+                }
+                if (player1SelectedItems.length > 0 && player2SelectedItems.length > 0) {
+                    onConfirm({
+                        player1Index,
+                        player2Index,
+                        player1Items: player1SelectedItems,
+                        player2Items: player2SelectedItems
+                    });
+                    this.closeDialog(dialog);
+                }
+            });
+        };
+
+        handlePlayer1Selection();
+
+        return dialog;
+    }
+
+    // 创建电光艇对话框
+    static createLightningBoatDialog(onConfirm, onCancel) {
+        // 创建对话框
+        const dialog = document.createElement('div');
+        dialog.className = 'lightning-boat-dialog';
+        dialog.innerHTML = `
+            <div class="lightning-boat-dialog-content">
+                <h3>电光艇 - 指定步数</h3>
+                <div class="lightning-boat-content">
+                    <div class="lightning-boat-step">选择要移动的步数（1-6）：</div>
+                    <select id="lightning-boat-steps" class="lightning-boat-select">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                    </select>
+                    <div class="lightning-boat-info" id="lightning-boat-info">
+                        即将移动 <span class="steps-value">1</span> * 2 = <span class="total-steps">2</span> 格
+                    </div>
+                </div>
+                <div class="lightning-boat-buttons">
+                    <button class="confirm-button" data-action="confirm">确认移动</button>
+                    <button class="cancel-button">取消</button>
+                </div>
+            </div>
         `;
+        document.body.appendChild(dialog);
 
-        // 添加特定样式
-        if (dialogClass === 'steal-dialog') {
-            style.textContent += `
-                .steal-item {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .steal-item:hover {
-                    background-color: #f0f0f0;
-                }
-            `;
-        } else if (dialogClass === 'exchange-dialog') {
-            style.textContent += `
-                .exchange-option {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .exchange-option:hover {
-                    background-color: #f0f0f0;
-                }
-            `;
-        } else if (dialogClass === 'player-dialog') {
-            style.textContent += `
-                .player-item {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .player-item:hover {
-                    background-color: #f0f0f0;
-                }
-            `;
-        } else if (dialogClass === 'kill-dialog') {
-            style.textContent += `
-                .kill-item {
-                    padding: 10px;
-                    border: 1px solid #ccc;
-                    margin: 5px 0;
-                    cursor: pointer;
-                }
-                .kill-item:hover {
-                    background-color: #f0f0f0;
-                }
-            `;
-        }
+        // 处理步数选择
+        const stepsSelect = dialog.querySelector('#lightning-boat-steps');
+        const stepsValue = dialog.querySelector('.steps-value');
+        const totalSteps = dialog.querySelector('.total-steps');
 
-        document.head.appendChild(style);
+        stepsSelect.addEventListener('change', () => {
+            const selectedSteps = parseInt(stepsSelect.value);
+            const multipliedSteps = selectedSteps * 2;
+            stepsValue.textContent = selectedSteps;
+            totalSteps.textContent = multipliedSteps;
+        });
+
+        // 处理确认按钮
+        const confirmButton = dialog.querySelector('.confirm-button');
+        confirmButton.addEventListener('click', () => {
+            const selectedSteps = parseInt(stepsSelect.value);
+            const multipliedSteps = selectedSteps * 2;
+            onConfirm(multipliedSteps);
+            this.closeDialog(dialog);
+        });
+
+        // 处理取消按钮
+        const cancelButton = dialog.querySelector('.cancel-button');
+        cancelButton.addEventListener('click', () => {
+            onCancel();
+            this.closeDialog(dialog);
+        });
+
+        return dialog;
+    }
+
+    // 添加对话框样式（已移至styles.css）
+    static addDialogStyle(dialogClass) {
+        // 样式已移至styles.css文件，此函数保留以保持兼容性
     }
 
     // 关闭对话框
@@ -2792,6 +3225,104 @@ class GameDialogService {
         if (dialog) {
             document.body.removeChild(dialog);
         }
+    }
+
+    // 创建选择玩家对话框（河童幻象技）
+    static createSelectPlayerDialog(availablePlayers, onSelect, onCancel, parentDialog) {
+        // 构建选择界面
+        let playerOptions = '';
+        availablePlayers.forEach(targetIndex => {
+            const targetPlayer = gameState.players[targetIndex];
+            const maxCards = characterAttributes[targetPlayer.role].maxCards;
+            
+            // 构建道具列表
+            let itemsHTML = '';
+            if (targetPlayer.items.length > 0) {
+                itemsHTML = '<div class="items-list">';
+                targetPlayer.items.forEach(item => {
+                    itemsHTML += `<div class="item">${item.name}</div>`;
+                });
+                itemsHTML += '</div>';
+            } else {
+                itemsHTML = '<div class="no-items">无</div>';
+            }
+            
+            playerOptions += `<div class="player-option" data-target-player="${targetIndex}">
+                <div class="player-badge">${targetIndex + 1}</div>
+                <h3>玩家${targetIndex + 1} <span class="player-name-display">(${targetPlayer.name || '匿名'})</span></h3>
+                <p>角色: ${targetPlayer.role}</p>
+                <p>行动点: ${targetPlayer.action || 0}</p>
+                <p>手牌: ${targetPlayer.items.length}/${maxCards}</p>
+                <p>好感度: ${targetPlayer.favor || 0}</p>
+                <p>状态: ${targetPlayer.status || '存活'}</p>
+                <div class="items-container">
+                    <p>道具:</p>
+                    ${itemsHTML}
+                </div>
+            </div>`;
+        });
+
+        // 创建对话框
+        const dialog = document.createElement('div');
+        dialog.className = 'select-player-dialog';
+        
+        // 使用templates.html中的模板
+        const template = document.getElementById('select-player-dialog-template');
+        if (template) {
+            dialog.innerHTML = template.innerHTML;
+            const playerList = dialog.querySelector('#select-player-list');
+            if (playerList) {
+                playerList.innerHTML = playerOptions;
+            }
+        } else {
+            // 备用HTML（如果模板不存在）
+            dialog.innerHTML = `
+                <div class="select-player-dialog-content">
+                    <h3>选择要跳过回合的角色：</h3>
+                    <div class="player-list">${playerOptions}</div>
+                    <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                        <button class="confirm-button" data-action="confirm" disabled>确认</button>
+                        <button class="cancel-button">取消</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        document.body.appendChild(dialog);
+
+        // 处理玩家选择
+        const playerOptionsElements = dialog.querySelectorAll('.player-option');
+        const confirmButton = dialog.querySelector('.confirm-button');
+        let selectedPlayer = null;
+
+        playerOptionsElements.forEach(option => {
+            option.addEventListener('click', () => {
+                // 取消之前的选择
+                playerOptionsElements.forEach(opt => opt.classList.remove('selected'));
+                // 选择当前玩家
+                option.classList.add('selected');
+                selectedPlayer = parseInt(option.dataset.targetPlayer);
+                // 启用确认按钮
+                confirmButton.disabled = false;
+            });
+        });
+
+        // 处理确认按钮
+        confirmButton.addEventListener('click', () => {
+            if (selectedPlayer !== null) {
+                onSelect(selectedPlayer);
+                this.closeDialog(dialog);
+            }
+        });
+
+        // 处理取消按钮
+        const cancelButton = dialog.querySelector('.cancel-button');
+        cancelButton.addEventListener('click', () => {
+            onCancel();
+            this.closeDialog(dialog);
+        });
+
+        return dialog;
     }
 }
 
@@ -2864,7 +3395,7 @@ class FavorGridStrategy extends GridStrategy {
                 logEvent(`触发效果：没有${favorEffect.role}角色在场`);
             }
         } else if (favorEffect.type === 'all') {
-            // 全员好感度+10（仅对存活的A类角色生效，薰不回复好感和行动点）
+            // 全员好感度+10（仅对存活的追求者生效，薰不回复好感和行动点）
             let affectedPlayers = 0;
             const affectedRoles = [];
             gameState.players.forEach((targetPlayer, index) => {
@@ -2973,6 +3504,11 @@ class WaterGridStrategy extends GridStrategy {
 
         // 立即更新UI，显示当前水洼数
         updateUI();
+
+        // 检查胜利条件
+        if (checkWinCondition()) {
+            return;
+        }
 
         // 结束当前玩家的行动
         endTurn();
@@ -3172,40 +3708,54 @@ function initElements() {
         player3RoleDisplay: document.getElementById('player3-role-display'),
         player4RoleDisplay: document.getElementById('player4-role-display'),
         player5RoleDisplay: document.getElementById('player5-role-display'),
+        player6RoleDisplay: document.getElementById('player6-role-display'),
         player1Action: document.getElementById('player1-action'),
         player2Action: document.getElementById('player2-action'),
         player3Action: document.getElementById('player3-action'),
         player4Action: document.getElementById('player4-action'),
         player5Action: document.getElementById('player5-action'),
+        player6Action: document.getElementById('player6-action'),
         player1Cards: document.getElementById('player1-cards'),
         player2Cards: document.getElementById('player2-cards'),
         player3Cards: document.getElementById('player3-cards'),
         player4Cards: document.getElementById('player4-cards'),
         player5Cards: document.getElementById('player5-cards'),
+        player6Cards: document.getElementById('player6-cards'),
         player1Favor: document.getElementById('player1-favor'),
         player2Favor: document.getElementById('player2-favor'),
         player3Favor: document.getElementById('player3-favor'),
         player4Favor: document.getElementById('player4-favor'),
         player5Favor: document.getElementById('player5-favor'),
+        player6Favor: document.getElementById('player6-favor'),
         player1Status: document.getElementById('player1-status'),
         player2Status: document.getElementById('player2-status'),
         player3Status: document.getElementById('player3-status'),
         player4Status: document.getElementById('player4-status'),
         player5Status: document.getElementById('player5-status'),
+        player6Status: document.getElementById('player6-status'),
+        player1Items: document.getElementById('player1-items'),
+        player2Items: document.getElementById('player2-items'),
+        player3Items: document.getElementById('player3-items'),
+        player4Items: document.getElementById('player4-items'),
+        player5Items: document.getElementById('player5-items'),
+        player6Items: document.getElementById('player6-items'),
         player1Name: document.getElementById('player1-name'),
         player2Name: document.getElementById('player2-name'),
         player3Name: document.getElementById('player3-name'),
         player4Name: document.getElementById('player4-name'),
         player5Name: document.getElementById('player5-name'),
+        player6Name: document.getElementById('player6-name'),
         player1NameDisplay: document.getElementById('player1-name-display'),
         player2NameDisplay: document.getElementById('player2-name-display'),
         player3NameDisplay: document.getElementById('player3-name-display'),
         player4NameDisplay: document.getElementById('player4-name-display'),
         player5NameDisplay: document.getElementById('player5-name-display'),
+        player6NameDisplay: document.getElementById('player6-name-display'),
         saveGame: document.getElementById('save-game'),
         loadGame: document.getElementById('load-game'),
         exportSave: document.getElementById('export-save'),
-        importSave: document.getElementById('import-save')
+        importSave: document.getElementById('import-save'),
+        loadFantasySkills: document.getElementById('load-fantasy-skills')
     };
 }
 
@@ -3222,11 +3772,13 @@ function saveGameState() {
         gameWon: gameState.gameWon,
         week: gameState.week,
         reverseDirection: gameState.reverseDirection,
-        puddleCount: gameState.puddleCount
+        puddleCount: gameState.puddleCount,
+        stagnantTurn: gameState.stagnantTurn || -1,
+        hasLeftStart: gameState.hasLeftStart || false
     };
     gameState.history.push(stateCopy);
-    // 限制历史记录长度，只保留最近10个状态
-    if (gameState.history.length > 10) {
+    // 限制历史记录长度，只保留最近50个状态
+    if (gameState.history.length > 50) {
         gameState.history.shift();
     }
 }
@@ -3489,6 +4041,10 @@ function initGame() {
         return;
     }
 
+    // 保存原始道具池（用于关东大地震加载失败时恢复）
+    originalItemPool = [...itemPool];
+    originalItems = { ...items };
+
     // 清空历史记录
     gameState.history = [];
 
@@ -3504,6 +4060,22 @@ function initGame() {
         playerRoles.push(role);
         playerNames.push(name);
     }
+    
+    // 检查是否有多个店主角色
+    const shopkeeperCount = playerRoles.filter(role => role === '店主').length;
+    if (shopkeeperCount > 1) {
+        alert('一局游戏最多只能有1个店主角色！');
+        return;
+    }
+    
+    // 检查B类角色数量限制：游玩人数不足5人时，B类角色（薰、店主）的数量最多为1个
+    if (playerCount < 5) {
+        const bRoleCount = playerRoles.filter(role => role === '薰' || role === '店主').length;
+        if (bRoleCount > 1) {
+            alert('游玩人数不足5人时，一局游戏中薰、店主的数量最多为1个！');
+            return;
+        }
+    }
 
     // 设置玩家属性和重置游戏状态（使用观察者模式）
     gameStateManager.updateState((state) => {
@@ -3511,17 +4083,45 @@ function initGame() {
         for (let i = 0; i < playerCount; i++) {
             const role = playerRoles[i];
             const name = playerNames[i];
-            state.players.push({
-                type: characterAttributes[role].type,
-                role: role,
-                name: name,
-                cards: 0,
-                items: [],
-                favor: characterAttributes[role].initialFavor,
-                status: 'alive',
-                action: characterAttributes[role].action,
-                hasKeychain: false
-            });
+            
+            // 检查角色是否存在于characterAttributes中
+            if (!characterAttributes[role]) {
+                console.error(`角色${role}不存在于角色配置中`);
+                // 使用默认值
+                state.players.push({
+                    type: 'A',
+                    role: role,
+                    name: name,
+                    cards: 0,
+                    items: [],
+                    fantasySkills: [],
+                    favor: 50,
+                    status: 'alive',
+                    action: 3,
+                    hasKeychain: false,
+                    hasActed: false,
+                    hasRolledDiceWithoutAction: false,
+                    hasDrawnCardWithoutAction: false,
+                    skipNextTurn: false
+                });
+            } else {
+                state.players.push({
+                    type: characterAttributes[role].type,
+                    role: role,
+                    name: name,
+                    cards: 0,
+                    items: [],
+                    fantasySkills: [],
+                    favor: characterAttributes[role].initialFavor,
+                    status: 'alive',
+                    action: characterAttributes[role].action,
+                    hasKeychain: false,
+                    hasActed: false,
+                    hasRolledDiceWithoutAction: false,
+                    hasDrawnCardWithoutAction: false,
+                    skipNextTurn: false
+                });
+            }
         }
 
         state.currentPlayer = 0;
@@ -3576,6 +4176,33 @@ function initGame() {
 
                 logEvent(`玩家${i + 1}（${player.role}）游戏开始，获得道具${item.name}`);
             }
+
+            // 如果是店主角色，抽取幻象技
+            if (player.role === '店主') {
+                const maxFantasySkills = characterAttributes[player.role].maxFantasySkills || 0;
+                const fantasySkillNames = Object.keys(fantasySkills);
+                
+                while (player.fantasySkills.length < maxFantasySkills && fantasySkillNames.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * fantasySkillNames.length);
+                    const skillName = fantasySkillNames[randomIndex];
+                    const skill = fantasySkills[skillName];
+
+                    // 从可用技能中移除该技能
+                    fantasySkillNames.splice(randomIndex, 1);
+
+                    // 添加技能到玩家的幻象技数组
+                    player.fantasySkills.push(skill);
+
+                    // 如果是蛙男技能，自动生效
+                    if (skill.name === '蛙男') {
+                        player.hasFrogManSkill = true;
+                        player.fantasySkills[player.fantasySkills.length - 1].used = true;
+                        logEvent(`玩家${i + 1}（店主）的幻象技${skill.name}生效，全程不会成为其他角色强制丢弃道具或损耗行动点的对象`);
+                    } else {
+                        logEvent(`玩家${i + 1}（店主）游戏开始，获得幻象技${skill.name}`);
+                    }
+                }
+            }
         }
     });
 
@@ -3621,8 +4248,57 @@ function updateItemsDisplay() {
 
             itemsContainer.appendChild(itemElement);
         });
+
+        // 处理幻象技容器
+        const fantasySkillsContainer = document.getElementById(`player${i + 1}-fantasy-skills`);
+        const fantasySkillsContainerParent = fantasySkillsContainer ? fantasySkillsContainer.closest('.fantasy-skills-container') : null;
+        
+        if (player.role === '店主') {
+            // 如果是店主角色，显示幻象技
+            if (!fantasySkillsContainer) {
+                // 如果幻象技容器不存在，创建它
+                const container = document.createElement('div');
+                container.className = 'fantasy-skills-container';
+                container.innerHTML = '<p>幻象技:</p><div id="player' + (i + 1) + '-fantasy-skills" class="fantasy-skills-list"></div>';
+                itemsContainer.parentNode.appendChild(container);
+            }
+
+            const skillsContainer = document.getElementById(`player${i + 1}-fantasy-skills`);
+            skillsContainer.innerHTML = '';
+
+            // 确保player.fantasySkills是数组
+            if (Array.isArray(player.fantasySkills)) {
+                player.fantasySkills.forEach((skill, index) => {
+                    const skillElement = document.createElement('div');
+                    skillElement.className = 'fantasy-skill';
+                    if (skill.used) {
+                        skillElement.classList.add('used');
+                    }
+                    skillElement.textContent = skill.name;
+                    skillElement.title = skill.description;
+
+                    // 移除点击使用效果，只显示幻象技
+                    if (skill.used) {
+                        skillElement.classList.add('used');
+                    }
+
+                    skillsContainer.appendChild(skillElement);
+                });
+            }
+        } else {
+            // 如果不是店主角色，移除幻象技容器
+            if (fantasySkillsContainerParent) {
+                fantasySkillsContainerParent.remove();
+            }
+        }
     }
 }
+
+
+
+
+
+
 
 // 使用道具
 function useItem(playerIndex, itemIndex) {
@@ -3657,6 +4333,9 @@ function useItem(playerIndex, itemIndex) {
     // 检查行动点（特殊角色使用特定武器或道具不消耗行动点，所以即使行动点为0也可以使用）
     const actionPoints = Number(player.action) || 0;
     let canUseWithoutAction = false;
+    
+    // 标记本回合已行动
+    player.hasActed = true;
 
     // 检查是否为特殊角色使用特定武器或道具
     if (item.type && item.type === 'kill_with_weapon') {
@@ -3703,7 +4382,6 @@ function useItem(playerIndex, itemIndex) {
         }
     } else if (item.name === '《白发小僧》') {
         if (player.role === '店主') {
-            //todo 暂时没有店主
             canUseWithoutAction = true;
         }
     } else if (item.name === '《幽灵塔》') {
@@ -3725,7 +4403,8 @@ function useItem(playerIndex, itemIndex) {
         // 汽车道具特殊处理，不消耗初始1点行动点，在道具策略中消耗2点
         canUseWithoutAction = true;
     } else if (item.name === '眼镜') {
-        // 眼镜道具特殊处理，不消耗初始1点行动点，在道具策略中消耗1点
+        // 眼镜道具特殊处理，不消耗初始1点行动点
+        // 店主使用眼镜不消耗行动点
         canUseWithoutAction = true;
     }
 
@@ -3803,11 +4482,8 @@ function useItem(playerIndex, itemIndex) {
                 shouldConsumeAction = false;
             }
         } else if (item.name === '钱') {
-            // 检查当前是否在市营电车站、机械汤、咖啡厅或电影院格子上
-            const currentGrid = gridConfig[gameState.tokenPosition];
-            if (currentGrid && (currentGrid.name === '市营电车站' || currentGrid.name === '机械汤' || currentGrid.name === '咖啡厅' || currentGrid.name === '电影院')) {
-                shouldConsumeAction = false;
-            }
+            // 钱道具的行动点消耗由MoneyItemStrategy.execute函数处理
+            shouldConsumeAction = false;
         } else if (item.name === '时光机') {
             // 博士不消耗行动点可使用此道具
             if (player.role === '博士') {
@@ -3817,8 +4493,13 @@ function useItem(playerIndex, itemIndex) {
             // 汽车道具特殊处理，不消耗初始1点行动点，在道具策略中消耗2点
             shouldConsumeAction = false;
         } else if (item.name === '眼镜') {
-            // 眼镜道具特殊处理，不消耗初始1点行动点，在道具策略中消耗1点
-            shouldConsumeAction = false;
+            // 眼镜道具特殊处理，不消耗初始1点行动点
+            // 店主使用眼镜不消耗行动点
+            if (player.role === '店主') {
+                shouldConsumeAction = false;
+            } else {
+                shouldConsumeAction = false;
+            }
         }
         if (shouldConsumeAction) {
             player.action = Number(player.action) || 0;
@@ -3883,29 +4564,32 @@ function updateUI() {
 
     // 更新玩家信息和当前玩家样式
     const playerCount = gameState.players.length;
-    for (let i = 0; i < playerCount; i++) {
-        const player = gameState.players[i];
-        elements[`player${i + 1}RoleDisplay`].textContent = player.role;
-        elements[`player${i + 1}NameDisplay`].textContent = `(${player.name})`;
-        // elements[`player${i + 1}Action`].textContent = player.action || characterAttributes[player.role].action;
-        // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
-        const currentAction = (player.action !== undefined && player.action !== null)
-            ? player.action
-            : characterAttributes[player.role].action;
-
-        elements[`player${i + 1}Action`].textContent = currentAction;
-
-        elements[`player${i + 1}Cards`].textContent = player.cards;
-        elements[`player${i + 1}Favor`].textContent = player.role === '薰' ? '???' : player.favor;
-        elements[`player${i + 1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
-
-        // 更新当前玩家样式
+    // 最多支持6个玩家
+    for (let i = 0; i < 6; i++) {
         const playerElement = document.querySelector(`.player.player${i + 1}`);
-        if (i === gameState.currentPlayer) {
-            playerElement.classList.add('current-player');
-        } else {
-            playerElement.classList.remove('current-player');
-        }
+        if (i < playerCount) {
+            // 显示存在的玩家
+            playerElement.style.display = 'block';
+            const player = gameState.players[i];
+            elements[`player${i + 1}RoleDisplay`].textContent = player.role;
+            elements[`player${i + 1}NameDisplay`].textContent = `(${player.name})`;
+            // 如果 action 是 undefined 或 null，则使用初始值；如果是 0 或其他数字，则直接显示该数字
+            const currentAction = (player.action !== undefined && player.action !== null)
+                ? player.action
+                : characterAttributes[player.role].action;
+
+            elements[`player${i + 1}Action`].textContent = currentAction;
+
+            elements[`player${i + 1}Cards`].textContent = player.cards;
+            elements[`player${i + 1}Favor`].textContent = player.role === '薰' ? '???' : player.favor;
+            elements[`player${i + 1}Status`].textContent = player.status === 'alive' ? '存活' : '死亡';
+
+            // 更新当前玩家样式
+            if (i === gameState.currentPlayer) {
+                playerElement.classList.add('current-player');
+            } else {
+                playerElement.classList.remove('current-player');
+            }
 
         // 更新钥匙串图标
         const playerNameElement = playerElement.querySelector('h3');
@@ -3922,6 +4606,54 @@ function updateUI() {
             keyIcon.style.color = 'green';
             keyIcon.style.marginLeft = '5px';
             playerNameElement.appendChild(keyIcon);
+        }
+        
+        // 更新河童技能书本图标
+        // 移除现有的书本图标
+        const existingSkipIcon = playerNameElement.querySelector('.skip-turn-icon');
+        if (existingSkipIcon) {
+            playerNameElement.removeChild(existingSkipIcon);
+        }
+        // 如果被河童技能选中，添加书本图标
+        if (player.skipNextTurn) {
+            const skipIcon = document.createElement('span');
+            skipIcon.className = 'skip-turn-icon';
+            skipIcon.innerHTML = '📚';
+            skipIcon.style.color = 'blue';
+            skipIcon.style.marginLeft = '5px';
+            playerNameElement.appendChild(skipIcon);
+        }
+        
+        // 更新关东大地震骷髅头图标
+        // 移除现有的骷髅头图标
+        const existingSkeletonIcon = playerNameElement.querySelector('.skeleton-icon');
+        if (existingSkeletonIcon) {
+            playerNameElement.removeChild(existingSkeletonIcon);
+        }
+        // 如果店主使用了关东大地震，添加骷髅头图标和倒计时
+        if (player.skeletonCountdown && player.skeletonCountdown > 0) {
+            const skeletonContainer = document.createElement('span');
+            skeletonContainer.className = 'skeleton-icon';
+            skeletonContainer.style.marginLeft = '5px';
+            
+            const skeletonIcon = document.createElement('span');
+            skeletonIcon.innerHTML = '💀';
+            skeletonIcon.style.color = 'red';
+            
+            const countdownText = document.createElement('span');
+            countdownText.innerHTML = ` (${player.skeletonCountdown})`;
+            countdownText.style.color = 'red';
+            countdownText.style.fontSize = '12px';
+            
+            skeletonContainer.appendChild(skeletonIcon);
+            skeletonContainer.appendChild(countdownText);
+            skeletonContainer.title = `关东大地震效果：${player.skeletonCountdown}回合后死亡`;
+            
+            playerNameElement.appendChild(skeletonContainer);
+        }
+        } else {
+            // 隐藏不存在的玩家
+            playerElement.style.display = 'none';
         }
     }
 
@@ -4178,6 +4910,9 @@ function showDropItemDialog() {
                 return;
             }
 
+            // 保存游戏状态，以便可以撤回操作
+            saveGameState();
+
             // 从玩家道具栏中移除道具
             currentPlayer.items.splice(itemIndex, 1);
             currentPlayer.cards = Math.max(0, currentPlayer.cards - 1);
@@ -4323,6 +5058,8 @@ function rollDice() {
     // 消耗行动点
     currentPlayer.action = Number(currentPlayer.action) || 0;
     currentPlayer.action--;
+    // 标记本回合已行动
+    currentPlayer.hasActed = true;
     logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）消耗1点行动点掷骰子，剩余行动点：${currentPlayer.action}`);
 
     // 禁用掷骰子按钮
@@ -4364,6 +5101,9 @@ function handleItemCancel(player, playerIndex, item) {
     logEvent(`玩家${playerIndex + 1}（${player.role}）取消使用${item.name}，行动点不变`);
     // 显示消息
     elements.gameMessage.textContent = `玩家取消了道具使用，行动点不变！`;
+    // 刷新UI
+    updateUI();
+    updateItemsDisplay();
 }
 
 // 处理好感度变更
@@ -4380,7 +5120,8 @@ function createActionDeductionDialog(player, playerIndex, item, itemIndex, actio
     // 生成可选择的玩家列表
     const availablePlayers = [];
     for (let i = 0; i < gameState.players.length; i++) {
-        if (i !== playerIndex && gameState.players[i].status === 'alive' && conditionFn(gameState.players[i])) {
+        const targetPlayer = gameState.players[i];
+        if (i !== playerIndex && targetPlayer.status === 'alive' && conditionFn(targetPlayer) && !targetPlayer.hasFrogManSkill) {
             availablePlayers.push(i);
         }
     }
@@ -4456,51 +5197,7 @@ function addTargetDialogStyle(dialogClass) {
         return;
     }
 
-    // 创建样式
-    const style = document.createElement('style');
-    style.id = `${dialogClass}-style`;
-    style.textContent = `
-        .${dialogClass} {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-        }
-        .${dialogClass}-content {
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            width: 80%;
-            max-width: 600px;
-            max-height: 80%;
-            overflow-y: auto;
-        }
-        .${dialogClass} .cancel-target {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #ccc;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .target-item {
-            padding: 10px;
-            border: 1px solid #ccc;
-            margin: 5px 0;
-            cursor: pointer;
-        }
-        .target-item:hover {
-            background-color: #f0f0f0;
-        }
-    `;
-
-    document.head.appendChild(style);
+    // 样式已移至styles.css文件
 }
 
 // 处理行动后逻辑
@@ -4710,16 +5407,8 @@ function handleWeaponItem(player, playerIndex, itemIndex, item) {
                         targetPlayer.items.splice(defenseIndex, 1);
                         targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
 
-                        // 设置目标玩家为死亡
-                        targetPlayer.status = 'die';
-                        // 玩家死亡后丢失所有道具
-                        const lostItems = targetPlayer.items.length;
-                        targetPlayer.items = [];
-                        targetPlayer.cards = 0;
-                        logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）行动点不足，念珠防御不生效，被${item.name}杀死，丢失了${lostItems}个道具`);
-
-                        // 显示消息
-                        elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）行动点不足，念珠防御不生效，已被${item.name}杀死！`;
+                        // 行动点不足，防御不生效，直接死亡
+                        handlePlayerDeath(targetPlayer, targetPlayerIndex, `行动点不足，念珠防御不生效，被${item.name}杀死`);
                     } else {
                         // 行动点足够，防御生效
                         // 移除防御道具
@@ -4970,29 +5659,55 @@ function checkWinCondition() {
         return true;
     }
 
-    // 检查B玩家是否杀死所有A玩家
-    let aliveAPlayers = 0;
-    let aliveBPlayers = 0;
-    for (let i = 0; i < playerCount; i++) {
-        const player = gameState.players[i];
-        if (player.type === 'A' && player.status === 'alive') {
-            aliveAPlayers++;
-        }
-        if (player.type === 'B' && player.status === 'alive') {
-            aliveBPlayers++;
+    // 检查特殊胜利条件
+    const alivePlayers = gameState.players.filter(player => player.status === 'alive');
+    const aliveAPlayers = alivePlayers.filter(player => player.type === 'A');
+    const hasKaoru = alivePlayers.some(player => player.role === '薰');
+    const hasShopkeeper = alivePlayers.some(player => player.role === '店主');
+    
+    // 当一场游戏中只存在薰时，胜利条件为，场上所有追求者死亡，则薰胜利
+    if (hasKaoru && !hasShopkeeper && aliveAPlayers.length === 0) {
+        elements.gameMessage.textContent = '所有追求者已死亡，薰胜利！';
+        logEvent(`游戏胜利：所有追求者已死亡，薰胜利`);
+        gameState.gameWon = true;
+        showWinDialog('薰');
+        return true;
+    }
+    
+    // 当一场游戏中只存在店主时，胜利条件为，棋子总计踩满（总玩家人数-1）*2 次水洼，则店主胜利
+    if (!hasKaoru  && hasShopkeeper) {
+        const requiredPuddles = (playerCount - 1) * 2;
+        if (gameState.puddleCount >= requiredPuddles) {
+            elements.gameMessage.textContent = `棋子踩满${requiredPuddles}次水洼，店主胜利！`;
+            logEvent(`游戏胜利：棋子踩满${requiredPuddles}次水洼，店主胜利`);
+            gameState.gameWon = true;
+            showWinDialog('店主');
+            return true;
         }
     }
-
-    if (aliveAPlayers === 0 && aliveBPlayers > 0) {
-        elements.gameMessage.textContent = '所有发小已被杀死，薰胜利！';
-        logEvent(`游戏胜利：所有发小已被杀死，薰胜利`);
+    
+    // 当一场游戏中存在店主和薰时，胜利条件为，场上所有追求者死亡，此时薰、店主共同胜利
+    if (hasKaoru && hasShopkeeper && aliveAPlayers.length === 0) {
+        elements.gameMessage.textContent = '所有追求者已死亡，薰和店主共同胜利！';
+        logEvent(`游戏胜利：所有追求者已死亡，薰和店主共同胜利`);
         gameState.gameWon = true;
-        // 显示胜利弹窗
-        showWinDialog('薰');
+        showWinDialog('薰、店主');
         return true;
     }
 
     return false;
+}
+
+// 处理玩家死亡
+function handlePlayerDeath(player, playerIndex, reason = '被杀死') {
+    // 设置玩家为死亡状态
+    player.status = 'die';
+    // 玩家死亡后丢失所有道具
+    const lostItems = player.items.length;
+    player.items = [];
+    player.cards = 0;
+    logEvent(`玩家${playerIndex + 1}（${player.role}）${reason}，丢失了${lostItems}个道具`);
+    elements.gameMessage.textContent = `玩家${playerIndex + 1}（${player.role}）${reason}！`;
 }
 
 // 结束行动
@@ -5018,6 +5733,31 @@ function endTurn() {
         gameState.stagnantTurn = -1;
     }
 
+    // 检查水道桥格子功能：如果当前玩家是水上角色，停留在水道桥格子，且游戏中存在存活的店主角色，则水上角色死亡
+    if (currentPlayer.role === '水上' && currentGrid.name === '水道桥') {
+        // 检查游戏中是否存在存活的店主角色
+        const hasAliveShopkeeper = gameState.players.some(player => player.role === '店主' && player.status === 'alive');
+        if (hasAliveShopkeeper) {
+            // 水上角色死亡
+            handlePlayerDeath(currentPlayer, gameState.currentPlayer, '停留在水道桥格子，因店主角色存活而死亡');
+        }
+    }
+
+    // 检查吾妻桥格子功能：如果当前玩家是博士角色，停留在吾妻桥格子，且游戏中存在存活的店主角色，则店主角色死亡
+    if (currentPlayer.role === '博士' && currentGrid.name === '吾妻桥') {
+        // 检查游戏中是否存在存活的店主角色
+        const hasAliveShopkeeper = gameState.players.some(player => player.role === '店主' && player.status === 'alive');
+        if (hasAliveShopkeeper) {
+            // 找到并杀死店主角色
+            gameState.players.forEach((player, index) => {
+                if (player.role === '店主' && player.status === 'alive') {
+                    // 店主角色死亡
+                    handlePlayerDeath(player, index, '因博士角色停留在吾妻桥格子而死亡');
+                }
+            });
+        }
+    }
+
     // 每个玩家行动结束后，回合数+1
     gameStateManager.setState('round', gameState.round + 1);
 
@@ -5029,6 +5769,19 @@ function endTurn() {
 function nextPlayer() {
     const playerCount = gameState.players.length;
 
+    // 处理所有玩家的骷髅头倒计时
+    gameState.players.forEach((player, index) => {
+        if (player.skeletonCountdown && player.skeletonCountdown > 0) {
+            // 减少倒计时
+            player.skeletonCountdown--;
+            
+            // 如果倒计时为0，玩家死亡
+            if (player.skeletonCountdown === 0) {
+                handlePlayerDeath(player, index, '因关东大地震效果死亡');
+            }
+        }
+    });
+    
     // 找到下一个存活的玩家
     let nextPlayerIndex;
     if (gameState.reverseDirection) {
@@ -5057,6 +5810,39 @@ function nextPlayer() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
     const maxCards = characterAttributes[currentPlayer.role].maxCards;
 
+    // 检查该玩家是否被标记为跳过回合
+    if (currentPlayer.skipNextTurn) {
+        // 显示跳过消息
+        elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）的回合被跳过！`;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）的回合被跳过`);
+        
+        // 移除跳过标记
+        currentPlayer.skipNextTurn = false;
+        
+        // 更新UI，移除书本icon
+        updateUI();
+        
+        // 递归调用nextPlayer，切换到下一个玩家
+        nextPlayer();
+        return;
+    }
+
+    // 重置本回合是否行动过字段
+    currentPlayer.hasActed = false;
+    currentPlayer.hasRolledDiceWithoutAction = false;
+    currentPlayer.hasDrawnCardWithoutAction = false;
+
+    // 检查特殊规则：如果所有存活角色的行动点均不超过2，且存活角色数量<=本局游戏玩家数一半时，额外+2行动点
+    const alivePlayers = gameState.players.filter(player => player.status === 'alive');
+    const totalPlayers = gameState.players.length;
+    const allActionsBelow3 = alivePlayers.every(player => player.action <= 2);
+    const aliveCountHalf = Math.ceil(totalPlayers / 2);
+    
+    if (alivePlayers.length <= aliveCountHalf && allActionsBelow3) {
+        currentPlayer.action += 2;
+        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）因特殊规则获得额外2点行动点`);
+    }
+
     // 如果游戏已胜利，直接返回
     if (gameState.gameWon) {
         elements.currentPlayerDisplay.textContent = gameState.currentPlayer + 1;
@@ -5066,24 +5852,24 @@ function nextPlayer() {
 
     // 玩家行动开始时，从牌堆摸一张道具卡（如果手牌未达到上限）
     let itemMessage = '';
-    if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
-        const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
-        const itemName = gameState.itemPool[randomIndex];
-        const item = items[itemName];
+    // if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
+    //     const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+    //     const itemName = gameState.itemPool[randomIndex];
+    //     const item = items[itemName];
 
-        // 从道具池中移除该道具
-        gameState.itemPool.splice(randomIndex, 1);
+    //     // 从道具池中移除该道具
+    //     gameState.itemPool.splice(randomIndex, 1);
 
-        // 添加道具到玩家的道具数组
-        currentPlayer.items.push(item);
-        currentPlayer.cards++;
+    //     // 添加道具到玩家的道具数组
+    //     currentPlayer.items.push(item);
+    //     currentPlayer.cards++;
 
-        itemMessage = `获得道具${item.name}，`;
-        logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动开始，获得道具${item.name}`);
+    //     itemMessage = `获得道具${item.name}，`;
+    //     logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动开始，获得道具${item.name}`);
 
-        // 更新道具池显示
-        updateItemPoolDisplay();
-    }
+    //     // 更新道具池显示
+    //     updateItemPoolDisplay();
+    // }
 
     // 若当前角色行动点为零，自动回复1点
     let actionMessage = '';
@@ -5122,6 +5908,11 @@ function nextPlayer() {
 
     // 更新UI
     updateUI();
+
+    // 检查胜利条件
+    if (checkWinCondition()) {
+        return;
+    }
 
     // 显示行动开始弹窗
     showActionStartDialog();
@@ -5268,7 +6059,23 @@ function initDraggableLog() {
 // 随机分配角色
 function randomRoles() {
     const playerCount = parseInt(document.getElementById('player-count').value) || 3;
-    const roles = ['水上', '川濑', '花泽', '博士', '薰'];
+    
+    // 准备角色列表，确保只有一个店主
+    let roles = ['水上', '川濑', '花泽', '博士', '薰'];
+    
+    // 如果玩家数量大于5，添加店主角色
+    if (playerCount > 5) {
+        roles.push('店主');
+    } else {
+        // 随机决定是否添加店主角色
+        const includeShopkeeper = Math.random() > 0.5;
+        if (includeShopkeeper) {
+            // 从非店主角色中随机移除一个，添加店主
+            const removeIndex = Math.floor(Math.random() * roles.length);
+            roles.splice(removeIndex, 1);
+            roles.push('店主');
+        }
+    }
 
     // 打乱角色顺序
     for (let i = roles.length - 1; i > 0; i--) {
@@ -5291,17 +6098,17 @@ function randomRoles() {
 function handlePlayerCountChange() {
     let playerCount = parseInt(document.getElementById('player-count').value) || 3;
 
-    // 确保playerCount在3-5之间
+    // 确保playerCount在3-6之间
     if (playerCount < 3) {
         playerCount = 3;
         document.getElementById('player-count').value = 3;
-    } else if (playerCount > 5) {
-        playerCount = 5;
-        document.getElementById('player-count').value = 5;
+    } else if (playerCount > 6) {
+        playerCount = 6;
+        document.getElementById('player-count').value = 6;
     }
 
     // 显示或隐藏玩家设置
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
         const playerInput = document.querySelector(`.player-input:nth-child(${i})`);
         if (playerInput) {
             playerInput.style.display = i <= playerCount ? 'block' : 'none';
@@ -5309,7 +6116,7 @@ function handlePlayerCountChange() {
     }
 
     // 显示或隐藏玩家信息
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 6; i++) {
         const playerInfo = document.querySelector(`.player.player${i}`);
         if (playerInfo) {
             playerInfo.style.display = i <= playerCount ? '' : 'none';
@@ -5338,6 +6145,8 @@ function undoAction() {
         gameState.week = previousState.week;
         gameState.reverseDirection = previousState.reverseDirection;
         gameState.puddleCount = previousState.puddleCount;
+        gameState.stagnantTurn = previousState.stagnantTurn || -1;
+        gameState.hasLeftStart = previousState.hasLeftStart || false;
 
         // 更新UI
         updateUI();
@@ -5507,12 +6316,7 @@ function killPlayer() {
                 }
             } else {
                 // 设置目标玩家为死亡
-                targetPlayer.status = 'die';
-                // 玩家死亡后丢失所有道具
-                const lostItems = targetPlayer.items.length;
-                targetPlayer.items = [];
-                targetPlayer.cards = 0;
-                logEvent(`玩家${targetPlayerIndex + 1}（${targetPlayer.role}）被杀死，丢失了${lostItems}个道具`);
+                handlePlayerDeath(targetPlayer, targetPlayerIndex, '被杀死');
 
                 // 显示消息
                 elements.gameMessage.textContent = `玩家${targetPlayerIndex + 1}（${targetPlayer.role}）已被杀死！`;
@@ -5714,11 +6518,15 @@ window.onload = async function () {
 
     // 添加加载道具按钮的事件监听器
     document.getElementById('load-items').addEventListener('click', loadItemsFromFile);
-
-    // 添加加载地图按钮的事件监听器
+    
     const mapLoadButton = document.getElementById('load-map');
     if (mapLoadButton) {
         mapLoadButton.addEventListener('click', loadMapFromFile);
+    }
+    
+    const fantasySkillsLoadButton = document.getElementById('load-fantasy-skills');
+    if (fantasySkillsLoadButton) {
+        fantasySkillsLoadButton.addEventListener('click', loadFantasySkillsFromFile);
     }
 
     // 添加玩家数量变化事件监听器
@@ -5735,11 +6543,26 @@ window.onload = async function () {
 
     // 添加下载地图模板按钮的事件监听器
     document.getElementById('download-map-template').addEventListener('click', downloadMapTemplate);
+    
+    // 添加下载幻象技模板按钮的事件监听器
+    document.getElementById('download-fantasy-skill-template').addEventListener('click', downloadFantasySkillTemplate);
+    
+
 
     // 添加游戏控制按钮的事件监听器
     const rollDiceButton = document.getElementById('roll-dice');
     if (rollDiceButton) {
         rollDiceButton.addEventListener('click', rollDice);
+    }
+    
+    const actionStartButton = document.getElementById('action-start');
+    if (actionStartButton) {
+        actionStartButton.addEventListener('click', () => {
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            const currentGrid = gridConfig[gameState.tokenPosition];
+            const isStagnant = currentGrid && currentGrid.isStagnant;
+            showActionStartDialog(currentPlayer, isStagnant);
+        });
     }
 
     const resetGameButton = document.getElementById('reset-game');
@@ -5830,6 +6653,12 @@ window.onload = async function () {
     if (!loadedRoles) {
         console.log('角色配置加载失败，请确保role.csv文件存在且格式正确');
     }
+    
+    // 尝试自动加载幻象技
+    const loadedFantasySkills = await autoLoadFantasySkillsFromCSV();
+    if (!loadedFantasySkills) {
+        updateFantasySkillLoadStatus('未加载，请选择文件');
+    }
 
     // 初始化道具池监控
     monitorItemPool();
@@ -5877,6 +6706,15 @@ function downloadMapTemplate() {
     link.click();
 }
 
+// 下载幻象技模板
+function downloadFantasySkillTemplate() {
+    // 创建一个a标签
+    const link = document.createElement('a');
+    link.href = 'fantasySkill.csv';
+    link.download = 'fantasySkill.csv';
+    link.click();
+}
+
 // 刷新道具池
 function refreshItemPool() {
     if (gameState.itemPool.length === 0) {
@@ -5900,6 +6738,13 @@ function monitorItemPool() {
 // 显示行动开始弹窗
 function showActionStartDialog() {
     const currentPlayer = gameState.players[gameState.currentPlayer];
+    const maxCards = characterAttributes[currentPlayer.role].maxCards;
+
+    // 先移除已存在的action-start-dialog元素
+    const existingDialog = document.querySelector('.action-start-dialog');
+    if (existingDialog) {
+        document.body.removeChild(existingDialog);
+    }
 
     // 创建弹窗
     const dialog = document.createElement('div');
@@ -5921,6 +6766,14 @@ function showActionStartDialog() {
     const currentGrid = gridConfig[gameState.tokenPosition];
     const isStagnant = currentGrid.isStagnant && gameState.stagnantTurn !== -1;
 
+    // 检查场上是否存在店主
+    const shopkeeper = gameState.players.find(player => player.role === '店主' && player.status === 'alive');
+    const hasShopkeeper = shopkeeper !== undefined;
+    const shopkeeperHasSkills = hasShopkeeper && shopkeeper.fantasySkills && shopkeeper.fantasySkills.length > 0;
+
+    // 检查是否需要禁用店主幻象技按钮
+    const disableShopkeeperSkillButton = (!hasShopkeeper || !shopkeeperHasSkills) || (currentPlayer.hasActed && currentPlayer.role !== '店主');
+
     // 弹窗内容
     const dialogContent = document.createElement('div');
     dialogContent.style.cssText = `
@@ -5932,19 +6785,38 @@ function showActionStartDialog() {
     `;
 
     dialogContent.innerHTML = `
-        <h3>玩家${gameState.currentPlayer + 1}行动开始</h3>
+        <div style="position: relative;">
+            <h3 style="margin-top: 0;">玩家${gameState.currentPlayer + 1}行动开始</h3>
+            <button id="action-start-close" style="position: absolute; top: 0; right: 0; background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
+        </div>
         <p>角色：${currentPlayer.role}</p>
         ${isStagnant ? '<p style="color: red;">当前处于停滞状态，无法移动</p>' : '<p>是否进行一次不消耗行动点的掷骰子？</p>'}
+        <div id="action-start-result" style="margin: 15px 0; padding: 10px; background-color: #f0f0f0; border-radius: 4px;"></div>
         <div style="margin-top: 20px;">
             ${isStagnant ?
             '<button id="action-start-cannot-move" style="padding: 10px 20px; margin: 5px; background-color: #ccc; color: white; border: none; border-radius: 4px; cursor: pointer;">不可移动</button>' :
-            '<button id="action-start-roll-dice" style="padding: 10px 20px; margin: 5px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">掷骰子</button>'
+            '<button id="action-start-roll-dice" style="padding: 10px 20px; margin: 5px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">掷骰子（不消耗行动点）</button>'
         }
+            <button id="action-start-draw-card" style="padding: 10px 20px; margin: 5px; background-color: ${currentPlayer.cards >= maxCards || gameState.itemPool.length <= 0 ? '#ccc' : '#2196F3'}; color: white; border: none; border-radius: 4px; cursor: ${currentPlayer.cards >= maxCards || gameState.itemPool.length <= 0 ? 'not-allowed' : 'pointer'};" ${currentPlayer.cards >= maxCards || gameState.itemPool.length <= 0 ? 'disabled' : ''}>抽牌（不消耗行动点）</button>
+            ${hasShopkeeper ? '<button id="action-start-shopkeeper-skill" style="padding: 10px 20px; margin: 5px; background-color: ' + (disableShopkeeperSkillButton ? '#ccc' : '#ff9800') + '; color: white; border: none; border-radius: 4px; cursor: ' + (disableShopkeeperSkillButton ? 'not-allowed' : 'pointer') + ';" ' + (disableShopkeeperSkillButton ? 'disabled' : '') + '>店主是否使用幻象技</button>' : ''}
+            <button id="action-start-confirm" style="padding: 10px 20px; margin: 5px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; display: none;">确认</button>
         </div>
     `;
 
     dialog.appendChild(dialogContent);
     document.body.appendChild(dialog);
+
+    // 处理关闭按钮点击
+    const closeButton = document.getElementById('action-start-close');
+    if (closeButton) {
+        closeButton.addEventListener('click', () => {
+            document.body.removeChild(dialog);
+        });
+    }
+
+    // 状态变量
+    let diceRoll = null;
+    let drawnItem = null;
 
     // 处理按钮点击
     if (isStagnant) {
@@ -5954,21 +6826,750 @@ function showActionStartDialog() {
         });
     } else {
         // 掷骰子按钮
-        document.getElementById('action-start-roll-dice').addEventListener('click', () => {
+        const rollDiceButton = document.getElementById('action-start-roll-dice');
+        
+        // 如果玩家本回合已经执行过不消耗行动点的掷骰子，禁用掷骰子按钮
+        if (currentPlayer.hasRolledDiceWithoutAction) {
+            rollDiceButton.disabled = true;
+            rollDiceButton.style.backgroundColor = '#ccc';
+            rollDiceButton.style.cursor = 'not-allowed';
+        }
+        
+        rollDiceButton.addEventListener('click', () => {
+            // 检查是否已经执行过不消耗行动点的掷骰子
+            if (currentPlayer.hasRolledDiceWithoutAction) {
+                return;
+            }
+            
             // 进行一次不消耗行动点的掷骰子
-            const diceRoll = Math.floor(Math.random() * 6) + 1;
+            diceRoll = Math.floor(Math.random() * 6) + 1;
 
-            // 保存当前行动点
-            const currentActionPoints = currentPlayer.action;
+            // 标记本回合已执行过不消耗行动点的掷骰子
+            currentPlayer.hasRolledDiceWithoutAction = true;
+            // 标记本回合已行动
+            currentPlayer.hasActed = true;
 
-            // 执行移动
+            // 显示骰子点数
+            document.getElementById('action-start-result').textContent = `骰子点数：${diceRoll}`;
+
+            // 立即执行移动
             moveToken(diceRoll);
 
-            // 恢复行动点
-            currentPlayer.action = currentActionPoints;
+            // 更新UI
+            updateUI();
 
-            // 关闭弹窗
-            document.body.removeChild(dialog);
+            // 禁用掷骰子按钮
+            rollDiceButton.disabled = true;
+            rollDiceButton.style.backgroundColor = '#ccc';
+            rollDiceButton.style.cursor = 'not-allowed';
+
+            // 更新店主幻象技按钮状态
+            updateShopkeeperSkillButton();
+
+            // 检查是否需要显示确认按钮
+            checkShowConfirmButton();
         });
+    }
+
+    // 抽牌按钮（如果存在）
+    const drawCardButton = document.getElementById('action-start-draw-card');
+    if (drawCardButton) {
+        // 如果玩家本回合已经执行过不消耗行动点的抽牌，禁用抽牌按钮
+        if (currentPlayer.hasDrawnCardWithoutAction) {
+            drawCardButton.disabled = true;
+            drawCardButton.style.backgroundColor = '#ccc';
+            drawCardButton.style.cursor = 'not-allowed';
+        }
+        
+        drawCardButton.addEventListener('click', () => {
+            // 检查是否已经执行过不消耗行动点的抽牌
+            if (currentPlayer.hasDrawnCardWithoutAction) {
+                return;
+            }
+            
+            // 检查是否可以抽牌
+            if (currentPlayer.cards < maxCards && gameState.itemPool.length > 0) {
+                // 标记本回合已执行过不消耗行动点的抽牌
+                currentPlayer.hasDrawnCardWithoutAction = true;
+                // 标记本回合已行动
+                currentPlayer.hasActed = true;
+                
+                // 从道具池中随机抽取一张道具卡
+                const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+                const itemName = gameState.itemPool[randomIndex];
+                drawnItem = items[itemName];
+
+                // 从道具池中移除该道具
+                gameState.itemPool.splice(randomIndex, 1);
+
+                // 添加道具到玩家的道具数组
+                currentPlayer.items.push(drawnItem);
+                currentPlayer.cards++;
+
+                // 显示获得的道具
+                document.getElementById('action-start-result').textContent = `获得道具：${drawnItem.name}`;
+                elements.gameMessage.textContent = `玩家${gameState.currentPlayer + 1}获得道具${drawnItem.name}！`;
+                logEvent(`玩家${gameState.currentPlayer + 1}（${currentPlayer.role}）行动开始，获得道具${drawnItem.name}`);
+
+                // 更新道具池显示
+                updateItemPoolDisplay();
+
+                // 更新UI
+                updateUI();
+
+                // 禁用抽牌按钮
+                drawCardButton.disabled = true;
+                drawCardButton.style.backgroundColor = '#ccc';
+                drawCardButton.style.cursor = 'not-allowed';
+
+                // 更新店主幻象技按钮状态
+                updateShopkeeperSkillButton();
+
+                // 检查是否需要显示确认按钮
+                checkShowConfirmButton();
+            }
+        });
+    }
+
+    // 店主幻象技按钮
+    const shopkeeperSkillButton = document.getElementById('action-start-shopkeeper-skill');
+    if (shopkeeperSkillButton) {
+        shopkeeperSkillButton.addEventListener('click', () => {
+            // 显示店主幻象技选择弹窗
+            showShopkeeperSkillDialog(shopkeeper, dialog);
+        });
+    }
+
+    // 确认按钮
+    const confirmButton = document.getElementById('action-start-confirm');
+    confirmButton.addEventListener('click', () => {
+        // 关闭弹窗
+        document.body.removeChild(dialog);
+        
+        // 如果当前玩家被标记为跳过回合，直接结束回合
+        if (currentPlayer.skipNextTurn) {
+            endTurn();
+        }
+    });
+
+    // 检查是否需要显示确认按钮
+    function checkShowConfirmButton() {
+        const rollDiceButton = document.getElementById('action-start-roll-dice');
+        const drawCardButton = document.getElementById('action-start-draw-card');
+        const confirmButton = document.getElementById('action-start-confirm');
+
+        // 检查是否处于停滞状态或两个按钮都不可点击
+        const isRollDiceDisabled = isStagnant || (rollDiceButton && rollDiceButton.disabled);
+        const isDrawCardDisabled = drawCardButton && (drawCardButton.disabled || currentPlayer.cards >= maxCards || gameState.itemPool.length <= 0);
+
+        if (isRollDiceDisabled && isDrawCardDisabled) {
+            confirmButton.style.display = 'inline-block';
+        }
+    }
+
+    // 检查并更新店主幻象技按钮状态
+    function updateShopkeeperSkillButton() {
+        const shopkeeperSkillButton = document.getElementById('action-start-shopkeeper-skill');
+        if (shopkeeperSkillButton) {
+            // 重新计算是否需要禁用店主幻象技按钮
+            const updatedDisableShopkeeperSkillButton = (!hasShopkeeper || !shopkeeperHasSkills) || (currentPlayer.hasActed && currentPlayer.role !== '店主');
+            
+            if (updatedDisableShopkeeperSkillButton) {
+                shopkeeperSkillButton.disabled = true;
+                shopkeeperSkillButton.style.backgroundColor = '#ccc';
+                shopkeeperSkillButton.style.cursor = 'not-allowed';
+            } else {
+                shopkeeperSkillButton.disabled = false;
+                shopkeeperSkillButton.style.backgroundColor = '#ff9800';
+                shopkeeperSkillButton.style.cursor = 'pointer';
+            }
+        }
+    }
+
+    // 初始检查
+    checkShowConfirmButton();
+}
+
+// 显示店主幻象技选择弹窗
+function showShopkeeperSkillDialog(shopkeeper, parentDialog) {
+    // 创建弹窗
+    const dialog = document.createElement('div');
+    dialog.className = 'shopkeeper-skill-dialog';
+    dialog.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10001;
+    `;
+
+    // 弹窗内容
+    const dialogContent = document.createElement('div');
+    dialogContent.style.cssText = `
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+    `;
+
+    // 构建幻象技列表
+    let skillsHTML = '';
+    shopkeeper.fantasySkills.forEach((skill, index) => {
+        const isUsed = skill.used || false;
+        skillsHTML += `
+            <div class="skill-item" style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; ${isUsed ? 'background-color: #f0f0f0; opacity: 0.7;' : ''}">
+                <h4 style="margin: 0 0 5px 0;">${skill.name}</h4>
+                <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">${skill.description}</p>
+                <button class="use-skill-button" data-skill-index="${index}" style="padding: 5px 10px; background-color: ${isUsed ? '#ccc' : '#4CAF50'}; color: white; border: none; border-radius: 4px; cursor: ${isUsed ? 'not-allowed' : 'pointer'};" ${isUsed ? 'disabled' : ''}>
+                    ${isUsed ? '已使用' : '使用幻象技'}
+                </button>
+            </div>
+        `;
+    });
+
+    dialogContent.innerHTML = `
+        <h3>店主幻象技选择</h3>
+        <p>请选择要使用的幻象技：</p>
+        <div class="skills-list" style="margin: 20px 0;">
+            ${skillsHTML}
+        </div>
+        <button id="cancel-skill-button" style="padding: 10px 20px; margin: 5px; background-color: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">取消</button>
+    `;
+
+    dialog.appendChild(dialogContent);
+    document.body.appendChild(dialog);
+
+    // 处理使用技能按钮点击
+    const useSkillButtons = dialog.querySelectorAll('.use-skill-button');
+    useSkillButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const skillIndex = parseInt(button.dataset.skillIndex);
+            const skill = shopkeeper.fantasySkills[skillIndex];
+
+            // 触发技能效果
+            const skillUsed = triggerShopkeeperSkill(skill, shopkeeper, parentDialog);
+            
+            // 只有在技能成功执行后才标记为已使用
+            if (skillUsed) {
+                skill.used = true;
+            }
+
+            // 关闭当前弹窗，返回行动开始弹窗
+            document.body.removeChild(dialog);
+
+
+
+            // 获取当前玩家
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            
+            // 更新行动开始弹窗中的店主幻象技按钮状态
+            const shopkeeperSkillButton = parentDialog.querySelector('#action-start-shopkeeper-skill');
+            if (shopkeeperSkillButton) {
+                // 重新检查是否需要禁用店主幻象技按钮
+                const hasAvailableSkills = shopkeeper.fantasySkills.some(skill => !skill.used);
+                const shouldDisable = !hasAvailableSkills || (currentPlayer.hasActed && currentPlayer.role !== '店主');
+                
+                if (shouldDisable) {
+                    shopkeeperSkillButton.disabled = true;
+                    shopkeeperSkillButton.style.backgroundColor = '#ccc';
+                    shopkeeperSkillButton.style.cursor = 'not-allowed';
+                } else {
+                    shopkeeperSkillButton.disabled = false;
+                    shopkeeperSkillButton.style.backgroundColor = '#ff9800';
+                    shopkeeperSkillButton.style.cursor = 'pointer';
+                }
+            }
+
+            // 检查是否需要显示确认按钮
+            const confirmButton = parentDialog.querySelector('#action-start-confirm');
+            const rollDiceButton = parentDialog.querySelector('#action-start-roll-dice');
+            const drawCardButton = parentDialog.querySelector('#action-start-draw-card');
+
+            const isRollDiceDisabled = rollDiceButton && rollDiceButton.disabled;
+            const isDrawCardDisabled = drawCardButton && (drawCardButton.disabled || currentPlayer.cards >= characterAttributes[currentPlayer.role].maxCards || gameState.itemPool.length <= 0);
+
+            if (isRollDiceDisabled && isDrawCardDisabled) {
+                confirmButton.style.display = 'inline-block';
+            }
+        });
+    });
+
+    // 处理取消按钮点击
+    document.getElementById('cancel-skill-button').addEventListener('click', () => {
+        document.body.removeChild(dialog);
+    });
+}
+
+// 辅助函数：获取店主索引
+function getShopkeeperIndex(shopkeeper) {
+    return gameState.players.indexOf(shopkeeper);
+}
+
+// 辅助函数：记录幻象技使用日志
+function logSkillUsage(skill, shopkeeperIndex, extra = '') {
+    logEvent(`玩家${shopkeeperIndex + 1}（店主）使用了幻象技${skill.name}${extra}`);
+}
+
+// 辅助函数：显示幻象技消息
+function showSkillMessage(skill, shopkeeperIndex, message) {
+    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）${message}！`;
+}
+
+// 辅助函数：处理取消使用幻象技
+function handleSkillCancel(skill, shopkeeperIndex) {
+    logEvent(`玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}`);
+    elements.gameMessage.textContent = `玩家${shopkeeperIndex + 1}（店主）取消使用幻象技${skill.name}！`;
+}
+
+// 辅助函数：处理技能确认回调
+function handleSkillConfirm(callback, skill, shopkeeper, shopkeeperIndex, parentDialog) {
+    return function(result) {
+        // 执行回调函数处理技能效果
+        callback(result);
+        // 标记技能为已使用
+        skill.used = true;
+        // 更新UI
+        updateUI();
+        // 更新行动开始弹窗中的店主幻象技按钮状态
+        if (parentDialog) {
+            const shopkeeperSkillButton = parentDialog.querySelector('#action-start-shopkeeper-skill');
+            if (shopkeeperSkillButton) {
+                // 重新检查是否需要禁用店主幻象技按钮
+                const hasAvailableSkills = shopkeeper.fantasySkills.some(skill => !skill.used);
+                const currentPlayer = gameState.players[gameState.currentPlayer];
+                const shouldDisable = !hasAvailableSkills || (currentPlayer.hasActed && currentPlayer.role !== '店主');
+                
+                if (shouldDisable) {
+                    shopkeeperSkillButton.disabled = true;
+                    shopkeeperSkillButton.style.backgroundColor = '#ccc';
+                    shopkeeperSkillButton.style.cursor = 'not-allowed';
+                } else {
+                    shopkeeperSkillButton.disabled = false;
+                    shopkeeperSkillButton.style.backgroundColor = '#ff9800';
+                    shopkeeperSkillButton.style.cursor = 'pointer';
+                }
+            }
+        }
+    };
+}
+
+// 辅助函数：处理技能使用后的UI更新
+function updateSkillUI(shopkeeper, parentDialog) {
+    // 更新UI
+    updateUI();
+    // 更新行动开始弹窗中的店主幻象技按钮状态
+    if (parentDialog) {
+        const shopkeeperSkillButton = parentDialog.querySelector('#action-start-shopkeeper-skill');
+        if (shopkeeperSkillButton) {
+            // 重新检查是否需要禁用店主幻象技按钮
+            const hasAvailableSkills = shopkeeper.fantasySkills.some(skill => !skill.used);
+            const currentPlayer = gameState.players[gameState.currentPlayer];
+            const shouldDisable = !hasAvailableSkills || (currentPlayer.hasActed && currentPlayer.role !== '店主');
+            
+            if (shouldDisable) {
+                shopkeeperSkillButton.disabled = true;
+                shopkeeperSkillButton.style.backgroundColor = '#ccc';
+                shopkeeperSkillButton.style.cursor = 'not-allowed';
+            } else {
+                shopkeeperSkillButton.disabled = false;
+                shopkeeperSkillButton.style.backgroundColor = '#ff9800';
+                shopkeeperSkillButton.style.cursor = 'pointer';
+            }
+        }
+    }
+}
+
+// 辅助函数：过滤出有道具的其他存活玩家
+function getPlayersWithItems(excludeIndex) {
+    const players = [];
+    gameState.players.forEach((targetPlayer, targetIndex) => {
+        if (targetIndex !== excludeIndex && targetPlayer.status === 'alive' && targetPlayer.items.length > 0) {
+            players.push(targetIndex);
+        }
+    });
+    return players;
+}
+
+// 辅助函数：过滤出所有存活玩家
+function getAllAlivePlayers() {
+    const players = [];
+    gameState.players.forEach((targetPlayer, targetIndex) => {
+        if (targetPlayer.status === 'alive') {
+            players.push(targetIndex);
+        }
+    });
+    return players;
+}
+
+// 辅助函数：处理道具丢弃
+function handleItemDrop(selectedItems, skill, shopkeeperIndex) {
+    selectedItems.forEach((itemIndex, targetPlayerIndex) => {
+        const targetPlayer = gameState.players[targetPlayerIndex];
+        const droppedItem = targetPlayer.items[itemIndex];
+        
+        // 从目标玩家手中移除道具
+        targetPlayer.items.splice(itemIndex, 1);
+        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+        
+        // 记录日志
+        logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，强制玩家${targetPlayerIndex + 1}（${targetPlayer.role}）丢弃了道具${droppedItem.name}`);
+    });
+    
+    showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，强制' + selectedItems.size + '名玩家各丢弃了一张道具');
+    
+    // 更新UI
+    updateUI();
+}
+
+// 辅助函数：处理道具夺取
+function handleItemSteal(selectedItems, shopkeeper, skill, shopkeeperIndex) {
+    selectedItems.forEach((itemIndex, targetPlayerIndex) => {
+        const targetPlayer = gameState.players[targetPlayerIndex];
+        const stolenItem = targetPlayer.items[itemIndex];
+        
+        // 从目标玩家手中移除道具
+        targetPlayer.items.splice(itemIndex, 1);
+        targetPlayer.cards = Math.max(0, targetPlayer.cards - 1);
+        
+        // 添加到当前玩家手中
+        shopkeeper.items.push(stolenItem);
+        shopkeeper.cards++;
+        
+        // 记录日志
+        logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，从玩家${targetPlayerIndex + 1}（${targetPlayer.role}）手中夺取了道具${stolenItem.name}`);
+    });
+    
+    showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，从' + selectedItems.size + '名玩家手中各夺取了一张道具');
+    
+    // 更新UI
+    updateUI();
+}
+
+// 辅助函数：处理道具交换
+function handleItemExchange(result, skill, shopkeeperIndex) {
+    const { player1Index, player2Index, player1Items, player2Items } = result;
+    const player1 = gameState.players[player1Index];
+    const player2 = gameState.players[player2Index];
+    
+    // 获取要交换的道具
+    const player1ExchangeItems = player1Items.map(idx => player1.items[idx]);
+    const player2ExchangeItems = player2Items.map(idx => player2.items[idx]);
+    
+    // 从原玩家手中移除道具（从后往前删除，避免索引问题）
+    player1Items.sort((a, b) => b - a).forEach(idx => {
+        player1.items.splice(idx, 1);
+    });
+    player2Items.sort((a, b) => b - a).forEach(idx => {
+        player2.items.splice(idx, 1);
+    });
+    
+    // 将道具添加到对方手中
+    player1.items.push(...player2ExchangeItems);
+    player2.items.push(...player1ExchangeItems);
+    
+    // 更新手牌数
+    player1.cards = player1.items.length;
+    player2.cards = player2.items.length;
+    
+    // 记录日志
+    const player1ItemNames = player1ExchangeItems.map(item => item.name).join('、');
+    const player2ItemNames = player2ExchangeItems.map(item => item.name).join('、');
+    
+    logEvent(`玩家${shopkeeperIndex + 1}（店主）使用幻象技${skill.name}，玩家${player1Index + 1}（${player1.role}）的${player1ItemNames}与玩家${player2Index + 1}（${player2.role}）的${player2ItemNames}进行了交换`);
+    
+    showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，交换完成');
+    
+    // 更新UI
+    updateUI();
+}
+
+// 辅助函数：处理电光艇移动
+function handleLightningBoatMove(totalSteps) {
+    // 记录原始位置
+    const originalPosition = gameState.tokenPosition;
+    
+    // 移动棋子
+    if (gameState.reverseDirection) {
+        // 逆时针移动
+        gameState.tokenPosition = (gameState.tokenPosition - totalSteps + gridConfig.length) % gridConfig.length;
+    } else {
+        // 顺时针移动
+        gameState.tokenPosition = (gameState.tokenPosition + totalSteps) % gridConfig.length;
+    }
+    
+    // 更新棋子位置
+    updateTokenPosition();
+    
+    // 触发格子效果
+    const currentGrid = gridConfig[gameState.tokenPosition];
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    const strategies = GridStrategyFactory.getStrategies(currentGrid);
+    
+    // 检查是否是水洼格子（会结束回合）
+    const isWaterGrid = currentGrid.types && currentGrid.types.includes('水洼');
+    
+    strategies.forEach(strategy => {
+        strategy.execute(currentGrid, currentPlayer);
+    });
+}
+
+// 触发店主幻象技效果
+function triggerShopkeeperSkill(skill, shopkeeper, parentDialog) {
+    const shopkeeperIndex = getShopkeeperIndex(shopkeeper);
+    
+    // 保存游戏状态到历史记录，以便可以撤回操作
+    saveGameState();
+    
+    // 根据技能名称触发不同的效果
+    switch (skill.name) {
+        case '蛙男':
+            // 蛙男技能：全程不会成为其他角色强制丢弃道具或损耗行动点的对象
+            shopkeeper.hasFrogManSkill = true;
+            logSkillUsage(skill, shopkeeperIndex, '，全程不会成为其他角色强制丢弃道具或损耗行动点的对象');
+            showSkillMessage(skill, shopkeeperIndex, '的幻象技' + skill.name + '生效');
+            
+            // 标记技能为已使用
+            skill.used = true;
+            
+            // 更新UI
+            updateSkillUI(shopkeeper, parentDialog);
+            return true;
+        case '幸运草':
+            // 幸运草技能：可以多抽一张道具卡
+            if (shopkeeper.cards < characterAttributes[shopkeeper.role].maxCards && gameState.itemPool.length > 0) {
+                const randomIndex = Math.floor(Math.random() * gameState.itemPool.length);
+                const itemName = gameState.itemPool[randomIndex];
+                const item = items[itemName];
+
+                // 从道具池中移除该道具
+                gameState.itemPool.splice(randomIndex, 1);
+
+                // 添加道具到玩家的道具数组
+                shopkeeper.items.push(item);
+                shopkeeper.cards++;
+
+                logSkillUsage(skill, shopkeeperIndex, '，获得道具' + item.name);
+                showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，获得道具' + item.name);
+
+                // 更新道具池显示
+                updateItemPoolDisplay();
+                
+                // 标记技能为已使用
+                skill.used = true;
+                
+                // 更新UI
+                updateSkillUI(shopkeeper, parentDialog);
+                return true;
+            } else {
+                return false;
+            }
+        case '晴彦':
+            // 强制最多三名存活角色各丢弃一张道具卡（由你指定）
+            logSkillUsage(skill, shopkeeperIndex);
+            
+            // 过滤出其他存活玩家
+            const availablePlayers = getPlayersWithItems(shopkeeperIndex);
+            
+            if (availablePlayers.length === 0) {
+                alert('没有可丢弃道具的目标！');
+                elements.gameMessage.textContent = '没有可丢弃道具的目标！';
+                logSkillUsage(skill, shopkeeperIndex, '，但没有可丢弃道具的目标');
+                return false;
+            }
+            
+            // 创建丢弃道具对话框
+            GameDialogService.createDropItemDialog(
+                availablePlayers,
+                handleSkillConfirm((selectedItems) => {
+                    handleItemDrop(selectedItems, skill, shopkeeperIndex);
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
+                () => handleSkillCancel(skill, shopkeeperIndex)
+            );
+            return false;
+        case '大蛇丸':
+            // 从最多两名存活玩家手中各夺取一张道具卡（由你指定）
+            logSkillUsage(skill, shopkeeperIndex);
+            
+            // 检查是否达到手牌上限
+            const handLimit = characterAttributes[shopkeeper.role].maxCards;
+            const currentHandCount = shopkeeper.items.length;
+            const availableSlots = handLimit - currentHandCount;
+            
+            if (availableSlots <= 0) {
+                elements.gameMessage.textContent = '你的手牌已达到上限，无法使用大蛇丸幻象技！';
+                alert('你的手牌已达到上限，无法使用大蛇丸幻象技！');
+                logSkillUsage(skill, shopkeeperIndex, '，但手牌已达到上限');
+                return false;
+            }
+            
+            // 计算最多可以夺取的道具数量
+            const maxStealCount = Math.min(2, availableSlots);
+            
+            // 过滤出其他存活玩家
+            const stealablePlayers = getPlayersWithItems(shopkeeperIndex);
+            
+            if (stealablePlayers.length === 0) {
+                elements.gameMessage.textContent = '没有可夺取道具的目标！';
+                logSkillUsage(skill, shopkeeperIndex, '，但没有可夺取道具的目标');
+                return false;
+            }
+            
+            // 创建夺取道具对话框
+            GameDialogService.createStealItemDialog(
+                stealablePlayers,
+                maxStealCount,
+                handleSkillConfirm((selectedItems) => {
+                    handleItemSteal(selectedItems, shopkeeper, skill, shopkeeperIndex);
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
+                () => handleSkillCancel(skill, shopkeeperIndex)
+            );
+            return false;
+        case '帕诺拉马岛':
+            // 交换在场任意两位存活角色的道具卡（交换数量需在角色的手牌上限内）
+            logSkillUsage(skill, shopkeeperIndex);
+            
+            // 过滤出所有存活玩家
+            const alivePlayers = getAllAlivePlayers();
+            
+            if (alivePlayers.length < 2) {
+                elements.gameMessage.textContent = '存活玩家不足2人，无法使用帕诺拉马岛！';
+                logSkillUsage(skill, shopkeeperIndex, '，但存活玩家不足2人');
+                return false;
+            }
+            
+            // 创建交换道具对话框
+            GameDialogService.createExchangeItemsDialog(
+                alivePlayers,
+                handleSkillConfirm((result) => {
+                    handleItemExchange(result, skill, shopkeeperIndex);
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
+                () => handleSkillCancel(skill, shopkeeperIndex)
+            );
+            return false;
+        case '电光艇':
+            // 电光艇技能：指定步数并x2
+            logSkillUsage(skill, shopkeeperIndex);
+            
+            // 创建电光艇对话框
+            GameDialogService.createLightningBoatDialog(
+                handleSkillConfirm((totalSteps) => {
+                    handleLightningBoatMove(totalSteps);
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
+                () => handleSkillCancel(skill, shopkeeperIndex)
+            );
+            return false;
+        case '关东大地震':
+            // 除你自己以外全员行动值及手牌归零且好感度全部降低到30点
+            logSkillUsage(skill, shopkeeperIndex);
+            
+            // 处理其他存活玩家
+            let affectedPlayers = 0;
+            gameState.players.forEach((targetPlayer, targetIndex) => {
+                if (targetIndex !== shopkeeperIndex && targetPlayer.status === 'alive') {
+                    // 1. 行动点归零
+                    targetPlayer.action = 0;
+                    
+                    // 2. 道具全部丢弃
+                    if (targetPlayer.items.length > 0) {
+                        targetPlayer.items = [];
+                        targetPlayer.cards = 0;
+                    }
+                    
+                    // 3. 如果是追求者，将好感度设置为30
+                    if (targetPlayer.type === 'A') {
+                        targetPlayer.favor = 30;
+                    }
+                    
+                    affectedPlayers++;
+                }
+            });
+            
+            // 4. 为店主增加骷髅头icon，并记录倒计时
+            shopkeeper.skeletonCountdown = 5;
+            
+            // 5. 清空道具池并加载地震专用道具池
+            loadEarthquakeItemPool();
+            
+            // 显示消息
+            showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，' + affectedPlayers + '名玩家的行动值和手牌归零，追求者的好感度降低到30点，道具池已更新');
+            
+            // 标记技能为已使用
+            skill.used = true;
+            
+            // 更新UI
+            updateSkillUI(shopkeeper, parentDialog);
+            return true;
+        case '河童':
+            // 河童技能：跳过任一自己以外角色的一回合
+            logSkillUsage(skill, shopkeeperIndex);
+            
+            // 过滤出其他存活玩家
+            const otherAlivePlayers = gameState.players.filter((player, index) => 
+                index !== shopkeeperIndex && player.status === 'alive'
+            );
+            
+            if (otherAlivePlayers.length === 0) {
+                elements.gameMessage.textContent = '没有可跳过回合的目标！';
+                logSkillUsage(skill, shopkeeperIndex, '，但没有可跳过回合的目标');
+                return false;
+            }
+            
+            // 提取玩家索引
+            const selectablePlayers = otherAlivePlayers.map(player => gameState.players.indexOf(player));
+            
+            // 创建选择玩家对话框
+            GameDialogService.createSelectPlayerDialog(
+                selectablePlayers,
+                handleSkillConfirm((selectedPlayerIndex) => {
+                    const selectedPlayer = gameState.players[selectedPlayerIndex];
+                    // 标记玩家为跳过回合
+                    selectedPlayer.skipNextTurn = true;
+                    
+                    // 显示技能消息
+                    showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name + '，跳过玩家' + (selectedPlayerIndex + 1) + '（' + selectedPlayer.role + '）的下一回合');
+                    
+                    // 如果选择的是当前玩家，禁用action-start-dialog中的按钮
+                    if (selectedPlayerIndex === gameState.currentPlayer && parentDialog) {
+                        const rollDiceButton = parentDialog.querySelector('#action-start-roll-dice');
+                        const drawCardButton = parentDialog.querySelector('#action-start-draw-card');
+                        if (rollDiceButton) {
+                            rollDiceButton.disabled = true;
+                            rollDiceButton.style.backgroundColor = '#ccc';
+                            rollDiceButton.style.cursor = 'not-allowed';
+                        }
+                        if (drawCardButton) {
+                            drawCardButton.disabled = true;
+                            drawCardButton.style.backgroundColor = '#ccc';
+                            drawCardButton.style.cursor = 'not-allowed';
+                        }
+                        // 显示确认按钮
+                        const confirmButton = parentDialog.querySelector('#action-start-confirm');
+                        if (confirmButton) {
+                            confirmButton.style.display = 'inline-block';
+                        }
+                    }
+                }, skill, shopkeeper, shopkeeperIndex, parentDialog),
+                () => handleSkillCancel(skill, shopkeeperIndex),
+                parentDialog
+            );
+            return true;
+        // 可以添加其他技能的处理逻辑
+        default:
+            logSkillUsage(skill, shopkeeperIndex);
+            showSkillMessage(skill, shopkeeperIndex, '使用了幻象技' + skill.name);
+            
+            // 标记技能为已使用
+            skill.used = true;
+            
+            // 更新UI
+            updateSkillUI(shopkeeper, parentDialog);
+            return true;
     }
 }
